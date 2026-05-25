@@ -121,8 +121,13 @@ export default function Footer({ onCategoryClick, onStoryClick, onTrackClick }) 
 
         {/* Bottom copyright and Payment integrations */}
         <div className="footer-bottom">
-          <div>
-            © {new Date().getFullYear()} OFF-KILT FASHION. ALL RIGHTS PRESERVED. STAY RAW.
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div>
+              © {new Date().getFullYear()} OFF-KILT FASHION. ALL RIGHTS PRESERVED. STAY RAW.
+            </div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-grey)', fontFamily: 'var(--font-mono)', letterSpacing: '1px' }}>
+              DESIGN & DEVELOPED BY <a href="https://qubnixtechnology.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', textDecoration: 'none', borderBottom: '1px solid var(--accent-raw)', paddingBottom: '1px', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color = 'var(--accent-raw)'} onMouseLeave={(e) => e.target.style.color = 'var(--text-light)'}>QUBNIX TECHNOLOGY</a>
+            </div>
           </div>
           <div className="footer-bottom-links">
             <span className="mono" style={{ fontSize: '0.65rem' }}>SECURE PAYMENTS BY RAZORPAY CHECKOUT</span>
