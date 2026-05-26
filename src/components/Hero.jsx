@@ -116,15 +116,22 @@ export default function Hero({ onExploreClick, onShopNewArrivals, isAppLoading }
           animate={isAppLoading ? "hidden" : "visible"}
           className="hero-title"
         >
-          <div className="hero-title-line-1" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'clamp(0.8rem, 3vw, 2.5rem)', overflow: 'hidden' }}>
+          {/* Row 1, Column 1: ELEGANCE (Right-aligned) */}
+          <div style={{ gridArea: '1 / 1 / 2 / 2', justifySelf: 'end', display: 'flex', overflow: 'hidden' }}>
             <span className="word-wrapper">
               <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block' }}>ELEGANCE</motion.span>
             </span>
+          </div>
+          
+          {/* Row 1, Column 3: FOR EVERY (Left-aligned) */}
+          <div style={{ gridArea: '1 / 3 / 2 / 4', justifySelf: 'start', display: 'flex', overflow: 'hidden' }}>
             <span className="word-wrapper">
               <motion.span variants={titleWordVariants} style={{ display: 'inline-block' }}>FOR EVERY</motion.span>
             </span>
           </div>
-          <div className="hero-title-line-2" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+
+          {/* Row 2, Columns 1-3: WOMAN (Centered under the gap) */}
+          <div style={{ gridArea: '2 / 1 / 3 / 4', justifySelf: 'center', display: 'flex', overflow: 'hidden', marginTop: '6px' }}>
             <span className="word-wrapper">
               <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block' }}>WOMAN</motion.span>
             </span>
