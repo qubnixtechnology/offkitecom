@@ -72,42 +72,91 @@ export const auth = {
   },
 };
 
+const toWebp = (url) => {
+  if (typeof url === 'string') {
+    let newUrl = url.replace(/\.(jpe?g|png)$/i, '.webp');
+    // If running in Vite development server (import.meta.env.DEV), prefix with base path /build
+    if (import.meta.env.DEV && newUrl.startsWith('/images/')) {
+      newUrl = newUrl.replace(/^\/images\//, '/build/images/');
+    }
+    return newUrl;
+  }
+  return url;
+};
+
+const mapProductImagePaths = (product) => {
+  if (!product) return product;
+  
+  let parsedImages = product.images;
+  if (typeof parsedImages === 'string') {
+    try {
+      parsedImages = JSON.parse(parsedImages);
+    } catch (e) {
+      parsedImages = [];
+    }
+  }
+
+  const mappedImages = Array.isArray(parsedImages)
+    ? parsedImages.map(toWebp)
+    : (parsedImages ? [toWebp(parsedImages)] : []);
+
+  return {
+    ...product,
+    image: toWebp(product.image),
+    hoverImage: toWebp(product.hoverImage || product.hover_image),
+    hover_image: toWebp(product.hoverImage || product.hover_image),
+    images: mappedImages
+  };
+};
+
 export const products = {
   getAll: async (category = 'all') => {
-    try { return await api.get(`/products${category !== 'all' ? `?category=${category}` : ''}`); } catch (err) {
+    try {
+      const res = await api.get(`/products${category !== 'all' ? `?category=${category}` : ''}`);
+      return { data: res.data.map(mapProductImagePaths) };
+    } catch (err) {
       const stored = JSON.parse(localStorage.getItem('offkilt_products') || JSON.stringify(localProducts));
       const filtered = category === 'all' ? stored : stored.filter(p => p.category === category);
-      return { data: filtered };
+      return { data: filtered.map(mapProductImagePaths) };
     }
   },
   getOne: async (id) => {
-    try { return await api.get(`/products/${id}`); } catch (err) {
+    try {
+      const res = await api.get(`/products/${id}`);
+      return { data: mapProductImagePaths(res.data) };
+    } catch (err) {
       const stored = JSON.parse(localStorage.getItem('offkilt_products') || JSON.stringify(localProducts));
-      return { data: stored.find(p => p.id === id) };
+      return { data: mapProductImagePaths(stored.find(p => p.id === id)) };
     }
   },
 };
 
 export const admin = {
   createProduct: async (data) => {
-    try { return await api.post('/admin/products', data); } catch (err) {
+    try {
+      const res = await api.post('/admin/products', data);
+      return { data: mapProductImagePaths(res.data) };
+    } catch (err) {
       if (err.response) throw err;
       const productsList = JSON.parse(localStorage.getItem('offkilt_products') || JSON.stringify(localProducts));
       const newProduct = { ...data, id: data.id || `OK-${Date.now()}` };
       productsList.unshift(newProduct);
       localStorage.setItem('offkilt_products', JSON.stringify(productsList));
-      return { data: newProduct };
+      return { data: mapProductImagePaths(newProduct) };
     }
   },
   updateProduct: async (id, data) => {
-    try { return await api.put(`/admin/products/${id}`, data); } catch (err) {
+    try {
+      const res = await api.put(`/admin/products/${id}`, data);
+      return { data: mapProductImagePaths(res.data) };
+    } catch (err) {
       if (err.response) throw err;
       const productsList = JSON.parse(localStorage.getItem('offkilt_products') || JSON.stringify(localProducts));
       const index = productsList.findIndex(p => p.id === id);
       if (index > -1) {
         productsList[index] = { ...productsList[index], ...data };
         localStorage.setItem('offkilt_products', JSON.stringify(productsList));
-        return { data: productsList[index] };
+        return { data: mapProductImagePaths(productsList[index]) };
       }
       throw { response: { data: { message: 'Product not found' } } };
     }
@@ -125,31 +174,82 @@ export const admin = {
 
 export const orders = {
   create: async (data) => {
-    try { return await api.post('/orders', data); } catch (err) {
+    try {
+      const res = await api.post('/orders', data);
+      const order = res.data;
+      if (order && Array.isArray(order.items)) {
+        order.items = order.items.map(mapProductImagePaths);
+      }
+      return { data: order };
+    } catch (err) {
       // Always fallback to localStorage if backend fails
       const allOrders = JSON.parse(localStorage.getItem('offkilt_orders') || '[]');
       const newOrder = { ...data, id: `OK-${Math.floor(100000 + Math.random() * 900000)}`, status: 'confirmed', created_at: new Date().toISOString() };
+      if (newOrder && Array.isArray(newOrder.items)) {
+        newOrder.items = newOrder.items.map(mapProductImagePaths);
+      }
       allOrders.push(newOrder);
       localStorage.setItem('offkilt_orders', JSON.stringify(allOrders));
       return { data: newOrder };
     }
   },
   getAll: async () => {
-    try { return await api.get('/orders'); } catch (err) {
-      return { data: JSON.parse(localStorage.getItem('offkilt_orders') || '[]') };
+    try {
+      const res = await api.get('/orders');
+      const oList = res.data;
+      if (Array.isArray(oList)) {
+        oList.forEach(order => {
+          if (order && Array.isArray(order.items)) {
+            order.items = order.items.map(mapProductImagePaths);
+          }
+        });
+      }
+      return { data: oList };
+    } catch (err) {
+      const oList = JSON.parse(localStorage.getItem('offkilt_orders') || '[]');
+      if (Array.isArray(oList)) {
+        oList.forEach(order => {
+          if (order && Array.isArray(order.items)) {
+            order.items = order.items.map(mapProductImagePaths);
+          }
+        });
+      }
+      return { data: oList };
     }
   },
   getOne: async (id) => {
-    try { return await api.get(`/orders/${id}`); } catch (err) {
+    try {
+      const res = await api.get(`/orders/${id}`);
+      const order = res.data;
+      if (order && Array.isArray(order.items)) {
+        order.items = order.items.map(mapProductImagePaths);
+      }
+      return { data: order };
+    } catch (err) {
       const o = JSON.parse(localStorage.getItem('offkilt_orders') || '[]').find(x => x.id === id);
+      if (o && Array.isArray(o.items)) {
+        o.items = o.items.map(mapProductImagePaths);
+      }
       return o ? { data: o } : { data: null };
     }
   },
   track: async (id) => {
-    try { return await api.get(`/orders/track/${id}`); } catch (err) {
+    try {
+      const res = await api.get(`/orders/track/${id}`);
+      const order = res.data;
+      if (order && Array.isArray(order.items)) {
+        order.items = order.items.map(mapProductImagePaths);
+      }
+      return { data: order };
+    } catch (err) {
       // Fallback to localStorage if backend fails or returns 404
       const o = JSON.parse(localStorage.getItem('offkilt_orders') || '[]').find(x => x.id === id);
-      if (o) return { data: o };
+      if (o) {
+        if (Array.isArray(o.items)) {
+          o.items = o.items.map(mapProductImagePaths);
+        }
+        return { data: o };
+      }
       
       if (err.response) throw err;
       throw { response: { data: { message: 'Not found' } } };

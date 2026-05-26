@@ -9,6 +9,11 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
   const [activeAccordion, setActiveAccordion] = useState('specs');
   const [errorMsg, setErrorMsg] = useState('');
   const [activeImgIndex, setActiveImgIndex] = useState(0);
+  const [loadedImages, setLoadedImages] = useState({});
+
+  const handleImageLoad = (url) => {
+    setLoadedImages(prev => ({ ...prev, [url]: true }));
+  };
 
   const productImages = product?.images && product.images.length > 0 
     ? product.images 
@@ -58,6 +63,9 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
             {/* Left Side: Product Gallery */}
             <div className="modal-image-gallery-container">
               <div className="modal-image-gallery">
+                {!loadedImages[productImages[activeImgIndex] || product.image] && (
+                  <div className="image-shimmer-skeleton" />
+                )}
                 <AnimatePresence mode="wait">
                   <motion.img 
                     key={activeImgIndex}
@@ -67,8 +75,15 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                     transition={{ duration: 0.2 }}
                     src={productImages[activeImgIndex] || product.image} 
                     alt={product.name} 
-                    className="modal-gallery-img"
+                    className={`modal-gallery-img ${loadedImages[productImages[activeImgIndex] || product.image] ? 'loaded' : 'loading-blur'}`}
                     loading="lazy"
+                    ref={(el) => {
+                      const url = productImages[activeImgIndex] || product.image;
+                      if (el && el.complete && el.naturalWidth > 0 && !loadedImages[url]) {
+                        handleImageLoad(url);
+                      }
+                    }}
+                    onLoad={() => handleImageLoad(productImages[activeImgIndex] || product.image)}
                   />
                 </AnimatePresence>
                 <div className="modal-gallery-overlay"></div>
@@ -103,7 +118,18 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                       className={`gallery-thumb-btn ${activeImgIndex === idx ? 'active' : ''}`}
                       onClick={() => setActiveImgIndex(idx)}
                     >
-                      <img src={img} alt={`Thumb ${idx + 1}`} className="gallery-thumb-img" loading="lazy" />
+                      <img 
+                        src={img} 
+                        alt={`Thumb ${idx + 1}`} 
+                        className={`gallery-thumb-img ${loadedImages[img] ? 'loaded' : 'loading-blur'}`} 
+                        loading="lazy" 
+                        ref={(el) => {
+                          if (el && el.complete && el.naturalWidth > 0 && !loadedImages[img]) {
+                            handleImageLoad(img);
+                          }
+                        }}
+                        onLoad={() => handleImageLoad(img)}
+                      />
                     </button>
                   ))}
                 </div>

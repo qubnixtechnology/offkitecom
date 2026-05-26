@@ -289,7 +289,7 @@ export default function App() {
           id: "OKJ24201",
           name: "Asymmetric Raw Carpenter Jeans",
           price: 2999,
-          image: "/images/products/AMAZON LISTING/AMAZON LISTING/OKJ24201/iloveimg-resized (20)/0fb309ab-0d27-4569-b0a8-01cbfe745a22.jpg",
+          image: "/images/products/AMAZON LISTING/AMAZON LISTING/OKJ24201/iloveimg-resized (20)/0fb309ab-0d27-4569-b0a8-01cbfe745a22.webp",
           selectedSize: '32',
           quantity: Math.ceil(itemCount / 2)
         }
@@ -317,7 +317,7 @@ export default function App() {
           id: "OKJ24205",
           name: "Asymmetrical Paneled Denim Skirt",
           price: 1999,
-          image: "/images/products/AMAZON LISTING/AMAZON LISTING/SKIRT/OKJ24205/iloveimg-resized (14)/4be88751-b68c-4d3c-9f2e-0357693a1f61.jpg",
+          image: "/images/products/AMAZON LISTING/AMAZON LISTING/SKIRT/OKJ24205/iloveimg-resized (14)/4be88751-b68c-4d3c-9f2e-0357693a1f61.webp",
           selectedSize: '30',
           quantity: Math.floor(itemCount / 2)
         }
@@ -342,7 +342,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      <Preloader onComplete={() => setLoading(false)} />
+      {loading && <Preloader onComplete={() => setLoading(false)} />}
       
       {/* Header */}
           <header className={`site-header ${isHeaderScrolled ? 'scrolled' : ''}`}>
@@ -434,7 +434,7 @@ export default function App() {
 
           {/* Main sections */}
           <main>
-            <Hero onExploreClick={() => scrollToSection('catalog')} />
+            <Hero onExploreClick={() => scrollToSection('catalog')} isAppLoading={loading} />
             <BrandStory />
             <Catalog 
               onProductClick={handleQuickView} 

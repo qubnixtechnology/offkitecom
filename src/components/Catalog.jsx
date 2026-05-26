@@ -5,6 +5,12 @@ import { products as productsApi } from '../services/api';
 export default function Catalog({ onProductClick, activeTab, setActiveTab }) {
   const [productsList, setProductsList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadedImages, setLoadedImages] = useState({});
+  const [renderedCategory, setRenderedCategory] = useState(activeTab);
+
+  const handleImageLoad = (url) => {
+    setLoadedImages(prev => ({ ...prev, [url]: true }));
+  };
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -20,6 +26,7 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab }) {
           hoverImage: p.hover_image,
         }));
         setProductsList(mapped);
+        setRenderedCategory(activeTab);
       } catch (err) {
         console.error("Failed to fetch products", err);
       } finally {
@@ -54,57 +61,76 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab }) {
           </div>
         </div>
 
-        <motion.div layout className="products-grid">
-          <AnimatePresence>
-            {productsList.map((product, index) => (
-              <motion.div 
-                layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.4, delay: index * 0.05 }}
-                key={product.id}
-                className="product-card"
-              >
-                <div className="product-image-container">
-                  {product.badge && <span className="product-card-badge">{product.badge}</span>}
-                  <img 
-                    src={product.image} 
-                    alt={product.name} 
-                    className="product-image"
-                    loading="lazy"
-                  />
-                  {product.hoverImage && (
+        <div style={{ position: 'relative', width: '100%', minHeight: '400px' }}>
+          {loading && <div className="catalog-loading-bar" />}
+          <div className={`products-grid ${loading ? 'grid-loading' : ''}`}>
+            <AnimatePresence mode="popLayout">
+              {productsList.map((product, index) => (
+                <motion.div 
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 15 }}
+                  transition={{ duration: 0.25, delay: index * 0.02 }}
+                  key={`${renderedCategory}-${product.id}`}
+                  className="product-card"
+                >
+                  <div className="product-image-container">
+                    {product.badge && <span className="product-card-badge">{product.badge}</span>}
+                    
+                    {!loadedImages[product.image] && (
+                      <div className="image-shimmer-skeleton" />
+                    )}
+                    
                     <img 
-                      src={product.hoverImage} 
-                      alt={`${product.name} alternate view`} 
-                      className="product-image-hover" 
+                      src={product.image} 
+                      alt={product.name} 
+                      className={`product-image ${loadedImages[product.image] ? 'loaded' : 'loading-blur'}`}
                       loading="lazy"
+                      ref={(el) => {
+                        if (el && el.complete && el.naturalWidth > 0 && !loadedImages[product.image]) {
+                          handleImageLoad(product.image);
+                        }
+                      }}
+                      onLoad={() => handleImageLoad(product.image)}
                     />
-                  )}
-                  <div className="product-card-overlay">
-                    <button 
-                      className="product-quick-btn mono"
-                      onClick={() => onProductClick(product)}
-                    >
-                      Quick Details
-                    </button>
+                    {product.hoverImage && (
+                      <img 
+                        src={product.hoverImage} 
+                        alt={`${product.name} alternate view`} 
+                        className={`product-image-hover ${loadedImages[product.hoverImage] ? 'loaded' : 'loading-blur'}`} 
+                        loading="lazy"
+                        ref={(el) => {
+                          if (el && el.complete && el.naturalWidth > 0 && !loadedImages[product.hoverImage]) {
+                            handleImageLoad(product.hoverImage);
+                          }
+                        }}
+                        onLoad={() => handleImageLoad(product.hoverImage)}
+                      />
+                    )}
+                    <div className="product-card-overlay">
+                      <button 
+                        className="product-quick-btn mono"
+                        onClick={() => onProductClick(product)}
+                      >
+                        Quick Details
+                      </button>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="product-info" onClick={() => onProductClick(product)} style={{ cursor: 'pointer' }}>
-                  <div className="product-meta">
-                    <span className="product-tag">{product.tagline}</span>
-                    <h3 className="product-name">{product.name}</h3>
+                  
+                  <div className="product-info" onClick={() => onProductClick(product)} style={{ cursor: 'pointer' }}>
+                    <div className="product-meta">
+                      <span className="product-tag">{product.tagline}</span>
+                      <h3 className="product-name">{product.name}</h3>
+                    </div>
+                    <div className="product-price">
+                      ₹{product.price.toLocaleString('en-IN')}
+                    </div>
                   </div>
-                  <div className="product-price">
-                    ₹{product.price.toLocaleString('en-IN')}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </div>
 
       </div>
     </section>

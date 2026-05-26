@@ -25,4 +25,6 @@ dist-ssr
 
 # Backup zip
 public/images/products.zip
+backend/public/images/products.zip
+*.zip
 
