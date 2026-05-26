@@ -1,19 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap');
 
 :root {
-  --bg-dark: #faf9f6; /* alabaster/cream white */
+  --bg-dark: #ffffff; /* pure white background */
   --bg-card: #ffffff; /* pure white for cards and drawers */
-  --bg-input: #f4f3ef; /* sand off-white for inputs */
-  --bg-cream: #efebe4; /* warm linen accent */
-  --text-light: #111111; /* dark charcoal black for primary text */
-  --text-grey: #4a4a4a; /* slate grey for description/body copy */
-  --text-muted: #7c7c80; /* mid-grey for metadata/captions */
-  --accent: #111111; /* dark accent line/button details */
-  --accent-raw: #e26322; /* richer warm denim orange stitching */
-  --accent-gold: #9e7d47; /* deeper luxury gold for high contrast on cream */
-  --accent-gold-light: #c5a670; /* softer warm gold */
-  --accent-rose: #bf8d8d; /* dusty feminine rose */
-  --accent-rose-dark: #8e5454; /* deep burgundy/rose accent */
+  --bg-input: #ffffff; /* clean white for inputs */
+  --bg-cream: #f4f3ed; /* soft sand-beige color from reference */
+  --text-light: #111111; /* rich black for primary text */
+  --text-grey: #555555; /* deep grey for descriptions and body copy */
+  --text-muted: #888888; /* medium grey for metadata and captions */
+  --accent: #111111; /* black accent details */
+  --accent-raw: #e26322; /* warm denim orange stitching */
+  --accent-gold: #a89068; /* soft champagne gold from reference image */
+  --accent-gold-light: #c5b08e; /* lighter champagne gold */
+  --accent-rose: #d6b3b3;
+  --accent-rose-dark: #9c6c6c;
   
   --font-heading: 'Syne', sans-serif;
   --font-body: 'Outfit', sans-serif;
@@ -4550,7 +4550,7 @@ button {
 
 /* Scrolled states */
 .site-header.scrolled {
-  background-color: rgba(250, 249, 246, 0.92) !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
   backdrop-filter: blur(15px) !important;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
   height: 70px !important;
@@ -4568,6 +4568,31 @@ button {
 }
 .site-header.scrolled .header-btn {
   color: var(--text-light) !important;
+}
+
+/* Newsletter Section sand-beige color mapping */
+.newsletter-sec {
+  background-color: var(--bg-cream) !important;
+}
+
+/* Preloader custom theme mapping */
+.preloader-overlay {
+  background-color: var(--bg-cream) !important;
+}
+.preloader-brand {
+  color: var(--text-light) !important;
+}
+.preloader-brand span.mono {
+  color: var(--text-muted) !important;
+}
+.preloader-progress-track {
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+.preloader-progress-bar {
+  background: var(--accent-gold) !important;
+}
+.preloader-tagline {
+  color: var(--text-muted) !important;
 }
 
 /* Menu toggle fixes */
