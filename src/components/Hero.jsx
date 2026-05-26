@@ -117,23 +117,23 @@ export default function Hero({ onExploreClick, onShopNewArrivals, isAppLoading }
           className="hero-title"
         >
           {/* Row 1, Column 1: ELEGANCE (Right-aligned) */}
-          <div style={{ gridArea: '1 / 1 / 2 / 2', justifySelf: 'end', display: 'flex', overflow: 'hidden' }}>
-            <span className="word-wrapper">
-              <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block' }}>ELEGANCE</motion.span>
+          <div style={{ gridArea: '1 / 1 / 2 / 2', justifySelf: 'end', display: 'flex', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+            <span className="word-wrapper" style={{ whiteSpace: 'nowrap' }}>
+              <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>ELEGANCE</motion.span>
             </span>
           </div>
           
           {/* Row 1, Column 3: FOR EVERY (Left-aligned) */}
-          <div style={{ gridArea: '1 / 3 / 2 / 4', justifySelf: 'start', display: 'flex', overflow: 'hidden' }}>
-            <span className="word-wrapper">
-              <motion.span variants={titleWordVariants} style={{ display: 'inline-block' }}>FOR EVERY</motion.span>
+          <div style={{ gridArea: '1 / 3 / 2 / 4', justifySelf: 'start', display: 'flex', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+            <span className="word-wrapper" style={{ whiteSpace: 'nowrap' }}>
+              <motion.span variants={titleWordVariants} style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>FOR EVERY</motion.span>
             </span>
           </div>
 
           {/* Row 2, Columns 1-3: WOMAN (Centered under the gap) */}
-          <div style={{ gridArea: '2 / 1 / 3 / 4', justifySelf: 'center', display: 'flex', overflow: 'hidden', marginTop: '6px' }}>
-            <span className="word-wrapper">
-              <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block' }}>WOMAN</motion.span>
+          <div style={{ gridArea: '2 / 1 / 3 / 4', justifySelf: 'center', display: 'flex', overflow: 'hidden', marginTop: '6px', whiteSpace: 'nowrap' }}>
+            <span className="word-wrapper" style={{ whiteSpace: 'nowrap' }}>
+              <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>WOMAN</motion.span>
             </span>
           </div>
         </motion.h1>
