@@ -1,17 +1,17 @@
 import { useEffect, useRef } from 'react';
-import { ArrowDown } from 'lucide-react';
+import { ArrowDown, Sparkles } from 'lucide-react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { motion } from 'framer-motion';
 
 gsap.registerPlugin(ScrollTrigger);
 
-export default function Hero({ onExploreClick, isAppLoading }) {
+export default function Hero({ onExploreClick, onShopNewArrivals, isAppLoading }) {
   const heroRef = useRef(null);
   const bgRef = useRef(null);
 
   useEffect(() => {
-    // GSAP Parallax
+    // GSAP Parallax on scroll
     gsap.to(bgRef.current, {
       yPercent: 40,
       ease: "none",
@@ -39,21 +39,21 @@ export default function Hero({ onExploreClick, isAppLoading }) {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.12,
+        staggerChildren: 0.1,
         delayChildren: 0.6,
       }
     }
   };
 
   const titleWordVariants = {
-    hidden: { y: "115%", rotate: 4 },
+    hidden: { y: "115%", rotate: 3 },
     visible: {
       y: 0,
       rotate: 0,
       transition: {
         type: "spring",
         damping: 14,
-        stiffness: 85,
+        stiffness: 80,
         duration: 0.8,
       }
     }
@@ -79,7 +79,8 @@ export default function Hero({ onExploreClick, isAppLoading }) {
     }
   };
 
-  const titleText = "FASHION BEYOND ORDINARY";
+  // Updated to luxury feminine fashion messaging
+  const titleText = "ELEGANCE DESIGNED FOR EVERY WOMAN";
   const words = titleText.split(" ");
 
   return (
@@ -90,7 +91,7 @@ export default function Hero({ onExploreClick, isAppLoading }) {
           loop
           muted
           playsInline
-          className="hero-bg"
+          className="hero-bg hero-zoom"
           poster={import.meta.env.DEV ? "/build/images/hero_streetwear.png" : "/images/hero_streetwear.png"}
         >
           <source src={import.meta.env.DEV ? "/build/videos/hero_bg.mp4" : "/videos/hero_bg.mp4"} type="video/mp4" />
@@ -106,7 +107,7 @@ export default function Hero({ onExploreClick, isAppLoading }) {
           animate={isAppLoading ? "hidden" : "visible"}
           className="mono hero-pretitle"
         >
-          OFF-KILT // AUTUMN WINTER EDIT
+          OFF-KILT // SS 2026 COLLECTION
         </motion.span>
         
         <motion.h1 
@@ -119,7 +120,7 @@ export default function Hero({ onExploreClick, isAppLoading }) {
             <span key={idx} className="word-wrapper">
               <motion.span 
                 variants={titleWordVariants}
-                className={word === "BEYOND" ? "highlight-accent" : ""}
+                className={word === "ELEGANCE" || word === "WOMAN" ? "highlight-accent" : ""}
                 style={{ display: 'inline-block', marginRight: idx === words.length - 1 ? 0 : '0.25em' }}
               >
                 {word}
@@ -134,7 +135,7 @@ export default function Hero({ onExploreClick, isAppLoading }) {
           animate={isAppLoading ? "hidden" : "visible"}
           className="hero-description"
         >
-          Born from rebellion, crafted with precision. We don't follow trends—we destroy them. Explore modern raw denim engineered for self-expression.
+          Where rebellion meets refinement. Each piece crafted for the woman who defines her own style — bold, effortless, and unapologetically her.
         </motion.p>
         
         <motion.div 
@@ -143,8 +144,12 @@ export default function Hero({ onExploreClick, isAppLoading }) {
           animate={isAppLoading ? "hidden" : "visible"}
           className="hero-actions"
         >
-          <button className="btn-primary" onClick={onExploreClick}>
-            Explore Catalog <ArrowDown size={16} />
+          <button className="btn-primary" onClick={onShopNewArrivals || onExploreClick}>
+            <Sparkles size={15} />
+            Shop New Arrivals
+          </button>
+          <button className="btn-outline-luxury" onClick={onExploreClick}>
+            Explore Collection <ArrowDown size={15} />
           </button>
         </motion.div>
       </div>
@@ -157,7 +162,7 @@ export default function Hero({ onExploreClick, isAppLoading }) {
         onClick={onExploreClick} 
         style={{ cursor: 'pointer' }}
       >
-        <span className="mono scroll-indicator-text">SCROLL TO REBEL</span>
+        <span className="mono scroll-indicator-text">SCROLL TO EXPLORE</span>
         <div className="scroll-indicator-line"></div>
       </motion.div>
     </section>

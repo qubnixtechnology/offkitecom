@@ -4,7 +4,15 @@ import Lenis from 'lenis';
 import { auth, profile, orders as ordersApi } from './services/api';
 import Preloader from './components/Preloader';
 import Hero from './components/Hero';
+import NewArrivals from './components/NewArrivals';
+import TrendingCollection from './components/TrendingCollection';
+import BestSellers from './components/BestSellers';
+import FashionVideo from './components/FashionVideo';
+import ShopByStyle from './components/ShopByStyle';
 import BrandStory from './components/BrandStory';
+import CustomerReviews from './components/CustomerReviews';
+import InstagramGallery from './components/InstagramGallery';
+import NewsletterSection from './components/NewsletterSection';
 import Catalog from './components/Catalog';
 import ProductDetailModal from './components/ProductDetailModal';
 import CartDrawer from './components/CartDrawer';
@@ -43,6 +51,15 @@ export default function App() {
 
   // Catalog category filtering state
   const [activeCategory, setActiveCategory] = useState('all');
+
+  // Wishlist state — stores full product objects, NO login required
+  const [wishlist, setWishlist] = useState(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('offkilt_wishlist') || '[]');
+      // Filter out old format (plain IDs) — only keep proper product objects
+      return raw.filter(w => w && typeof w === 'object' && w.id && w.name);
+    } catch { return []; }
+  });
 
   // Initialize Lenis Smooth Scrolling
   useEffect(() => {
@@ -175,7 +192,22 @@ export default function App() {
   };
 
   const handleQuickView = (product) => {
-    setSelectedProduct(product);
+    if (!product) return;
+    // Sanitize array fields — they may be JSON strings when coming from localStorage wishlist
+    const parseArr = (val) => {
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string') { try { return JSON.parse(val); } catch { return []; } }
+      return [];
+    };
+    const safe = {
+      ...product,
+      sizes: parseArr(product.sizes),
+      details: parseArr(product.details),
+      images: parseArr(product.images).length > 0
+        ? parseArr(product.images)
+        : [product.image].filter(Boolean),
+    };
+    setSelectedProduct(safe);
     setIsProductModalOpen(true);
   };
 
@@ -340,6 +372,23 @@ export default function App() {
     setIsMobileMenuOpen(false);
   };
 
+  const scrollToNewArrivals = () => {
+    const el = document.getElementById('new-arrivals');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleWishlistToggle = (product) => {
+    // Works without login — stored in localStorage
+    setWishlist(prev => {
+      const alreadyIn = prev.some(w => (w.id || w) === (product.id || product));
+      const updated = alreadyIn
+        ? prev.filter(w => (w.id || w) !== (product.id || product))
+        : [...prev, product];
+      localStorage.setItem('offkilt_wishlist', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   return (
     <div className="app-container">
       {loading && <Preloader onComplete={() => setLoading(false)} />}
@@ -432,15 +481,64 @@ export default function App() {
             </div>
           </header>
 
-          {/* Main sections */}
+          {/* Main sections — Full Homepage Flow */}
           <main>
-            <Hero onExploreClick={() => scrollToSection('catalog')} isAppLoading={loading} />
+            <Hero
+              onExploreClick={() => scrollToSection('catalog')}
+              onShopNewArrivals={scrollToNewArrivals}
+              isAppLoading={loading}
+            />
+
+            {/* Press / As Seen On Strip */}
+            <div className="press-strip">
+              <div className="container">
+                <div className="press-strip-inner">
+                  <span className="press-label">As Seen On</span>
+                  {['Vogue India', 'Grazia', 'Elle', 'Femina', 'Harper\'s Bazaar'].map(name => (
+                    <span key={name} className="press-name">{name}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <NewArrivals
+              onProductClick={handleQuickView}
+              onAddToCart={(p) => handleAddToCart(p, p.sizes?.[0] || 'Free Size')}
+              wishlist={wishlist}
+              onWishlistToggle={handleWishlistToggle}
+              onViewAll={() => scrollToSection('catalog')}
+            />
+
+            <TrendingCollection
+              onCategoryClick={(cat) => { setActiveCategory(cat); scrollToSection('catalog'); }}
+            />
+
+            <BestSellers
+              onScrollToCatalog={() => scrollToSection('catalog')}
+            />
+
+            <FashionVideo />
+
+            <ShopByStyle
+              onCategoryClick={(cat) => { setActiveCategory(cat); scrollToSection('catalog'); }}
+            />
+
             <BrandStory />
-            <Catalog 
-              onProductClick={handleQuickView} 
+
+            <CustomerReviews />
+
+            <Catalog
+              onProductClick={handleQuickView}
               activeTab={activeCategory}
               setActiveTab={setActiveCategory}
+              wishlist={wishlist}
+              onWishlistToggle={handleWishlistToggle}
+              onAddToCart={handleAddToCart}
             />
+
+            <InstagramGallery />
+
+            <NewsletterSection />
           </main>
 
           {/* Footer */}
@@ -460,6 +558,8 @@ export default function App() {
             isOpen={isProductModalOpen}
             onClose={() => setIsProductModalOpen(false)}
             onAddToCart={handleAddToCart}
+            wishlist={wishlist}
+            onWishlistToggle={handleWishlistToggle}
           />
 
           <CartDrawer 
@@ -502,6 +602,9 @@ export default function App() {
               setIsProfileOpen(false);
               setIsAdminOpen(true);
             }}
+            wishlist={wishlist}
+            onWishlistToggle={handleWishlistToggle}
+            onProductClick={(product) => { handleQuickView(product); setIsProfileOpen(false); }}
           />
 
           {isRazorpayOpen && (
