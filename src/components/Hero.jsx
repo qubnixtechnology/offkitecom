@@ -116,12 +116,19 @@ export default function Hero({ onExploreClick, onShopNewArrivals, isAppLoading }
           animate={isAppLoading ? "hidden" : "visible"}
           className="hero-title"
         >
-          <span className="word-wrapper" style={{ display: 'block' }}>
-            <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block' }}>ELEGANCE</motion.span>
-          </span>
-          <span className="word-wrapper" style={{ display: 'block' }}>
-            <motion.span variants={titleWordVariants} style={{ display: 'inline-block' }}>FOR EVERY WOMAN</motion.span>
-          </span>
+          <div className="hero-title-line-1" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'clamp(0.8rem, 3vw, 2.5rem)', overflow: 'hidden' }}>
+            <span className="word-wrapper">
+              <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block' }}>ELEGANCE</motion.span>
+            </span>
+            <span className="word-wrapper">
+              <motion.span variants={titleWordVariants} style={{ display: 'inline-block' }}>FOR EVERY</motion.span>
+            </span>
+          </div>
+          <div className="hero-title-line-2" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+            <span className="word-wrapper">
+              <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block' }}>WOMAN</motion.span>
+            </span>
+          </div>
         </motion.h1>
         
         <motion.p 
