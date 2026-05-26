@@ -116,17 +116,16 @@ export default function Hero({ onExploreClick, onShopNewArrivals, isAppLoading }
           animate={isAppLoading ? "hidden" : "visible"}
           className="hero-title"
         >
-          {words.map((word, idx) => (
-            <span key={idx} className="word-wrapper">
-              <motion.span 
-                variants={titleWordVariants}
-                className={word === "ELEGANCE" || word === "WOMAN" ? "highlight-accent" : ""}
-                style={{ display: 'inline-block', marginRight: idx === words.length - 1 ? 0 : '0.25em' }}
-              >
-                {word}
-              </motion.span>
-            </span>
-          ))}
+          {/* Line 1 */}
+          <span className="word-wrapper">
+            <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block', marginRight: '0.25em' }}>ELEGANCE</motion.span>
+            <motion.span variants={titleWordVariants} style={{ display: 'inline-block' }}>DESIGNED</motion.span>
+          </span>
+          {/* Line 2 */}
+          <span className="word-wrapper" style={{ display: 'block' }}>
+            <motion.span variants={titleWordVariants} style={{ display: 'inline-block', marginRight: '0.25em' }}>FOR EVERY</motion.span>
+            <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block' }}>WOMAN</motion.span>
+          </span>
         </motion.h1>
         
         <motion.p 
