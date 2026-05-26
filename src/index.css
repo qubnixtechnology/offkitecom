@@ -1,19 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap');
 
 :root {
-  --bg-dark: #000000;
-  --bg-card: #0b0b0c;
-  --bg-input: #121214;
-  --bg-cream: #0e0d0b;
-  --text-light: #ffffff;
-  --text-grey: #8a8a93;
-  --text-muted: #52525b;
-  --accent: #ffffff;
-  --accent-raw: #f97316; /* raw denim orange stitching accent */
-  --accent-gold: #C9A96E; /* luxury gold */
-  --accent-gold-light: #e8d0a8; /* lighter gold */
-  --accent-rose: #D4A5A5; /* feminine rose */
-  --accent-rose-dark: #b07878; /* deeper rose */
+  --bg-dark: #faf9f6; /* alabaster/cream white */
+  --bg-card: #ffffff; /* pure white for cards and drawers */
+  --bg-input: #f4f3ef; /* sand off-white for inputs */
+  --bg-cream: #efebe4; /* warm linen accent */
+  --text-light: #111111; /* dark charcoal black for primary text */
+  --text-grey: #4a4a4a; /* slate grey for description/body copy */
+  --text-muted: #7c7c80; /* mid-grey for metadata/captions */
+  --accent: #111111; /* dark accent line/button details */
+  --accent-raw: #e26322; /* richer warm denim orange stitching */
+  --accent-gold: #9e7d47; /* deeper luxury gold for high contrast on cream */
+  --accent-gold-light: #c5a670; /* softer warm gold */
+  --accent-rose: #bf8d8d; /* dusty feminine rose */
+  --accent-rose-dark: #8e5454; /* deep burgundy/rose accent */
   
   --font-heading: 'Syne', sans-serif;
   --font-body: 'Outfit', sans-serif;
@@ -4433,3 +4433,247 @@ button {
   .luxury-section-title { font-size: 1.7rem; }
   .review-card { padding: 24px; }
 }
+
+/* ─── LUXURY LIGHT CREAM THEME OVERRIDES ─── */
+.arrival-card, 
+.product-card, 
+.review-card, 
+.story-image-wrapper, 
+.trending-card, 
+.product-image-container, 
+.newsletter-input, 
+.category-tab {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.site-footer {
+  border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+.footer-bottom {
+  border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+.newsletter-perks {
+  border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+.catalog-sec, 
+.reviews-sec, 
+.trending-sec, 
+.press-strip,
+.bestsellers-sec {
+  border-top: 1px solid rgba(0, 0, 0, 0.05) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+.review-product-tag {
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  color: var(--text-grey) !important;
+}
+
+.newsletter-input {
+  background-color: var(--bg-card) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  color: var(--text-light) !important;
+}
+
+.newsletter-input:focus {
+  border-color: var(--accent-gold) !important;
+  background-color: var(--bg-card) !important;
+}
+
+/* Keep Hero text white over dark cinematic video background */
+.hero-sec {
+  color: #ffffff !important;
+}
+.hero-title .word-wrapper motion.span,
+.hero-title .word-wrapper span,
+.hero-title span,
+.hero-pretitle,
+.hero-description {
+  color: #ffffff !important;
+}
+.hero-title .highlight-accent {
+  color: var(--accent-gold) !important;
+}
+
+.hero-overlay {
+  background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.2) 60%, var(--bg-dark) 100%) !important;
+}
+
+/* Scroll Indicator */
+.scroll-indicator {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+.scroll-indicator-line {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, transparent 100%) !important;
+}
+
+/* Fashion Video Section Preservation */
+.fashion-video-sec {
+  color: #ffffff !important;
+}
+.fashion-video-title,
+.fashion-video-subtitle {
+  color: #ffffff !important;
+}
+.fashion-video-eyebrow {
+  color: var(--accent-gold) !important;
+}
+.fashion-video-overlay {
+  background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 40%, var(--bg-dark) 100%) !important;
+}
+
+/* Translucent Header Theme Toggling */
+.site-header {
+  background-color: transparent !important;
+  border-bottom: 1px solid transparent !important;
+  transition: var(--transition-smooth);
+}
+.site-header .logo-text {
+  color: #ffffff !important;
+  transition: color 0.3s ease;
+}
+.site-header .nav-link {
+  color: rgba(255, 255, 255, 0.8) !important;
+  transition: color 0.3s ease;
+}
+.site-header .nav-link:hover,
+.site-header .nav-link.active {
+  color: #ffffff !important;
+}
+.site-header .header-btn {
+  color: #ffffff !important;
+  transition: color 0.3s ease;
+}
+
+/* Scrolled states */
+.site-header.scrolled {
+  background-color: rgba(250, 249, 246, 0.92) !important;
+  backdrop-filter: blur(15px) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+  height: 70px !important;
+  box-shadow: 0 4px 30px rgba(0,0,0,0.02) !important;
+}
+.site-header.scrolled .logo-text {
+  color: var(--text-light) !important;
+}
+.site-header.scrolled .nav-link {
+  color: var(--text-grey) !important;
+}
+.site-header.scrolled .nav-link:hover,
+.site-header.scrolled .nav-link.active {
+  color: var(--text-light) !important;
+}
+.site-header.scrolled .header-btn {
+  color: var(--text-light) !important;
+}
+
+/* Menu toggle fixes */
+@media (max-width: 768px) {
+  .nav-links {
+    background-color: var(--bg-dark) !important;
+    border-left: 1px solid rgba(0,0,0,0.06) !important;
+  }
+  .nav-links .nav-link {
+    color: var(--text-light) !important;
+    border-bottom: 1px solid rgba(0,0,0,0.04) !important;
+  }
+}
+
+/* Mobile Text Alignment & Layout Adjustments */
+@media (max-width: 768px) {
+  .luxury-section-header {
+    text-align: center !important;
+    padding: 0 15px !important;
+    margin-bottom: 40px !important;
+  }
+  
+  /* Brand Story (Narrative) Mobile Optimizations */
+  .story-sec {
+    padding: 80px 0 !important;
+  }
+  .story-left {
+    align-items: center !important;
+    text-align: center !important;
+  }
+  .story-title-group {
+    text-align: center !important;
+  }
+  .story-quote {
+    border-left: none !important;
+    border-top: 1px solid var(--accent-raw) !important;
+    border-bottom: 1px solid var(--accent-raw) !important;
+    padding: 20px 0 !important;
+    text-align: center !important;
+    font-size: 1.25rem !important;
+  }
+  .story-highlight-box {
+    width: 100% !important;
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    gap: 24px !important;
+  }
+  
+  /* Product Card Optimizations */
+  .arrival-info, .product-card-info, .bestseller-info {
+    text-align: center !important;
+  }
+  .arrival-meta-row, .product-price-row, .bestseller-stars-row, .bestseller-price-row {
+    justify-content: center !important;
+    gap: 12px !important;
+  }
+  
+  /* Newsletter Perks Stacking */
+  .newsletter-perks {
+    flex-direction: column !important;
+    gap: 16px !important;
+    align-items: center !important;
+  }
+  .newsletter-perk {
+    text-align: center !important;
+  }
+  
+  /* General spacing */
+  .container {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+}
+
+/* Card visual styles in Light Mode */
+.review-card {
+  box-shadow: 0 10px 30px rgba(0,0,0,0.02) !important;
+}
+.review-card:hover {
+  box-shadow: 0 20px 40px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.02) !important;
+}
+.product-card:hover {
+  box-shadow: 0 15px 35px rgba(0,0,0,0.04) !important;
+}
+.btn-outline-luxury {
+  border-color: var(--text-light) !important;
+  color: var(--text-light) !important;
+}
+.btn-outline-luxury:hover {
+  background-color: var(--text-light) !important;
+  color: #ffffff !important;
+}
+.btn-secondary {
+  border-color: var(--text-light) !important;
+  color: var(--text-light) !important;
+}
+.btn-secondary:hover {
+  background-color: var(--text-light) !important;
+  color: #ffffff !important;
+}
+.trending-card-overlay {
+  background: linear-gradient(0deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 100%) !important;
+  color: #ffffff !important;
+}
+.trending-card-overlay h3,
+.trending-card-overlay span {
+  color: #ffffff !important;
+}
+

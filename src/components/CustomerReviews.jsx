@@ -117,7 +117,7 @@ export default function CustomerReviews() {
           marginTop: 70,
           flexWrap: 'wrap',
           paddingTop: 50,
-          borderTop: '1px solid rgba(255,255,255,0.05)'
+          borderTop: '1px solid var(--bg-cream)'
         }}>
           {[
             { num: '10,000+', label: 'Happy Customers' },

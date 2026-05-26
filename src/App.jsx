@@ -394,7 +394,7 @@ export default function App() {
       {loading && <Preloader onComplete={() => setLoading(false)} />}
       
       {/* Header */}
-          <header className={`site-header ${isHeaderScrolled ? 'scrolled' : ''}`}>
+          <header className={`site-header ${isHeaderScrolled || isMobileMenuOpen ? 'scrolled' : ''}`}>
             <div className="container header-container">
               
               {/* Logo */}
