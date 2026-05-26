@@ -116,15 +116,11 @@ export default function Hero({ onExploreClick, onShopNewArrivals, isAppLoading }
           animate={isAppLoading ? "hidden" : "visible"}
           className="hero-title"
         >
-          {/* Line 1 */}
-          <span className="word-wrapper">
-            <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block', marginRight: '0.25em' }}>ELEGANCE</motion.span>
-            <motion.span variants={titleWordVariants} style={{ display: 'inline-block' }}>DESIGNED</motion.span>
-          </span>
-          {/* Line 2 */}
           <span className="word-wrapper" style={{ display: 'block' }}>
-            <motion.span variants={titleWordVariants} style={{ display: 'inline-block', marginRight: '0.25em' }}>FOR EVERY</motion.span>
-            <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block' }}>WOMAN</motion.span>
+            <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block' }}>ELEGANCE</motion.span>
+          </span>
+          <span className="word-wrapper" style={{ display: 'block' }}>
+            <motion.span variants={titleWordVariants} style={{ display: 'inline-block' }}>FOR EVERY WOMAN</motion.span>
           </span>
         </motion.h1>
         
@@ -134,7 +130,7 @@ export default function Hero({ onExploreClick, onShopNewArrivals, isAppLoading }
           animate={isAppLoading ? "hidden" : "visible"}
           className="hero-description"
         >
-          Where rebellion meets refinement. Each piece crafted for the woman who defines her own style — bold, effortless, and unapologetically her.
+          Bold. Effortless. Timeless.
         </motion.p>
         
         <motion.div 
