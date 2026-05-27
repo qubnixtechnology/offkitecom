@@ -387,7 +387,7 @@ export default function UserProfileModal({
                             <input 
                               type="email" 
                               className="rzp-input" 
-                              placeholder="demo: demo@off-kilt.com"
+                              placeholder="e.g. name@example.com"
                               style={{ width: '100%', paddingLeft: '40px' }}
                               value={email}
                               onChange={e => setEmail(e.target.value)}
@@ -403,7 +403,7 @@ export default function UserProfileModal({
                             <input 
                               type={showPassword ? "text" : "password"} 
                               className="rzp-input" 
-                              placeholder="demo: rebel"
+                              placeholder="Enter your password"
                               style={{ width: '100%', paddingLeft: '40px', paddingRight: '40px' }}
                               value={password}
                               onChange={e => setPassword(e.target.value)}
@@ -431,9 +431,7 @@ export default function UserProfileModal({
                           Access Account
                         </button>
 
-                        <div className="mono" style={{ fontSize: '0.65rem', textAlign: 'center', color: 'var(--text-grey)', marginTop: '12px', lineHeight: '1.4' }}>
-                          Tip: Use <strong style={{ color: 'var(--accent-raw)' }}>demo@off-kilt.com</strong> / <strong style={{ color: 'var(--accent-raw)' }}>rebel</strong> for user, or <strong style={{ color: 'var(--accent-raw)' }}>admin@off-kilt.com</strong> / <strong style={{ color: 'var(--accent-raw)' }}>admin123</strong> for admin testing.
-                        </div>
+
                       </form>
                     )}
 
@@ -744,24 +742,28 @@ export default function UserProfileModal({
                     </div>
 
                     {/* Developer Testing Seeding Helpers */}
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', backgroundColor: '#f9731608', border: '1px dashed #f9731633', padding: '12px 16px', borderRadius: '4px', marginBottom: '24px', flexWrap: 'wrap' }}>
-                      <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--accent-raw)', fontWeight: 800 }}>DEV TEST BUTTONS:</span>
-                      <button 
-                        onClick={() => onSeedMockOrders(6)}
-                        className="category-tab" 
-                        style={{ fontSize: '0.65rem', padding: '4px 10px', textTransform: 'uppercase', cursor: 'pointer' }}
-                      >
-                        Seed 6 Items (Plus Member)
-                      </button>
-                      <button 
-                        onClick={() => onSeedMockOrders(12)}
-                        className="category-tab" 
-                        style={{ fontSize: '0.65rem', padding: '4px 10px', textTransform: 'uppercase', cursor: 'pointer' }}
-                      >
-                        Seed 12 Items (Premium Plus)
-                      </button>
-                      
-                      {currentUser?.email === 'admin@off-kilt.com' && (
+                    {currentUser?.email === 'demo@off-kilt.com' && (
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', backgroundColor: '#f9731608', border: '1px dashed #f9731633', padding: '12px 16px', borderRadius: '4px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                        <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--accent-raw)', fontWeight: 800 }}>DEV TEST BUTTONS:</span>
+                        <button 
+                          onClick={() => onSeedMockOrders(6)}
+                          className="category-tab" 
+                          style={{ fontSize: '0.65rem', padding: '4px 10px', textTransform: 'uppercase', cursor: 'pointer' }}
+                        >
+                          Seed 6 Items (Plus Member)
+                        </button>
+                        <button 
+                          onClick={() => onSeedMockOrders(12)}
+                          className="category-tab" 
+                          style={{ fontSize: '0.65rem', padding: '4px 10px', textTransform: 'uppercase', cursor: 'pointer' }}
+                        >
+                          Seed 12 Items (Premium Plus)
+                        </button>
+                      </div>
+                    )}
+
+                    {currentUser?.email === 'admin@off-kilt.com' && (
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', backgroundColor: '#f9731608', border: '1px dashed #f9731633', padding: '12px 16px', borderRadius: '4px', marginBottom: '24px', flexWrap: 'wrap' }}>
                         <button 
                           onClick={onOpenAdmin}
                           className="btn-primary" 
@@ -769,8 +771,8 @@ export default function UserProfileModal({
                         >
                           ACCESS ADMIN PANEL
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
 
                     {/* Detail view & Edit Form */}
                     <div style={{ marginBottom: '32px' }}>

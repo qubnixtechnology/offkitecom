@@ -51,7 +51,8 @@ export default function AdminDashboard({ currentUser, onClose }) {
     id: '', name: '', tagline: '', price: '', category: 'jeans',
     image: '', hover_image: '', description: '', discountPrice: '',
     stock: '50', sku: '', swatches: 'Raw Indigo:#1e293b, Charcoal Black:#111111',
-    sizes: ['30', '32', '34']
+    sizes: ['30', '32', '34'],
+    images: []
   });
   const [editingProductId, setEditingProductId] = useState(null);
   const [productSearch, setProductSearch] = useState('');
@@ -74,8 +75,15 @@ export default function AdminDashboard({ currentUser, onClose }) {
 
   const handleProductSubmit = async (e) => {
     e.preventDefault();
+    
+    const mainImg = productForm.images?.[0] || productForm.image || '';
+    const hoverImg = productForm.images?.[1] || productForm.hover_image || mainImg;
+
     const payload = {
       ...productForm,
+      image: mainImg,
+      hover_image: hoverImg,
+      hoverImage: hoverImg,
       price: Number(productForm.price),
       discountPrice: productForm.discountPrice ? Number(productForm.discountPrice) : undefined,
       stock: Number(productForm.stock),
@@ -100,7 +108,8 @@ export default function AdminDashboard({ currentUser, onClose }) {
         id: '', name: '', tagline: '', price: '', category: 'jeans',
         image: '', hover_image: '', description: '', discountPrice: '',
         stock: '50', sku: '', swatches: 'Raw Indigo:#1e293b, Charcoal Black:#111111',
-        sizes: ['30', '32', '34']
+        sizes: ['30', '32', '34'],
+        images: []
       });
       setEditingProductId(null);
       fetchProducts();
@@ -118,6 +127,25 @@ export default function AdminDashboard({ currentUser, onClose }) {
       const swatchLine = p.details.find(d => d.includes('Fabric Swatches:'));
       if (swatchLine) swatchStr = swatchLine.replace('Fabric Swatches:', '').trim();
     }
+
+    let productImages = [];
+    if (p.images) {
+      if (Array.isArray(p.images)) {
+        productImages = [...p.images];
+      } else if (typeof p.images === 'string') {
+        try {
+          productImages = JSON.parse(p.images);
+        } catch (e) {
+          productImages = [];
+        }
+      }
+    }
+    if (!Array.isArray(productImages) || productImages.length === 0) {
+      productImages = [];
+      if (p.image) productImages.push(p.image);
+      if (p.hoverImage || p.hover_image) productImages.push(p.hoverImage || p.hover_image);
+    }
+
     setProductForm({
       id: p.id,
       name: p.name,
@@ -126,6 +154,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
       category: p.category || 'jeans',
       image: p.image || '',
       hover_image: p.hoverImage || p.hover_image || '',
+      images: productImages,
       description: p.description || '',
       discountPrice: p.discountPrice || '',
       stock: p.stock || '50',
@@ -157,6 +186,37 @@ export default function AdminDashboard({ currentUser, onClose }) {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleMultipleImagesUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProductForm(prev => {
+          const newImages = [...(prev.images || []), reader.result];
+          return {
+            ...prev,
+            images: newImages,
+            image: prev.image || reader.result,
+            hover_image: prev.hover_image || (newImages.length > 1 ? newImages[1] : prev.hover_image)
+          };
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveImage = (index) => {
+    setProductForm(prev => {
+      const filtered = (prev.images || []).filter((_, idx) => idx !== index);
+      return {
+        ...prev,
+        images: filtered,
+        image: filtered[0] || '',
+        hover_image: filtered[1] || filtered[0] || ''
+      };
+    });
   };
 
   // --- 3. ORDERS STATE & INVOICING ---
@@ -734,7 +794,8 @@ export default function AdminDashboard({ currentUser, onClose }) {
                         id: '', name: '', tagline: '', price: '', category: 'jeans',
                         image: '', hover_image: '', description: '', discountPrice: '',
                         stock: '50', sku: '', swatches: 'Raw Indigo:#1e293b, Charcoal Black:#111111',
-                        sizes: ['30', '32', '34']
+                        sizes: ['30', '32', '34'],
+                        images: []
                       });
                     }}
                     className="btn-primary"
@@ -923,30 +984,44 @@ export default function AdminDashboard({ currentUser, onClose }) {
                     </div>
                   </div>
 
-                  {/* Image files upload previews */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Front Cover Image</label>
-                      <div style={{ position: 'relative', border: '1px dashed rgba(0,0,0,0.15)', borderRadius: '2px', padding: '10px', textAlign: 'center', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                        <input type="file" accept="image/*" onChange={(e) => handleProductImageUpload(e, 'image')} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
-                        {productForm.image ? (
-                          <img src={productForm.image} alt="Front Preview" style={{ maxHeight: '100%', objectFit: 'contain' }} />
-                        ) : (
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Choose front view</span>
-                        )}
-                      </div>
+                  {/* Multiple Product Images Gallery Manager */}
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>
+                      Product Images Gallery
+                    </label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
+                      {(productForm.images || []).map((imgUrl, idx) => (
+                        <div key={idx} style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <img src={imgUrl} alt={`Product image ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(idx)}
+                            style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(239, 68, 68, 0.9)', color: '#ffffff', border: 'none', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}
+                            title="Remove Image"
+                          >
+                            <Trash2 size={10} />
+                          </button>
+                          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.6)', color: '#ffffff', fontSize: '0.55rem', textAlign: 'center', padding: '2px 0', fontFamily: 'var(--font-mono)' }}>
+                            {idx === 0 ? 'Cover' : idx === 1 ? 'Hover' : `#${idx + 1}`}
+                          </div>
+                        </div>
+                      ))}
+                      
+                      <label style={{ width: '80px', height: '80px', border: '1px dashed var(--accent-raw)', borderRadius: '4px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backgroundColor: 'rgba(249, 115, 22, 0.02)', gap: '4px' }} className="add-img-btn">
+                        <UploadCloud size={18} style={{ color: 'var(--accent-raw)' }} />
+                        <span style={{ fontSize: '0.6rem', color: 'var(--accent-raw)', fontWeight: 600 }}>Add Image</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          multiple 
+                          onChange={handleMultipleImagesUpload} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
                     </div>
-                    <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Hover Image</label>
-                      <div style={{ position: 'relative', border: '1px dashed rgba(0,0,0,0.15)', borderRadius: '2px', padding: '10px', textAlign: 'center', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                        <input type="file" accept="image/*" onChange={(e) => handleProductImageUpload(e, 'hover_image')} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
-                        {productForm.hover_image ? (
-                          <img src={productForm.hover_image} alt="Hover Preview" style={{ maxHeight: '100%', objectFit: 'contain' }} />
-                        ) : (
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Choose alternate view</span>
-                        )}
-                      </div>
-                    </div>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'block', marginBottom: '10px' }}>
+                      * Add multiple images. First image is the main Cover, second is the Hover view.
+                    </span>
                   </div>
 
                   <div>

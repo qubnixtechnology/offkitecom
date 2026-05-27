@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { ShoppingBag, Menu, X, Phone, User, Search } from 'lucide-react';
+import { ShoppingBag, Menu, X, Phone, User, Search, Check, AlertCircle, Info } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Lenis from 'lenis';
 import { auth, profile, orders as ordersApi } from './services/api';
 import Preloader from './components/Preloader';
@@ -58,6 +59,22 @@ export default function App() {
   // Mega menu hover state
   const [activeMegaMenu, setActiveMegaMenu] = useState(null);
   const megaMenuTimeoutRef = useRef(null);
+
+  // Toast Notification State
+  const [toast, setToast] = useState(null);
+  
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   // Announcement Bar States
   const [announcementText, setAnnouncementText] = useState(() => 
@@ -364,6 +381,7 @@ export default function App() {
     if (token) localStorage.setItem('offkilt_auth_token', token);
     setCurrentUser(user);
     setIsProfileOpen(false);
+    showToast(`Access Granted. Welcome back, ${user.name}!`, 'success');
     
     // Fetch orders upon login
     try {
@@ -384,6 +402,7 @@ export default function App() {
       setPastOrders([]);
       localStorage.removeItem('offkilt_auth_token');
       setIsProfileOpen(false);
+      showToast('Logged out successfully. See you soon rebel!', 'info');
     }
   };
 
@@ -391,9 +410,10 @@ export default function App() {
     try {
       const res = await profile.update(updatedUser);
       setCurrentUser(res.data?.user || res.data);
+      showToast('Profile credentials updated successfully.', 'success');
     } catch (err) {
       console.error(err);
-      alert('Failed to update profile');
+      showToast('Failed to update profile.', 'error');
     }
   };
 
@@ -630,22 +650,48 @@ export default function App() {
                   className="header-btn" 
                   onClick={() => setIsProfileOpen(true)} 
                   title="User Profile"
-                  style={{ display: 'flex', alignItems: 'center' }}
+                  style={{ display: 'flex', alignItems: 'center', position: 'relative' }}
                 >
                   {currentUser && currentUser.profileImage ? (
-                    <img 
-                      src={currentUser.profileImage} 
-                      alt="Profile" 
-                      style={{ 
-                        width: '20px', 
-                        height: '20px', 
-                        borderRadius: '50%', 
-                        objectFit: 'cover', 
-                        border: '1px solid var(--accent-raw)' 
-                      }} 
-                    />
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <img 
+                        src={currentUser.profileImage} 
+                        alt="Profile" 
+                        style={{ 
+                          width: '20px', 
+                          height: '20px', 
+                          borderRadius: '50%', 
+                          objectFit: 'cover', 
+                          border: '1px solid var(--accent-raw)' 
+                        }} 
+                      />
+                      <span style={{
+                        position: 'absolute',
+                        top: '-2px',
+                        right: '-2px',
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        backgroundColor: 'var(--accent-raw)',
+                        border: '1px solid var(--bg-dark)'
+                      }} />
+                    </div>
                   ) : (
-                    <User size={20} />
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <User size={20} style={{ color: currentUser ? 'var(--accent-raw)' : 'inherit' }} />
+                      {currentUser && (
+                        <span style={{
+                          position: 'absolute',
+                          top: '-2px',
+                          right: '-2px',
+                          width: '7px',
+                          height: '7px',
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--accent-raw)',
+                          border: '1px solid var(--bg-dark)'
+                        }} />
+                      )}
+                    </div>
                   )}
                 </button>
 
@@ -878,6 +924,43 @@ export default function App() {
               WHATSAPP SUPPORT
             </div>
           </a>
+
+          {/* Toast Notification popup */}
+          <AnimatePresence>
+            {toast && (
+              <motion.div
+                initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+                style={{
+                  position: 'fixed',
+                  top: '96px',
+                  right: '24px',
+                  zIndex: 99999,
+                  backgroundColor: 'rgba(17, 17, 17, 0.95)',
+                  backdropFilter: 'blur(8px)',
+                  color: '#ffffff',
+                  padding: '12px 20px',
+                  borderRadius: '4px',
+                  boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.75rem',
+                  letterSpacing: '1px',
+                  textTransform: 'uppercase'
+                }}
+              >
+                {toast.type === 'success' && <Check size={16} style={{ color: 'var(--accent-raw)' }} />}
+                {toast.type === 'error' && <AlertCircle size={16} style={{ color: '#ef4444' }} />}
+                {toast.type === 'info' && <Info size={16} style={{ color: 'var(--accent-gold)' }} />}
+                <span>{toast.message}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
     </div>
   );
 }
