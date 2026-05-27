@@ -32,7 +32,7 @@ export default function NewsletterSection() {
           </h2>
 
           <p className="newsletter-subtitle">
-            Join the Off-Kilt family. Get early access to new drops, style guides, and members-only offers delivered straight to your inbox.
+            Join the <span style={{ fontFamily: 'var(--font-brand)', fontWeight: 700 }}>off-kilt</span> family. Get early access to new drops, style guides, and members-only offers delivered straight to your inbox.
           </p>
 
           {submitted ? (

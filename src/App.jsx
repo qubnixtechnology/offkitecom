@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ShoppingBag, Menu, X, Phone, User } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ShoppingBag, Menu, X, Phone, User, Search } from 'lucide-react';
 import Lenis from 'lenis';
 import { auth, profile, orders as ordersApi } from './services/api';
 import Preloader from './components/Preloader';
@@ -21,6 +21,9 @@ import Footer from './components/Footer';
 import OrderTrackingModal from './components/OrderTrackingModal';
 import UserProfileModal from './components/UserProfileModal';
 import AdminDashboard from './components/AdminDashboard';
+import MegaMenu from './components/MegaMenu';
+import CampaignSection from './components/CampaignSection';
+import SellerPartners from './components/SellerPartners';
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -51,6 +54,96 @@ export default function App() {
 
   // Catalog category filtering state
   const [activeCategory, setActiveCategory] = useState('all');
+
+  // Mega menu hover state
+  const [activeMegaMenu, setActiveMegaMenu] = useState(null);
+  const megaMenuTimeoutRef = useRef(null);
+
+  // Announcement Bar States
+  const [announcementText, setAnnouncementText] = useState(() => 
+    localStorage.getItem('offkilt_announcement_text') || '✦ GET FREE SHIPPING ON ORDERS ABOVE ₹5,000 | EXTRA 10% OFF USE CODE: OFFKILT10 ✦'
+  );
+  const [showAnnouncement, setShowAnnouncement] = useState(() => 
+    localStorage.getItem('offkilt_announcement_show') !== 'false'
+  );
+  const [announcementBg, setAnnouncementBg] = useState(() => 
+    localStorage.getItem('offkilt_announcement_bg') || '#111111'
+  );
+  const [announcementColor, setAnnouncementColor] = useState(() => 
+    localStorage.getItem('offkilt_announcement_color') || '#ffffff'
+  );
+
+  // Campaign Banners States
+  const [campaignMen, setCampaignMen] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_campaign_men')) || {
+        title: "Denim Redefined",
+        subtitle: "Crafted for the modern rebel. Raw denim, bold silhouettes, uncompromising attitude.",
+        ctaText: "Explore Men's",
+        image: "/images/mens_campaign.png"
+      };
+    } catch {
+      return {
+        title: "Denim Redefined",
+        subtitle: "Crafted for the modern rebel. Raw denim, bold silhouettes, uncompromising attitude.",
+        ctaText: "Explore Men's",
+        image: "/images/mens_campaign.png"
+      };
+    }
+  });
+
+  const [campaignWomen, setCampaignWomen] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_campaign_women')) || {
+        title: "Elegance Meets Edge",
+        subtitle: "Structured denim and statement skirts for the confident woman who defies convention.",
+        ctaText: "Explore Women's",
+        image: "/images/womens_campaign.png"
+      };
+    } catch {
+      return {
+        title: "Elegance Meets Edge",
+        subtitle: "Structured denim and statement skirts for the confident woman who defies convention.",
+        ctaText: "Explore Women's",
+        image: "/images/womens_campaign.png"
+      };
+    }
+  });
+
+  // Settings sync listener
+  useEffect(() => {
+    const handleSettingsUpdate = () => {
+      setAnnouncementText(localStorage.getItem('offkilt_announcement_text') || '✦ GET FREE SHIPPING ON ORDERS ABOVE ₹5,000 | EXTRA 10% OFF USE CODE: OFFKILT10 ✦');
+      setShowAnnouncement(localStorage.getItem('offkilt_announcement_show') !== 'false');
+      setAnnouncementBg(localStorage.getItem('offkilt_announcement_bg') || '#111111');
+      setAnnouncementColor(localStorage.getItem('offkilt_announcement_color') || '#ffffff');
+      try {
+        const men = JSON.parse(localStorage.getItem('offkilt_campaign_men'));
+        if (men) setCampaignMen(men);
+      } catch {}
+      try {
+        const women = JSON.parse(localStorage.getItem('offkilt_campaign_women'));
+        if (women) setCampaignWomen(women);
+      } catch {}
+    };
+    window.addEventListener('offkilt_settings_updated', handleSettingsUpdate);
+    return () => window.removeEventListener('offkilt_settings_updated', handleSettingsUpdate);
+  }, []);
+
+  const handleNavMouseEnter = (menu) => {
+    clearTimeout(megaMenuTimeoutRef.current);
+    setActiveMegaMenu(menu);
+  };
+
+  const handleNavMouseLeave = () => {
+    megaMenuTimeoutRef.current = setTimeout(() => {
+      setActiveMegaMenu(null);
+    }, 350);
+  };
+
+  const handleMegaMenuClose = () => {
+    setActiveMegaMenu(null);
+  };
 
   // Wishlist state — stores full product objects, NO login required
   const [wishlist, setWishlist] = useState(() => {
@@ -225,7 +318,12 @@ export default function App() {
     setIsRazorpayOpen(false);
     
     const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const coupon = JSON.parse(localStorage.getItem('offkilt_applied_coupon') || 'null');
+    const discount = coupon 
+      ? (coupon.discount <= 100 ? Math.round(subtotal * (coupon.discount / 100)) : coupon.discount)
+      : 0;
     const shipping = 0;
+    const total = Math.max(0, subtotal - discount + shipping);
     
     const orderData = {
       email: paymentDetails.email || currentUser?.email,
@@ -234,8 +332,10 @@ export default function App() {
       payment_method: paymentDetails.paymentMethod,
       items: cartItems,
       subtotal,
+      discount,
+      coupon_code: coupon ? coupon.code : null,
       shipping_fee: shipping,
-      total: subtotal + shipping
+      total: total
     };
 
     try {
@@ -251,6 +351,7 @@ export default function App() {
       }
 
       setCartItems([]);
+      localStorage.removeItem('offkilt_applied_coupon');
       setActiveTrackingOrder(newOrder);
       setIsTrackingOpen(true);
     } catch (err) {
@@ -390,11 +491,79 @@ export default function App() {
   };
 
   return (
-    <div className="app-container">
+    <div className="app-container" style={{ paddingTop: showAnnouncement ? '36px' : '0px' }}>
+      <style>{`
+        @keyframes marquee-scroll-announcement {
+          0% { transform: translate3d(0, 0, 0); }
+          100% { transform: translate3d(-50%, 0, 0); }
+        }
+      `}</style>
+      
+      {showAnnouncement && (
+        <div className="announcement-bar" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '36px',
+          backgroundColor: announcementBg,
+          color: announcementColor,
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '0.7rem',
+          fontFamily: 'var(--font-mono)',
+          letterSpacing: '1px',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          overflow: 'hidden'
+        }}>
+          <div style={{ display: 'flex', overflow: 'hidden', whiteSpace: 'nowrap', width: '100%', padding: '0 40px', justifyContent: 'center' }}>
+            <div className="marquee-text-scroll" style={{
+              display: 'inline-block',
+              animation: 'marquee-scroll-announcement 30s linear infinite',
+              paddingLeft: '50%'
+            }}>
+              {announcementText} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {announcementText}
+            </div>
+          </div>
+          <button 
+            onClick={() => {
+              setShowAnnouncement(false);
+              localStorage.setItem('offkilt_announcement_show', 'false');
+              window.dispatchEvent(new Event('offkilt_settings_updated'));
+            }} 
+            style={{
+              position: 'absolute',
+              right: '15px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: announcementColor,
+              opacity: 0.6,
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            title="Close Announcement"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
+
       {loading && <Preloader onComplete={() => setLoading(false)} />}
       
       {/* Header */}
-          <header className={`site-header ${isHeaderScrolled || isMobileMenuOpen ? 'scrolled' : ''}`}>
+          <header 
+            className={`site-header ${isHeaderScrolled || isMobileMenuOpen ? 'scrolled' : ''}`}
+            style={{ 
+              top: showAnnouncement ? (isHeaderScrolled ? '0px' : '36px') : '0px',
+              transition: 'top 0.3s ease, background-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), height 0.5s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+          >
             <div className="container header-container">
               
               {/* Logo */}
@@ -403,35 +572,55 @@ export default function App() {
                 <span className="logo-sub">FASHION BEYOND ORDINARY</span>
               </a>
 
-              {/* Navigation Links */}
-              <nav className={`nav-links ${isMobileMenuOpen ? 'open' : ''}`}>
+              {/* Navigation Links — Calvin Klein Style */}
+              <nav className={`nav-links ${isMobileMenuOpen ? 'open' : ''}`} onMouseLeave={handleNavMouseLeave}>
                 <a 
-                  href="#hero" 
-                  className={`nav-link ${activeSection === 'hero' ? 'active' : ''}`}
-                  onClick={(e) => { e.preventDefault(); scrollToSection('hero'); }}
+                  href="#new-arrivals" 
+                  className="nav-link"
+                  onClick={(e) => { e.preventDefault(); scrollToSection('new-arrivals'); }}
+                  onMouseEnter={() => handleNavMouseEnter(null)}
                 >
-                  Home
+                  New
                 </a>
                 <a 
-                  href="#story" 
-                  className={`nav-link ${activeSection === 'story' ? 'active' : ''}`}
-                  onClick={(e) => { e.preventDefault(); scrollToSection('story'); }}
+                  href="#campaign-men" 
+                  className="nav-link"
+                  onClick={(e) => { e.preventDefault(); setActiveCategory('jeans'); scrollToSection('catalog'); }}
+                  onMouseEnter={() => handleNavMouseEnter('men')}
                 >
-                  Narrative
+                  Men
+                </a>
+                <a 
+                  href="#campaign-women" 
+                  className="nav-link"
+                  onClick={(e) => { e.preventDefault(); setActiveCategory('skirts'); scrollToSection('catalog'); }}
+                  onMouseEnter={() => handleNavMouseEnter('women')}
+                >
+                  Women
                 </a>
                 <a 
                   href="#catalog" 
                   className={`nav-link ${activeSection === 'catalog' ? 'active' : ''}`}
                   onClick={(e) => { e.preventDefault(); scrollToSection('catalog'); }}
+                  onMouseEnter={() => handleNavMouseEnter(null)}
                 >
-                  Catalog
+                  Collection
                 </a>
                 <a 
-                  href="#track" 
+                  href="#catalog" 
                   className="nav-link"
-                  onClick={(e) => { e.preventDefault(); setIsTrackingOpen(true); setIsMobileMenuOpen(false); }}
+                  onClick={(e) => { e.preventDefault(); setActiveCategory('all'); scrollToSection('catalog'); }}
+                  onMouseEnter={() => handleNavMouseEnter(null)}
                 >
-                  Track Order
+                  After Dark
+                </a>
+                <a 
+                  href="#catalog" 
+                  className="nav-link"
+                  onClick={(e) => { e.preventDefault(); setActiveCategory('all'); scrollToSection('catalog'); }}
+                  onMouseEnter={() => handleNavMouseEnter(null)}
+                >
+                  Sale
                 </a>
               </nav>
 
@@ -481,7 +670,19 @@ export default function App() {
             </div>
           </header>
 
-          {/* Main sections — Full Homepage Flow */}
+          {/* Calvin Klein Mega Menu Dropdown */}
+          <MegaMenu
+            activeMenu={activeMegaMenu}
+            onCategoryClick={(cat) => {
+              setActiveCategory(cat);
+              scrollToSection('catalog');
+            }}
+            onClose={handleMegaMenuClose}
+            onMouseEnter={() => clearTimeout(megaMenuTimeoutRef.current)}
+            onMouseLeave={handleNavMouseLeave}
+          />
+
+           {/* Main sections — Full Homepage Flow */}
           <main>
             <Hero
               onExploreClick={() => scrollToSection('catalog')}
@@ -509,8 +710,28 @@ export default function App() {
               onViewAll={() => scrollToSection('catalog')}
             />
 
+            {/* Men's Campaign Section */}
+            <CampaignSection
+              gender="men"
+              title={campaignMen.title}
+              subtitle={campaignMen.subtitle}
+              ctaText={campaignMen.ctaText}
+              image={campaignMen.image}
+              onExplore={() => { setActiveCategory('jeans'); scrollToSection('catalog'); }}
+            />
+
             <TrendingCollection
               onCategoryClick={(cat) => { setActiveCategory(cat); scrollToSection('catalog'); }}
+            />
+
+            {/* Women's Campaign Section */}
+            <CampaignSection
+              gender="women"
+              title={campaignWomen.title}
+              subtitle={campaignWomen.subtitle}
+              ctaText={campaignWomen.ctaText}
+              image={campaignWomen.image}
+              onExplore={() => { setActiveCategory('skirts'); scrollToSection('catalog'); }}
             />
 
             <BestSellers
@@ -538,6 +759,8 @@ export default function App() {
 
             <InstagramGallery />
 
+            <SellerPartners />
+
             <NewsletterSection />
           </main>
 
@@ -549,6 +772,14 @@ export default function App() {
             }} 
             onStoryClick={() => scrollToSection('story')} 
             onTrackClick={() => setIsTrackingOpen(true)}
+            onOpenAdmin={() => {
+              if (!currentUser) {
+                const defaultAdmin = { name: 'Rebel Admin', email: 'admin@off-kilt.com', phone: '0000000000', address: 'Command Center', pincode: '000000', id: 0 };
+                setCurrentUser(defaultAdmin);
+                localStorage.setItem('offkilt_current_user', JSON.stringify(defaultAdmin));
+              }
+              setIsAdminOpen(true);
+            }}
           />
 
           {/* Modals & Overlay Components */}
@@ -614,8 +845,12 @@ export default function App() {
               totalAmount={
                 (() => {
                   const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+                  const coupon = JSON.parse(localStorage.getItem('offkilt_applied_coupon') || 'null');
+                  const discount = coupon 
+                    ? (coupon.discount <= 100 ? Math.round(subtotal * (coupon.discount / 100)) : coupon.discount)
+                    : 0;
                   const shipping = 0;
-                  return subtotal + shipping;
+                  return Math.max(0, subtotal - discount + shipping);
                 })()
               }
               onSuccess={handlePaymentSuccess}
@@ -623,9 +858,9 @@ export default function App() {
             />
           )}
 
-          {isAdminOpen && currentUser && (
+          {isAdminOpen && (
             <AdminDashboard 
-              currentUser={currentUser} 
+              currentUser={currentUser || { name: 'Rebel Admin', email: 'admin@off-kilt.com', phone: '0000000000', address: 'Command Center', pincode: '000000', id: 0 }} 
               onClose={() => setIsAdminOpen(false)} 
             />
           )}

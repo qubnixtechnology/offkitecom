@@ -24,7 +24,7 @@ const REVIEWS = [
   },
   {
     id: 'r3',
-    text: '"Love everything about Off-Kilt. The packaging was so premium and the jeans are incredibly well-made. Worth every rupee. Will definitely order again!"',
+    text: '"Love everything about off-kilt. The packaging was so premium and the jeans are incredibly well-made. Worth every rupee. Will definitely order again!"',
     author: 'Sneha Kapoor',
     location: 'Delhi, DL',
     photo: 'https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?q=80&w=200&h=200&auto=format&fit=crop',
@@ -69,7 +69,7 @@ export default function CustomerReviews() {
         <div className="luxury-section-header section-reveal" ref={headerRef}>
           <span className="luxury-eyebrow">What They Say</span>
           <h2 className="luxury-section-title">Customer <em>Love</em></h2>
-          <p className="luxury-section-subtitle">Thousands of women trust Off-Kilt for their wardrobe. Here's what they have to say.</p>
+          <p className="luxury-section-subtitle">Thousands of women trust <span style={{ fontFamily: 'var(--font-brand)', fontWeight: 700 }}>off-kilt</span> for their wardrobe. Here's what they have to say.</p>
         </div>
 
         <div className="reviews-grid">

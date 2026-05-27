@@ -29,13 +29,39 @@ export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onW
   const [loading, setLoading] = useState(true);
   const sectionRef = useRef(null);
   const headerRef = useRef(null);
+  const [reviewTrigger, setReviewTrigger] = useState(0);
+  const [productTrigger, setProductTrigger] = useState(0);
+
+  useEffect(() => {
+    const handleReviews = () => setReviewTrigger(prev => prev + 1);
+    const handleProducts = () => setProductTrigger(prev => prev + 1);
+    window.addEventListener('offkilt_reviews_updated', handleReviews);
+    window.addEventListener('offkilt_products_updated', handleProducts);
+    return () => {
+      window.removeEventListener('offkilt_reviews_updated', handleReviews);
+      window.removeEventListener('offkilt_products_updated', handleProducts);
+    };
+  }, []);
+
+  const getProductRatingInfo = (productId) => {
+    const allReviews = JSON.parse(localStorage.getItem('offkilt_product_reviews') || '{}');
+    const prodReviews = allReviews[productId];
+    if (prodReviews && prodReviews.length > 0) {
+      const avg = prodReviews.reduce((acc, r) => acc + r.rating, 0) / prodReviews.length;
+      return { rating: avg, count: prodReviews.length };
+    }
+    const sum = productId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const mockRating = (4.5 + (sum % 5) * 0.1);
+    const mockCount = 6 + (sum % 20);
+    return { rating: mockRating, count: mockCount };
+  };
 
   useEffect(() => {
     productsApi.getAll('all').then(res => {
       setProducts(res.data.slice(0, 8));
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, []);
+  }, [productTrigger]);
 
   // Scroll reveal
   useEffect(() => {
@@ -82,8 +108,9 @@ export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onW
               {products.map((product, idx) => {
                 const badge = getBadge(idx);
                 const isWishlisted = wishlist?.some(w => (w.id || w) === product.id);
-                const rating = RATINGS[idx % RATINGS.length];
-                const reviewCount = REVIEW_COUNTS[idx % REVIEW_COUNTS.length];
+                const ratingInfo = getProductRatingInfo(product.id);
+                const rating = ratingInfo.rating;
+                const reviewCount = ratingInfo.count;
                 const scarcity = SCARCITY[idx % SCARCITY.length];
 
                 return (
@@ -106,7 +133,11 @@ export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onW
                         onClick={(e) => { e.stopPropagation(); onWishlistToggle?.(product); }}
                         title={isWishlisted ? 'Remove from Wishlist' : 'Save to Wishlist'}
                       >
-                        <Heart size={15} fill={isWishlisted ? 'var(--accent-rose-dark)' : 'none'} />
+                        <Heart 
+                          size={15} 
+                          fill={isWishlisted ? '#ff4d6d' : 'none'} 
+                          stroke={isWishlisted ? '#ff4d6d' : 'currentColor'}
+                        />
                       </button>
 
                       {/* Images */}

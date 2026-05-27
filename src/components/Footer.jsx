@@ -1,6 +1,6 @@
 import { MessageSquare, Mail, Phone, MapPin } from 'lucide-react';
 
-export default function Footer({ onCategoryClick, onStoryClick, onTrackClick }) {
+export default function Footer({ onCategoryClick, onStoryClick, onTrackClick, onOpenAdmin }) {
   
   const handleInstagramClick = () => {
     window.open("https://www.instagram.com/off_kilt?igsh=MWQ3c29nNGhzNDMycw==", "_blank");
@@ -28,7 +28,7 @@ export default function Footer({ onCategoryClick, onStoryClick, onTrackClick }) 
               </div>
             </div>
             <p className="footer-desc">
-              Off-Kilt is not just a brand—it’s an attitude. Born from the spirit of rebellion and self-expression, Off-Kilt challenges the ordinary and redefines modern denim.
+              Off-Kilt is not just a brand—it's an attitude. Born from the spirit of rebellion and self-expression, Off-Kilt challenges the ordinary and redefines modern denim.
             </p>
             <div className="footer-socials">
               <button onClick={handleInstagramClick} className="social-link" title="Instagram">
@@ -44,37 +44,33 @@ export default function Footer({ onCategoryClick, onStoryClick, onTrackClick }) 
             </div>
           </div>
 
-          {/* Quicklinks */}
+          {/* Shop Links */}
           <div>
-            <h3 className="footer-column-title">EXPLORE</h3>
+            <h3 className="footer-column-title">SHOP</h3>
             <ul className="footer-links">
+              <li><button onClick={() => onCategoryClick('jeans')} className="footer-link">MEN'S DENIM</button></li>
+              <li><button onClick={() => onCategoryClick('skirts')} className="footer-link">WOMEN'S DENIM</button></li>
               <li><button onClick={() => onCategoryClick('all')} className="footer-link">ALL PRODUCTS</button></li>
-              <li><button onClick={() => onCategoryClick('jeans')} className="footer-link">JEANS</button></li>
-              <li><button onClick={() => onCategoryClick('skirts')} className="footer-link">SKIRTS</button></li>
-              <li><button onClick={onStoryClick} className="footer-link">BRAND STORY</button></li>
+              <li><button onClick={() => onCategoryClick('all')} className="footer-link">NEW ARRIVALS</button></li>
+              <li><button onClick={() => onCategoryClick('all')} className="footer-link">SALE</button></li>
               <li><button onClick={onTrackClick} className="footer-link">TRACK ORDER</button></li>
             </ul>
           </div>
 
-          {/* Info & Shipping Zones */}
+          {/* Company Pages */}
           <div>
-            <h3 className="footer-column-title">SHIPPING & TAX</h3>
+            <h3 className="footer-column-title">COMPANY</h3>
             <ul className="footer-links">
-              <li className="footer-link" style={{ color: 'var(--text-light)', cursor: 'default' }}>
-                <MapPin size={12} style={{ marginRight: '6px', color: 'var(--accent-raw)' }} /> INDIA (Domestic)
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-grey)', marginTop: '4px' }}>FREE Shipping • Delivery: 3-5 Days</div>
-              </li>
-              <li className="footer-link" style={{ color: 'var(--text-light)', cursor: 'default' }}>
-                <MapPin size={12} style={{ marginRight: '6px', color: 'var(--text-grey)' }} /> INTERNATIONAL
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-grey)', marginTop: '4px' }}>Standard rates apply • Custom duties included</div>
-              </li>
-              <li className="footer-link" style={{ color: 'var(--text-light)', cursor: 'default' }}>
-                <strong>TAX / GST:</strong> Listed prices include 12% apparel GST. No extra taxes at checkout.
-              </li>
+              <li><button onClick={onStoryClick} className="footer-link">ABOUT US</button></li>
+              <li><span className="footer-link" style={{ cursor: 'default' }}>REFUND & RETURN POLICY</span></li>
+              <li><span className="footer-link" style={{ cursor: 'default' }}>FAQ</span></li>
+              <li><span className="footer-link" style={{ cursor: 'default' }}>TERMS & CONDITIONS</span></li>
+              <li><span className="footer-link" style={{ cursor: 'default' }}>CAREER</span></li>
+              <li><span className="footer-link" style={{ cursor: 'default' }}>PARTNERSHIP</span></li>
             </ul>
           </div>
 
-          {/* Contact Support & Newsletter */}
+          {/* Contact & Newsletter */}
           <div className="footer-newsletter">
             <h3 className="footer-column-title">JOIN THE REBELLION</h3>
             <p className="footer-desc" style={{ fontSize: '0.8rem' }}>
@@ -123,7 +119,7 @@ export default function Footer({ onCategoryClick, onStoryClick, onTrackClick }) 
         <div className="footer-bottom">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div>
-              © {new Date().getFullYear()} OFF-KILT FASHION. ALL RIGHTS PRESERVED. STAY RAW.
+              © {new Date().getFullYear()} <span style={{ fontFamily: 'var(--font-brand)', fontWeight: 700, textTransform: 'lowercase' }}>off-kilt</span> FASHION. ALL RIGHTS PRESERVED. STAY RAW.
             </div>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-grey)', fontFamily: 'var(--font-mono)', letterSpacing: '1px' }}>
               DESIGN & DEVELOPED BY <a href="https://qubnixtechnology.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', textDecoration: 'none', borderBottom: '1px solid var(--accent-raw)', paddingBottom: '1px', transition: 'color 0.2s' }} onMouseEnter={(e) => e.target.style.color = 'var(--accent-raw)'} onMouseLeave={(e) => e.target.style.color = 'var(--text-light)'}>QUBNIX TECHNOLOGY</a>

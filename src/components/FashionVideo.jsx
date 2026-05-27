@@ -79,7 +79,6 @@ export default function FashionVideo() {
         {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
       </button>
 
-      {/* Corner label */}
       <div style={{
         position: 'absolute',
         bottom: 30,
@@ -90,17 +89,16 @@ export default function FashionVideo() {
         gap: 4
       }}>
         <span style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.6rem',
-          letterSpacing: 3,
-          color: 'rgba(255,255,255,0.4)',
-          textTransform: 'uppercase'
-        }}>Off-Kilt</span>
-        <span style={{
-          fontFamily: 'var(--font-luxury)',
-          fontSize: '1rem',
-          fontStyle: 'italic',
+          fontFamily: 'var(--font-brand)',
+          fontWeight: 700,
+          fontSize: '0.75rem',
+          letterSpacing: '0px',
           color: 'rgba(255,255,255,0.7)',
+          textTransform: 'lowercase'
+        }}>off-kilt</span>
+        <span className="mono" style={{
+          fontSize: '0.65rem',
+          color: 'rgba(255,255,255,0.4)',
           letterSpacing: '0.05em'
         }}>SS 2026</span>
       </div>

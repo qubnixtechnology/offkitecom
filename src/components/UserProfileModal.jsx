@@ -431,8 +431,8 @@ export default function UserProfileModal({
                           Access Account
                         </button>
 
-                        <div className="mono" style={{ fontSize: '0.65rem', textAlign: 'center', color: 'var(--text-grey)', marginTop: '12px' }}>
-                          Tip: Use email <strong style={{ color: 'var(--accent-raw)' }}>demo@off-kilt.com</strong> & password <strong style={{ color: 'var(--accent-raw)' }}>rebel</strong> for instant preview testing.
+                        <div className="mono" style={{ fontSize: '0.65rem', textAlign: 'center', color: 'var(--text-grey)', marginTop: '12px', lineHeight: '1.4' }}>
+                          Tip: Use <strong style={{ color: 'var(--accent-raw)' }}>demo@off-kilt.com</strong> / <strong style={{ color: 'var(--accent-raw)' }}>rebel</strong> for user, or <strong style={{ color: 'var(--accent-raw)' }}>admin@off-kilt.com</strong> / <strong style={{ color: 'var(--accent-raw)' }}>admin123</strong> for admin testing.
                         </div>
                       </form>
                     )}

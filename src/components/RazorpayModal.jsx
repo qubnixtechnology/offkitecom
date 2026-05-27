@@ -131,7 +131,7 @@ export default function RazorpayModal({
           <div className="rzp-brand-info">
             <div className="rzp-logo-badge">ok</div>
             <div>
-              <div className="rzp-name">Off-Kilt Fashion</div>
+              <div className="rzp-name" style={{ fontFamily: 'var(--font-brand)', fontWeight: 700, textTransform: 'lowercase' }}>off-kilt <span style={{ textTransform: 'none', fontWeight: 'normal', fontSize: '0.8rem', opacity: 0.8 }}>Fashion</span></div>
               <div className="rzp-desc">Security by Razorpay Checkout</div>
             </div>
           </div>

@@ -106,7 +106,7 @@ export default function InstagramGallery() {
             >
               <img
                 src={item.src}
-                alt="Off-Kilt Fashion"
+                alt="off-kilt fashion"
                 className="instagram-img"
                 loading="lazy"
                 onError={(e) => { e.target.style.background = '#111'; e.target.style.display = 'none'; }}

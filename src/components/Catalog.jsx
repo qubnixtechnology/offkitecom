@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, ShoppingBag, Check } from 'lucide-react';
+import { Heart, ShoppingBag, Check, Star } from 'lucide-react';
 import { products as productsApi } from '../services/api';
 
 export default function Catalog({ onProductClick, activeTab, setActiveTab, wishlist = [], onWishlistToggle, onAddToCart }) {
@@ -9,6 +9,32 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
   const [loadedImages, setLoadedImages] = useState({});
   const [renderedCategory, setRenderedCategory] = useState(activeTab);
   const [addedIds, setAddedIds] = useState({}); // track which products were just added
+  const [reviewTrigger, setReviewTrigger] = useState(0);
+  const [productTrigger, setProductTrigger] = useState(0);
+
+  useEffect(() => {
+    const handleReviews = () => setReviewTrigger(prev => prev + 1);
+    const handleProducts = () => setProductTrigger(prev => prev + 1);
+    window.addEventListener('offkilt_reviews_updated', handleReviews);
+    window.addEventListener('offkilt_products_updated', handleProducts);
+    return () => {
+      window.removeEventListener('offkilt_reviews_updated', handleReviews);
+      window.removeEventListener('offkilt_products_updated', handleProducts);
+    };
+  }, []);
+
+  const getProductRatingInfo = (productId) => {
+    const allReviews = JSON.parse(localStorage.getItem('offkilt_product_reviews') || '{}');
+    const prodReviews = allReviews[productId];
+    if (prodReviews && prodReviews.length > 0) {
+      const avg = prodReviews.reduce((acc, r) => acc + r.rating, 0) / prodReviews.length;
+      return { rating: avg.toFixed(1), count: prodReviews.length };
+    }
+    const sum = productId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const mockRating = (4.5 + (sum % 5) * 0.1).toFixed(1);
+    const mockCount = 6 + (sum % 20);
+    return { rating: mockRating, count: mockCount };
+  };
 
   const handleImageLoad = (url) => {
     setLoadedImages(prev => ({ ...prev, [url]: true }));
@@ -18,7 +44,11 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
     const fetchProducts = async () => {
       setLoading(true);
       try {
-        const res = await productsApi.getAll(activeTab);
+        const fits = ['baggy', 'relaxed', 'boot cut', 'slim', 'skinny'];
+        const isFit = fits.includes(activeTab.toLowerCase());
+        const apiCategory = ['jeans', 'skirts'].includes(activeTab) ? activeTab : (isFit ? 'jeans' : 'all');
+        
+        const res = await productsApi.getAll(apiCategory);
         const mapped = res.data.map(p => ({
           ...p,
           details: typeof p.details === 'string' ? JSON.parse(p.details) : p.details,
@@ -26,7 +56,27 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
           images: typeof p.images === 'string' ? JSON.parse(p.images) : p.images,
           hoverImage: p.hover_image,
         }));
-        setProductsList(mapped);
+
+        let filtered = mapped;
+        if (isFit) {
+          const fitKeyword = activeTab.toLowerCase();
+          filtered = mapped.filter(p => {
+            const name = (p.name || '').toLowerCase();
+            const desc = (p.description || '').toLowerCase();
+            const detailsText = Array.isArray(p.details) 
+              ? p.details.join(' ').toLowerCase() 
+              : (p.details || '').toLowerCase();
+
+            if (fitKeyword === 'boot cut') {
+              return name.includes('bootcut') || name.includes('boot cut') ||
+                     desc.includes('bootcut') || desc.includes('boot cut') ||
+                     detailsText.includes('bootcut') || detailsText.includes('boot cut');
+            }
+            return name.includes(fitKeyword) || desc.includes(fitKeyword) || detailsText.includes(fitKeyword);
+          });
+        }
+
+        setProductsList(filtered);
         setRenderedCategory(activeTab);
       } catch (err) {
         console.error("Failed to fetch products", err);
@@ -36,7 +86,7 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
     };
     
     fetchProducts();
-  }, [activeTab]);
+  }, [activeTab, productTrigger]);
 
   const isWishlisted = (productId) => wishlist.some(w => (w.id || w) === productId);
 
@@ -65,12 +115,12 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
         <div className="catalog-header">
           <div className="catalog-title-wrapper">
             <span className="mono" style={{ color: 'var(--accent-raw)' }}>THE COLLECTIONS</span>
-            <h2 className="catalog-title">STREET &amp; DENIM EDITS</h2>
-            <p>Select category to explore tailored structural garments crafted with raw materials.</p>
+            <h2 className="catalog-title">DENIM &amp; STREET EDITS</h2>
+            <p>Browse by category or denim fit — every piece crafted with precision.</p>
           </div>
           
           <div className="category-tabs">
-            {['all', 'jeans', 'skirts'].map(tab => (
+            {['all', 'jeans', 'skirts', 'baggy', 'relaxed', 'boot cut', 'slim', 'skinny'].map(tab => (
               <button 
                 key={tab}
                 className={`category-tab mono ${activeTab === tab ? 'active' : ''}`}
@@ -107,8 +157,8 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                     >
                       <Heart
                         size={14}
-                        fill={isWishlisted(product.id) ? 'var(--accent-rose-dark)' : 'none'}
-                        stroke={isWishlisted(product.id) ? 'var(--accent-rose-dark)' : 'currentColor'}
+                        fill={isWishlisted(product.id) ? '#ff4d6d' : 'none'}
+                        stroke={isWishlisted(product.id) ? '#ff4d6d' : 'currentColor'}
                       />
                     </button>
                     
@@ -161,6 +211,16 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                     <div className="product-meta">
                       <span className="product-tag">{product.tagline}</span>
                       <h3 className="product-name">{product.name}</h3>
+                      {(() => {
+                        const info = getProductRatingInfo(product.id);
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.68rem', color: 'var(--accent-gold)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
+                            <Star size={10} fill="var(--accent-gold)" stroke="var(--accent-gold)" />
+                            <span style={{ color: 'var(--text-light)', fontWeight: 600 }}>{info.rating}</span>
+                            <span style={{ color: 'var(--text-muted)' }}>({info.count})</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="product-price-row">
                       <div className="product-price">

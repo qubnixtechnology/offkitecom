@@ -58,7 +58,7 @@ export default function BrandStory() {
             </div>
             
             <p className="story-body">
-              Born from the spirit of rebellion and self-expression, Off-Kilt challenges the ordinary and redefines modern denim. We create pieces that break away from tradition—clean yet bold, minimal yet impactful.
+              Born from the spirit of rebellion and self-expression, <span style={{ fontFamily: 'var(--font-brand)', fontWeight: 700 }}>off-kilt</span> challenges the ordinary and redefines modern denim. We create pieces that break away from tradition—clean yet bold, minimal yet impactful.
             </p>
             
             <p className="story-quote">
@@ -89,7 +89,7 @@ export default function BrandStory() {
             <div className="story-image-wrapper">
               <img 
                 src="https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=800" 
-                alt="Off-Kilt Denim Closeup" 
+                alt="off-kilt denim closeup" 
                 className="story-img"
               />
               <div className="story-img-overlay"></div>

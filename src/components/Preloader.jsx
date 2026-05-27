@@ -6,7 +6,7 @@ const STATEMENT_WORDS = [
   "BEYOND ORDINARY",
   "STAY RAW",
   "STAY REAL",
-  "OFF-KILT"
+  "off-kilt"
 ];
 
 export default function Preloader({ onComplete }) {
@@ -92,11 +92,17 @@ export default function Preloader({ onComplete }) {
   return (
     <div className={`preloader-overlay ${isOverlayHiding ? 'hide' : ''}`}>
       <div className={`preloader-brand ${isContentHiding ? 'preloader-fade-out' : ''}`}>
-        <span className="mono" style={{ fontSize: '0.9rem', color: '#8a8a93', letterSpacing: '4px', display: 'block', textAlign: 'center', marginBottom: '10px' }}>
-          OFF-KILT // EDIT 01
+        <span style={{ fontSize: '0.9rem', color: '#8a8a93', letterSpacing: '4px', display: 'block', textAlign: 'center', marginBottom: '10px', fontFamily: 'var(--font-brand)', fontWeight: 700, textTransform: 'lowercase' }}>
+          off-kilt <span className="mono" style={{ textTransform: 'none', marginLeft: '6px', fontSize: '0.8rem', opacity: 0.8 }}>// EDIT 01</span>
         </span>
         <div style={{ minHeight: '6rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          <span style={{ display: 'inline-block' }}>{STATEMENT_WORDS[wordIndex]}</span>
+          <span style={{ 
+            display: 'inline-block',
+            fontFamily: STATEMENT_WORDS[wordIndex] === 'off-kilt' ? 'var(--font-brand)' : 'inherit',
+            fontWeight: STATEMENT_WORDS[wordIndex] === 'off-kilt' ? 700 : 'inherit'
+          }}>
+            {STATEMENT_WORDS[wordIndex]}
+          </span>
         </div>
       </div>
       

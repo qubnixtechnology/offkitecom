@@ -1,4 +1,5 @@
-import { X, Trash2, Plus, Minus, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { X, Trash2, Plus, Minus, ShieldCheck, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const FREE_SHIPPING_THRESHOLD = 5000;
@@ -15,10 +16,52 @@ export default function CartDrawer({
   const remainingForFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotal);
   const shippingPercent = Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100);
   
-  // Tax calculations (GST 12% is included in product price)
-  const gstIncluded = Math.round(subtotal - (subtotal / 1.12));
+  // Coupon Code Logic
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(() => {
+    return JSON.parse(localStorage.getItem('offkilt_applied_coupon') || 'null');
+  });
+  const [couponError, setCouponError] = useState('');
+
+  const handleApplyCoupon = (e) => {
+    e.preventDefault();
+    setCouponError('');
+    if (!couponCode.trim()) return;
+
+    const activeCoupons = JSON.parse(localStorage.getItem('offkilt_coupons') || '[]');
+    if (activeCoupons.length === 0) {
+      const defaultCoupons = [
+        { code: 'OFFKILT10', discount: 10 },
+        { code: 'OFFKILT20', discount: 20 },
+        { code: 'FREESHIP', discount: 99 }
+      ];
+      localStorage.setItem('offkilt_coupons', JSON.stringify(defaultCoupons));
+      activeCoupons.push(...defaultCoupons);
+    }
+
+    const found = activeCoupons.find(c => c.code.toUpperCase() === couponCode.trim().toUpperCase());
+    if (found) {
+      setAppliedCoupon(found);
+      localStorage.setItem('offkilt_applied_coupon', JSON.stringify(found));
+      setCouponCode('');
+    } else {
+      setCouponError('Invalid coupon code');
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    localStorage.removeItem('offkilt_applied_coupon');
+  };
+
+  // Tax and Discount Calculations
+  const discount = appliedCoupon 
+    ? (appliedCoupon.discount <= 100 ? Math.round(subtotal * (appliedCoupon.discount / 100)) : appliedCoupon.discount)
+    : 0;
+
+  const gstIncluded = Math.round(Math.max(0, (subtotal - discount) - ((subtotal - discount) / 1.12)));
   const shippingCost = 0;
-  const total = subtotal + shippingCost;
+  const total = Math.max(0, subtotal - discount + shippingCost);
 
   return (
     <AnimatePresence>
@@ -146,10 +189,68 @@ export default function CartDrawer({
                 layout
                 className="cart-footer"
               >
+                {/* Coupon entry form */}
+                <div style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                  {appliedCoupon ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f0fdf4', padding: '8px 12px', border: '1px solid #bbf7d0', borderRadius: '2px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontSize: '0.75rem', fontWeight: 600 }}>
+                        <Tag size={12} />
+                        <span>COUPON APPLIED: {appliedCoupon.code}</span>
+                      </div>
+                      <button 
+                        onClick={handleRemoveCoupon} 
+                        style={{ color: '#ef4444', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', background: 'none', border: 'none' }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleApplyCoupon} style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text"
+                        placeholder="ENTER COUPON CODE"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                        style={{
+                          flex: 1,
+                          padding: '10px 12px',
+                          fontSize: '0.75rem',
+                          border: '1px solid rgba(0,0,0,0.12)',
+                          borderRadius: '2px',
+                          textTransform: 'uppercase',
+                          fontFamily: 'var(--font-mono)',
+                          outline: 'none',
+                          backgroundColor: '#ffffff',
+                          color: '#111111'
+                        }}
+                      />
+                      <button 
+                        type="submit" 
+                        className="btn-primary" 
+                        style={{ padding: '0 16px', fontSize: '0.7rem', justifyContent: 'center', height: '38px' }}
+                      >
+                        APPLY
+                      </button>
+                    </form>
+                  )}
+                  {couponError && (
+                    <p style={{ color: '#ef4444', fontSize: '0.7rem', marginTop: '6px', fontFamily: 'var(--font-mono)' }}>
+                      {couponError}
+                    </p>
+                  )}
+                </div>
+
                 <div className="cart-summary-row">
                   <span className="cart-summary-label">Subtotal</span>
                   <span className="cart-summary-val">₹{subtotal.toLocaleString('en-IN')}</span>
                 </div>
+
+                {appliedCoupon && (
+                  <div className="cart-summary-row" style={{ color: '#22c55e', fontWeight: 600 }}>
+                    <span className="cart-summary-label">Discount ({appliedCoupon.code})</span>
+                    <span className="cart-summary-val">-₹{discount.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
                 
                 <div className="cart-summary-row">
                   <span className="cart-summary-label">Shipping</span>

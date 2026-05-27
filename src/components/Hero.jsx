@@ -105,9 +105,11 @@ export default function Hero({ onExploreClick, onShopNewArrivals, isAppLoading }
           variants={pretitleVariants}
           initial="hidden"
           animate={isAppLoading ? "hidden" : "visible"}
-          className="mono hero-pretitle"
+          className="hero-pretitle"
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}
         >
-          OFF-KILT // SS 2026 COLLECTION
+          <span style={{ fontFamily: 'var(--font-brand)', fontWeight: 700, textTransform: 'lowercase', letterSpacing: '0px' }}>off-kilt</span>
+          <span className="mono" style={{ opacity: 0.8 }}>// SS 2026 COLLECTION</span>
         </motion.span>
         
         <motion.h1 
