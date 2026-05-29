@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { X, ChevronDown, ChevronUp, ShoppingBag, Heart, ZoomIn, ShoppingCart, Star } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, ShoppingBag, Heart, ZoomIn, ShoppingCart, Star, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { products as localProducts } from '../data/products';
+import { products as productsApi } from '../services/api';
 
-export default function ProductDetailModal({ product, isOpen, onClose, onAddToCart, wishlist = [], onWishlistToggle }) {
+export default function ProductDetailModal({ product, isOpen, onClose, onAddToCart, wishlist = [], onWishlistToggle, onProductClick }) {
   const [selectedSize, setSelectedSize] = useState(() => {
     const sizes = Array.isArray(product?.sizes) ? product.sizes
       : (typeof product?.sizes === 'string' ? JSON.parse(product.sizes) : []);
@@ -13,6 +15,59 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
   const [activeImgIndex, setActiveImgIndex] = useState(0);
   const [loadedImages, setLoadedImages] = useState({});
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [shakeButton, setShakeButton] = useState(false);
+
+  const parseSwatches = () => {
+    let swatchesList = [];
+    if (!product) return swatchesList;
+    if (product.swatches) {
+      if (Array.isArray(product.swatches)) {
+        swatchesList = product.swatches;
+      } else if (typeof product.swatches === 'string') {
+        swatchesList = product.swatches.split(',').map(s => {
+          const parts = s.split(':');
+          return { name: parts[0]?.trim(), hex: parts[1]?.trim() || '#111111' };
+        });
+      }
+    } else if (Array.isArray(product.details)) {
+      const swatchLine = product.details.find(d => d.includes('Fabric Swatches:'));
+      if (swatchLine) {
+        const swatchStr = swatchLine.replace('Fabric Swatches:', '').trim();
+        swatchesList = swatchStr.split(',').map(s => {
+          const parts = s.split(':');
+          return { name: parts[0]?.trim(), hex: parts[1]?.trim() || '#111111' };
+        });
+      }
+    }
+    
+    // Fallback: detect from name/description but only if actually present
+    if (swatchesList.length === 0 && product.name) {
+      const colorMap = {
+        'indigo': '#1a237e',
+        'charcoal': '#37474f',
+        'sand': '#c2b280',
+        'desert': '#c2b280',
+        'acid': '#8d9db6',
+        'raw': '#0d1b2a',
+        'vintage': '#6d5c4e',
+        'black': '#1a1a1a',
+        'grey': '#616161',
+        'sage': '#7c9473',
+        'tinted': '#8b7355',
+      };
+      const text = `${product.name} ${product.description}`.toLowerCase();
+      const detected = Object.entries(colorMap)
+        .filter(([keyword]) => text.includes(keyword))
+        .map(([name, hex]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), hex }));
+      
+      if (detected.length > 0) {
+        swatchesList = detected;
+      }
+    }
+    return swatchesList;
+  };
+
+  const swatches = parseSwatches();
 
   // Reviews State & CRUD Logic
   const [reviews, setReviews] = useState([]);
@@ -21,6 +76,120 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
   const [newName, setNewName] = useState('');
   const [newImage, setNewImage] = useState('');
   const [writeOpen, setWriteOpen] = useState(false);
+
+  // Q&A State & CRUD Logic
+  const [qnas, setQnas] = useState([]);
+  const [newQuestion, setNewQuestion] = useState('');
+  const [similarProducts, setSimilarProducts] = useState([]);
+  const [shareCopied, setShareCopied] = useState(false);
+
+  useEffect(() => {
+    if (!product?.id) return;
+    const allQna = JSON.parse(localStorage.getItem('offkilt_product_qna') || '{}');
+    setQnas(allQna[product.id] || []);
+  }, [product?.id]);
+
+  useEffect(() => {
+    const handleQnaUpdate = () => {
+      if (!product?.id) return;
+      const allQna = JSON.parse(localStorage.getItem('offkilt_product_qna') || '{}');
+      setQnas(allQna[product.id] || []);
+    };
+    window.addEventListener('offkilt_qna_updated', handleQnaUpdate);
+    return () => window.removeEventListener('offkilt_qna_updated', handleQnaUpdate);
+  }, [product?.id]);
+
+  useEffect(() => {
+    if (!product?.id) return;
+    const fetchSimilar = async () => {
+      try {
+        const res = await productsApi.getAll(product.category);
+        if (res?.data) {
+          const filtered = res.data.filter(p => p.id !== product.id).slice(0, 4);
+          setSimilarProducts(filtered);
+        }
+      } catch (err) {
+        const stored = localStorage.getItem('offkilt_products');
+        let prodList = [];
+        if (stored) {
+          try { prodList = JSON.parse(stored); } catch (e) {}
+        }
+        if (prodList.length === 0) {
+          prodList = localProducts;
+        }
+        const toWebp = (url) => {
+          if (typeof url === 'string') {
+            let newUrl = url.replace(/\.(jpe?g|png)$/i, '.webp');
+            if (import.meta.env.DEV && newUrl.startsWith('/images/')) {
+              newUrl = newUrl.replace(/^\/images\//, '/build/images/');
+            }
+            return newUrl;
+          }
+          return url;
+        };
+        const mapped = prodList.map(p => ({
+          ...p,
+          image: toWebp(p.image),
+          hoverImage: toWebp(p.hoverImage || p.hover_image),
+          images: Array.isArray(p.images) ? p.images.map(toWebp) : [toWebp(p.image)]
+        }));
+        const filtered = mapped.filter(p => p.category === product.category && p.id !== product.id).slice(0, 4);
+        setSimilarProducts(filtered);
+      }
+    };
+    fetchSimilar();
+  }, [product?.id, product?.category]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  const handleQuestionSubmit = (e) => {
+    e.preventDefault();
+    if (!newQuestion.trim()) return;
+    const newQ = {
+      id: `qna-${Date.now()}`,
+      question: newQuestion.trim(),
+      answer: '',
+      date: new Date().toLocaleDateString('en-IN'),
+      createdAt: new Date().toISOString()
+    };
+    const allQna = JSON.parse(localStorage.getItem('offkilt_product_qna') || '{}');
+    const updated = [newQ, ...(allQna[product.id] || [])];
+    allQna[product.id] = updated;
+    localStorage.setItem('offkilt_product_qna', JSON.stringify(allQna));
+    setQnas(updated);
+    setNewQuestion('');
+    window.dispatchEvent(new Event('offkilt_qna_updated'));
+  };
+
+  const handleShareProduct = (e) => {
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}${window.location.pathname}?product=${product.id}`;
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    }).catch(err => {
+      console.error('Failed to copy: ', err);
+    });
+
+    if (navigator.share) {
+      navigator.share({
+        title: product.name,
+        text: `Check out ${product.name} on off-kilt!`,
+        url: shareUrl,
+      }).catch(() => {});
+    }
+  };
 
   // Load reviews from localStorage
   useEffect(() => {
@@ -199,6 +368,13 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
   const handleAddToCart = () => {
     if (safeSizes.length > 0 && !selectedSize) {
       setErrorMsg('Please select a size before adding to cart.');
+      setShakeButton(true);
+      setTimeout(() => setShakeButton(false), 500);
+      
+      const sizeArea = document.querySelector('.size-selection-area');
+      if (sizeArea) {
+        sizeArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
     setErrorMsg('');
@@ -244,6 +420,7 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
             transition={{ type: "spring", damping: 28, stiffness: 220 }}
             className="product-modal open"
             style={{ display: 'grid' }}
+            data-lenis-prevent
           >
             {/* Mobile drag handle */}
             <div className="modal-drag-handle" aria-hidden="true" />
@@ -344,11 +521,7 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
               <div className="modal-details-scrollable">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
                   <div>
-                    <span className="mono modal-tagline">{product.tagline}</span>
                     <h2 className="modal-title">{product.name}</h2>
-                    <div className="mono" style={{ color: 'var(--text-grey)', fontSize: '0.75rem', marginTop: '6px' }}>
-                      CATALOG ID: {product.id} // TAX INCLUDED (GST @ 12% INCL.)
-                    </div>
                   </div>
                   {/* Rating Stars under Name */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--text-grey)', fontFamily: 'var(--font-mono)', marginTop: '4px', flexShrink: 0 }}>
@@ -360,64 +533,42 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                   </div>
                 </div>
 
-                <div className="modal-price">
-                  ₹{product.price.toLocaleString('en-IN')}
+                <div className="modal-price-row-editorial" style={{ display: 'flex', gap: '10px', alignItems: 'center', margin: '4px 0', fontFamily: 'var(--font-mono)' }}>
+                  <span className="original-price-editorial" style={{ fontSize: '0.95rem' }}>₹{(product.price * 2).toLocaleString('en-IN')}</span>
+                  <span className="sale-price-editorial" style={{ fontSize: '1.15rem' }}>₹{product.price.toLocaleString('en-IN')}</span>
+                  <span className="discount-editorial" style={{ fontSize: '0.95rem' }}>50% off</span>
+                </div>
+                
+                <div className="extra-discount-editorial" style={{ fontSize: '0.85rem', marginBottom: '6px' }}>
+                  Extra 20% off $100+
                 </div>
 
-                <p className="modal-desc">
-                  {product.description}
-                </p>
-
                 {/* Color Swatches */}
-                {(() => {
-                  // Derive colors from product name/description
-                  const colorMap = {
-                    'indigo': '#1a237e',
-                    'charcoal': '#37474f',
-                    'sand': '#c2b280',
-                    'desert': '#c2b280',
-                    'acid': '#8d9db6',
-                    'raw': '#0d1b2a',
-                    'vintage': '#6d5c4e',
-                    'black': '#1a1a1a',
-                    'dark': '#1a1a1a',
-                    'grey': '#616161',
-                    'sage': '#7c9473',
-                    'tinted': '#8b7355',
-                  };
-                  const text = `${product.name} ${product.description}`.toLowerCase();
-                  const detectedColors = Object.entries(colorMap)
-                    .filter(([keyword]) => text.includes(keyword))
-                    .map(([name, hex]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), hex }));
-                  // Always include at least the default indigo
-                  if (detectedColors.length === 0) detectedColors.push({ name: 'Indigo', hex: '#1a237e' });
-                  // Add a couple of complementary options
-                  if (detectedColors.length < 3) {
-                    if (!detectedColors.find(c => c.name === 'Black')) detectedColors.push({ name: 'Black', hex: '#1a1a1a' });
-                    if (!detectedColors.find(c => c.name === 'Indigo') && detectedColors.length < 3) detectedColors.push({ name: 'Indigo', hex: '#1a237e' });
-                  }
-
-                  return (
-                    <div className="color-swatches-area">
-                      <span className="color-swatches-title">COLOR</span>
-                      <div className="color-swatches">
-                        {detectedColors.slice(0, 4).map((color, i) => (
-                          <button
-                            key={color.name}
-                            className={`color-swatch ${i === 0 ? 'active' : ''}`}
-                            title={color.name}
-                          >
-                            <div
-                              className="color-swatch-inner"
-                              style={{ backgroundColor: color.hex }}
-                            />
-                          </button>
-                        ))}
-                      </div>
-                      <span className="color-swatch-label">{detectedColors[0]?.name}</span>
+                {swatches.length > 1 ? (
+                  <div className="color-swatches-area">
+                    <span className="color-swatches-title">COLOR</span>
+                    <div className="color-swatches">
+                      {swatches.map((color, i) => (
+                        <button
+                          key={color.name}
+                          className={`color-swatch ${i === 0 ? 'active' : ''}`}
+                          title={color.name}
+                        >
+                          <div
+                            className="color-swatch-inner"
+                            style={{ backgroundColor: color.hex }}
+                          />
+                        </button>
+                      ))}
                     </div>
-                  );
-                })()}
+                    <span className="color-swatch-label">{swatches[0]?.name}</span>
+                  </div>
+                ) : swatches.length === 1 ? (
+                  <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-grey)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>COLOR: </span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>{swatches[0].name}</span>
+                  </div>
+                ) : null}
 
                 {/* Size Selection */}
                 <div className="size-selection-area">
@@ -447,8 +598,24 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                   )}
                 </div>
 
-                {/* Details Accordion */}
-                <div className="specs-accordions">
+                <p className="modal-desc">
+                  {product.description}
+                </p>
+
+
+
+                {/* Mobile View: Clean bullet points list. Desktop: Accordions */}
+                <div className="specs-mobile-list" style={{ marginTop: '20px' }}>
+                  <ul className="spec-list-bullet" style={{ listStyle: 'none', padding: 0 }}>
+                    {safeDetails.map((detail, i) => (
+                      <li key={i} style={{ fontSize: '0.78rem', color: 'var(--text-grey)', marginBottom: '8px', display: 'flex', gap: '8px', alignItems: 'flex-start', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.5px', lineHeight: '1.4' }}>
+                        <span style={{ color: 'var(--accent-raw)', flexShrink: 0 }}>•</span> {detail}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="specs-accordions specs-desktop-only">
                   <div className="spec-accordion">
                     <button className="spec-header" onClick={() => toggleAccordion('specs')}>
                       <span>TECHNICAL SPECIFICATIONS</span>
@@ -512,6 +679,75 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                     </AnimatePresence>
                   </div>
                 </div>
+
+                {/* Similar Products Section */}
+                {similarProducts.length > 0 && (
+                  <div className="similar-products-section" style={{ marginTop: '30px', borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                      <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '0.9rem', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                        YOU MAY ALSO LIKE
+                      </h3>
+                      <button 
+                        onClick={handleShareProduct}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '0.75rem',
+                          fontFamily: 'var(--font-mono)',
+                          color: 'var(--text-light)',
+                          border: '1px solid rgba(0,0,0,0.1)',
+                          padding: '6px 12px',
+                          borderRadius: '2px',
+                          cursor: 'pointer',
+                          background: 'none'
+                        }}
+                      >
+                        <Share2 size={12} />
+                        {shareCopied ? 'COPIED!' : 'SHARE PRODUCT'}
+                      </button>
+                    </div>
+                    
+                    <div className="similar-products-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                      {similarProducts.map((p) => {
+                        const pImages = p.images && Array.isArray(p.images) && p.images.length > 0
+                          ? p.images
+                          : (typeof p.images === 'string'
+                              ? (() => { try { return JSON.parse(p.images); } catch { return [p.image].filter(Boolean); } })()
+                              : [p.image].filter(Boolean));
+                        const displayImg = pImages[0] || p.image;
+                        return (
+                          <div 
+                            key={p.id} 
+                            onClick={() => {
+                              if (onProductClick) {
+                                onProductClick(p);
+                                setActiveImgIndex(0);
+                              }
+                            }}
+                            style={{ cursor: 'pointer' }}
+                            className="similar-product-card"
+                          >
+                            <div style={{ aspectRatio: '3/4', overflow: 'hidden', backgroundColor: 'var(--bg-cream)', marginBottom: '8px', position: 'relative' }}>
+                              <img 
+                                src={displayImg} 
+                                alt={p.name} 
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                loading="lazy"
+                              />
+                            </div>
+                            <h4 className="similar-product-title">
+                              {p.name}
+                            </h4>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                              ₹{p.price.toLocaleString('en-IN')}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Customer Reviews Section */}
                 <div style={{ marginTop: '30px', borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '20px' }}>
@@ -708,12 +944,136 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                     ))}
                   </div>
                 </div>
+
+                {/* Q&A Section */}
+                <div className="product-qna-section" style={{ marginTop: '30px', borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '20px' }}>
+                  <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '0.9rem', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '16px' }}>
+                    QUESTIONS & ANSWERS
+                  </h3>
+                  
+                  <form onSubmit={handleQuestionSubmit} style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                    <input 
+                      type="text"
+                      placeholder="Ask a question about this product..."
+                      value={newQuestion}
+                      onChange={(e) => setNewQuestion(e.target.value)}
+                      required
+                      style={{
+                        flex: 1,
+                        padding: '10px 14px',
+                        fontSize: '0.8rem',
+                        border: '1px solid rgba(0,0,0,0.1)',
+                        borderRadius: '2px',
+                        backgroundColor: '#ffffff',
+                        color: '#111111',
+                        outline: 'none',
+                        fontFamily: 'inherit'
+                      }}
+                    />
+                    <button 
+                      type="submit" 
+                      className="btn-primary" 
+                      style={{ 
+                        padding: '0 16px', 
+                        fontSize: '0.75rem', 
+                        fontFamily: 'var(--font-mono)', 
+                        height: '40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      ASK
+                    </button>
+                  </form>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {qnas.length === 0 ? (
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-grey)', fontStyle: 'italic', textAlign: 'center', padding: '10px 0' }}>
+                        No questions asked yet. Be the first to ask!
+                      </p>
+                    ) : (
+                      qnas.map((q) => (
+                        <div key={q.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)', paddingBottom: '14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
+                            <span style={{ 
+                              fontFamily: 'var(--font-mono)', 
+                              fontSize: '0.75rem', 
+                              fontWeight: 'bold', 
+                              color: 'var(--accent-raw)',
+                              backgroundColor: 'rgba(0,0,0,0.04)',
+                              padding: '2px 6px',
+                              borderRadius: '2px'
+                            }}>Q</span>
+                            <p style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-light)', marginTop: '2px', lineHeight: '1.4' }}>
+                              {q.question}
+                            </p>
+                          </div>
+                          
+                          {q.answer ? (
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', paddingLeft: '12px', marginTop: '8px' }}>
+                              <span style={{ 
+                                fontFamily: 'var(--font-mono)', 
+                                fontSize: '0.65rem', 
+                                fontWeight: 'bold', 
+                                color: '#15803d',
+                                backgroundColor: '#f0fdf4',
+                                padding: '2px 6px',
+                                borderRadius: '2px',
+                                whiteSpace: 'nowrap'
+                              }}>ADMIN REPLY</span>
+                              <p style={{ fontSize: '0.8rem', color: 'var(--text-grey)', marginTop: '2px', lineHeight: '1.4' }}>
+                                {q.answer}
+                              </p>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', paddingLeft: '12px', marginTop: '8px' }}>
+                              <span style={{ 
+                                fontFamily: 'var(--font-mono)', 
+                                fontSize: '0.65rem', 
+                                fontWeight: 'bold', 
+                                color: 'var(--text-muted)',
+                                backgroundColor: 'rgba(0,0,0,0.02)',
+                                padding: '2px 6px',
+                                borderRadius: '2px',
+                                whiteSpace: 'nowrap'
+                              }}>PENDING REPLY</span>
+                              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '2px' }}>
+                                Admin will answer this shortly.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Sticky bottom actions */}
               <div className="modal-actions-fixed">
-                <button className="btn-primary add-to-cart-btn" onClick={handleAddToCart} style={{ flex: 1 }}>
+                <button className={`btn-primary add-to-cart-btn ${shakeButton ? 'shake-anim' : ''}`} onClick={handleAddToCart} style={{ flex: 1 }}>
                   <ShoppingBag size={16} /> Add To Cart
+                </button>
+                {/* Share Product Button */}
+                <button
+                  onClick={handleShareProduct}
+                  title="Share Product"
+                  style={{
+                    width: '52px',
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid rgba(0,0,0,0.1)',
+                    background: '#ffffff',
+                    borderRadius: '2px',
+                    cursor: 'pointer',
+                    color: 'var(--text-light)',
+                    transition: 'all 0.3s ease',
+                  }}
+                >
+                  <Share2 size={18} />
                 </button>
                 {/* Wishlist toggle button */}
                 <button

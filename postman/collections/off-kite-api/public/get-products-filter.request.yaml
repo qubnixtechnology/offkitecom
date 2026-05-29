@@ -1,0 +1,14 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/products?category={{productCategory}}'
+order: 4000
+headers:
+  - key: Accept
+    value: application/json
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Filtered products request returns success', function () {
+        pm.expect(pm.response.code).to.equal(200);
+      });

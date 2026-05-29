@@ -121,7 +121,11 @@ export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onW
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: idx * 0.06 }}
                   >
-                    <div className="arrival-img-wrapper">
+                    <div 
+                      className="arrival-img-wrapper"
+                      onClick={() => onProductClick?.(product)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       {/* Badge */}
                       {badge === 'new' && <span className="arrival-badge-new">New</span>}
                       {badge === 'trending' && <span className="arrival-badge-trending">Trending</span>}
@@ -141,18 +145,35 @@ export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onW
                       </button>
 
                       {/* Images */}
-                      <img src={product.image} alt={product.name} className="arrival-img" loading="lazy" />
+                      <img 
+                        src={product.image} 
+                        alt={product.name} 
+                        className="arrival-img" 
+                        loading="lazy" 
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => onProductClick?.(product)}
+                      />
                       {product.hoverImage && (
-                        <img src={product.hoverImage} alt={product.name} className="arrival-img-hover" loading="lazy" />
+                        <img 
+                          src={product.hoverImage} 
+                          alt={product.name} 
+                          className="arrival-img-hover" 
+                          loading="lazy" 
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => onProductClick?.(product)}
+                        />
                       )}
 
                       {/* Hover Actions */}
-                      <div className="arrival-card-actions">
+                      <div 
+                        className="arrival-card-actions"
+                        onClick={(e) => { e.stopPropagation(); onProductClick?.(product); }}
+                      >
                         <button className="arrival-quick-add" onClick={(e) => { e.stopPropagation(); onAddToCart?.(product); }}>
                           <ShoppingBag size={13} style={{ display: 'inline', marginRight: 6 }} />
                           Quick Add
                         </button>
-                        <button className="arrival-quick-view" onClick={() => onProductClick?.(product)}>
+                        <button className="arrival-quick-view" onClick={(e) => { e.stopPropagation(); onProductClick?.(product); }}>
                           <Eye size={12} style={{ display: 'inline', marginRight: 5 }} />
                           View Details
                         </button>
@@ -161,14 +182,24 @@ export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onW
 
                     <div className="arrival-info" onClick={() => onProductClick?.(product)}>
                       <p className="arrival-name">{product.name}</p>
+                      
+                      <div className="catalog-price-row-editorial" style={{ margin: '4px 0' }}>
+                        <span className="original-price-editorial">₹{(product.price * 2).toLocaleString('en-IN')}</span>
+                        <span className="sale-price-editorial">₹{product.price?.toLocaleString('en-IN')}</span>
+                        <span className="discount-editorial">50% off</span>
+                      </div>
+                      
+                      <div className="extra-discount-editorial" style={{ marginBottom: '6px' }}>
+                        Extra 20% off $100+
+                      </div>
+
                       <div className="arrival-meta-row">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <StarRating rating={rating} />
                           <span className="arrival-review-count">({reviewCount})</span>
                         </div>
-                        <span className="arrival-price">₹{product.price?.toLocaleString('en-IN')}</span>
                       </div>
-                      {scarcity && <p className="arrival-scarcity">{scarcity}</p>}
+                      {scarcity && <p className="arrival-scarcity" style={{ marginTop: '4px' }}>{scarcity}</p>}
                     </div>
                   </motion.div>
                 );

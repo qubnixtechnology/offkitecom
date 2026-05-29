@@ -1,0 +1,36 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/orders'
+order: 3000
+headers:
+  - key: Accept
+    value: application/json
+  - key: Content-Type
+    value: application/json
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{authToken}}'
+body:
+  type: json
+  content: |-
+    {
+      "product_id": {{productId}},
+      "quantity": 1,
+      "shipping_address": "123 Test Street"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Create order returns success', function () {
+        pm.expect(pm.response.code).to.be.oneOf([200, 201]);
+      });
+      const data = pm.response.json();
+      const order = data.data || data.order || data;
+      const id = order.id || order.order_id;
+      if (id) {
+        pm.collectionVariables.set('orderId', String(id));
+        pm.environment.set('orderId', String(id));
+      }

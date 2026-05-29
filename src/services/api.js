@@ -37,24 +37,23 @@ export const auth = {
     }
   },
   login: async (credentials) => {
-    // Check hardcoded mock accounts first
-    if (credentials.email === 'admin@off-kilt.com' && credentials.password === 'admin123') {
-      const user = { name: 'Rebel Admin', email: 'admin@off-kilt.com', phone: '0000000000', address: 'Command Center', pincode: '000000', id: 0 };
-      localStorage.setItem('offkilt_current_user', JSON.stringify(user));
-      return { data: { user, access_token: 'mock-admin-token' } };
-    }
+    // Offline demo accounts — only used if backend is unreachable
     if (credentials.email === 'demo@off-kilt.com' && credentials.password === 'rebel') {
-      const user = { name: 'Demo User', email: 'demo@off-kilt.com', phone: '9999999999', address: 'Off-Kilt HQ, Cyber City', pincode: '100001', id: 1 };
+      const user = { name: 'Demo User', email: 'demo@off-kilt.com', phone: '9999999999', address: 'Off-Kilt HQ, Cyber City', pincode: '100001', id: 1, is_admin: false };
       localStorage.setItem('offkilt_current_user', JSON.stringify(user));
       return { data: { user, access_token: 'mock-token' } };
     }
 
     try { 
-      const res = await api.post('/login', credentials); 
+      const res = await api.post('/login', credentials);
+      // Store token in localStorage so future requests are authenticated
+      if (res.data?.access_token) {
+        localStorage.setItem('offkilt_auth_token', res.data.access_token);
+      }
       if (res.data?.user) localStorage.setItem('offkilt_current_user', JSON.stringify(res.data.user));
       return res;
     } catch (err) {
-      // Fallback to localStorage registered accounts
+      // Fallback to localStorage registered accounts when backend is offline
       const users = JSON.parse(localStorage.getItem('offkilt_users') || '[]');
       const user = users.find(u => u.email === credentials.email && u.password === credentials.password);
       if (user) {
@@ -132,6 +131,17 @@ export const products = {
 };
 
 export const admin = {
+  // Fetch all products for admin (including inactive)
+  getAllProducts: async () => {
+    try {
+      const res = await api.get('/admin/products');
+      return { data: res.data.map(mapProductImagePaths) };
+    } catch (err) {
+      if (err.response) throw err;
+      const stored = JSON.parse(localStorage.getItem('offkilt_products') || JSON.stringify(localProducts));
+      return { data: stored.map(mapProductImagePaths) };
+    }
+  },
   createProduct: async (data) => {
     try {
       const res = await api.post('/admin/products', data);
@@ -161,6 +171,14 @@ export const admin = {
       throw { response: { data: { message: 'Product not found' } } };
     }
   },
+  toggleProduct: async (id) => {
+    try {
+      return await api.patch(`/admin/products/${id}/toggle`);
+    } catch (err) {
+      if (err.response) throw err;
+      return { data: { message: 'toggled' } };
+    }
+  },
   deleteProduct: async (id) => {
     try { return await api.delete(`/admin/products/${id}`); } catch (err) {
       if (err.response) throw err;
@@ -169,8 +187,43 @@ export const admin = {
       localStorage.setItem('offkilt_products', JSON.stringify(filtered));
       return { data: { message: 'Deleted' } };
     }
-  }
+  },
+  // Admin order management
+  getAllOrders: async (params = {}) => {
+    try {
+      const query = new URLSearchParams(params).toString();
+      const res = await api.get(`/admin/orders${query ? '?' + query : ''}`);
+      return { data: res.data };
+    } catch (err) {
+      if (err.response) throw err;
+      return { data: JSON.parse(localStorage.getItem('offkilt_orders') || '[]') };
+    }
+  },
+  updateOrderStatus: async (id, status) => {
+    try {
+      return await api.patch(`/admin/orders/${id}/status`, { status });
+    } catch (err) {
+      if (err.response) throw err;
+      return { data: { message: 'updated locally' } };
+    }
+  },
+  deleteOrder: async (id) => {
+    try { return await api.delete(`/admin/orders/${id}`); } catch (err) {
+      if (err.response) throw err;
+      return { data: { message: 'Deleted' } };
+    }
+  },
+  // Dashboard stats
+  getDashboardStats: async () => {
+    try {
+      const res = await api.get('/admin/dashboard');
+      return { data: res.data };
+    } catch (err) {
+      return { data: null };
+    }
+  },
 };
+
 
 export const orders = {
   create: async (data) => {

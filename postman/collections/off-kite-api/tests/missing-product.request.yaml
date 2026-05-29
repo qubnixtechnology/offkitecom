@@ -1,0 +1,14 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/products/999999999'
+order: 6000
+headers:
+  - key: Accept
+    value: application/json
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Missing product returns 404', function () {
+        pm.expect(pm.response.code).to.equal(404);
+      });

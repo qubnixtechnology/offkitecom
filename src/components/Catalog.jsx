@@ -11,17 +11,96 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
   const [addedIds, setAddedIds] = useState({}); // track which products were just added
   const [reviewTrigger, setReviewTrigger] = useState(0);
   const [productTrigger, setProductTrigger] = useState(0);
+  const [categoriesList, setCategoriesList] = useState(() => {
+    const defaults = ['all', 'jeans', 'skirts', 'baggy', 'relaxed', 'boot cut', 'slim', 'skinny'];
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_categories_list')) || defaults;
+    } catch (e) {
+      return defaults;
+    }
+  });
 
   useEffect(() => {
     const handleReviews = () => setReviewTrigger(prev => prev + 1);
     const handleProducts = () => setProductTrigger(prev => prev + 1);
+    const handleSettings = () => {
+      const defaults = ['all', 'jeans', 'skirts', 'baggy', 'relaxed', 'boot cut', 'slim', 'skinny'];
+      try {
+        const stored = JSON.parse(localStorage.getItem('offkilt_categories_list'));
+        if (stored && Array.isArray(stored)) {
+          setCategoriesList(stored);
+        } else {
+          setCategoriesList(defaults);
+        }
+      } catch (e) {
+        setCategoriesList(defaults);
+      }
+    };
     window.addEventListener('offkilt_reviews_updated', handleReviews);
     window.addEventListener('offkilt_products_updated', handleProducts);
+    window.addEventListener('offkilt_settings_updated', handleSettings);
     return () => {
       window.removeEventListener('offkilt_reviews_updated', handleReviews);
       window.removeEventListener('offkilt_products_updated', handleProducts);
+      window.removeEventListener('offkilt_settings_updated', handleSettings);
     };
   }, []);
+
+  useEffect(() => {
+    if (categoriesList.length > 0 && !categoriesList.includes(activeTab)) {
+      setActiveTab(categoriesList[0]);
+    }
+  }, [categoriesList, activeTab, setActiveTab]);
+
+  const parseSwatches = (product) => {
+    let swatchesList = [];
+    if (!product) return swatchesList;
+    if (product.swatches) {
+      if (Array.isArray(product.swatches)) {
+        swatchesList = product.swatches;
+      } else if (typeof product.swatches === 'string') {
+        swatchesList = product.swatches.split(',').map(s => {
+          const parts = s.split(':');
+          return { name: parts[0]?.trim(), hex: parts[1]?.trim() || '#111111' };
+        });
+      }
+    } else if (Array.isArray(product.details)) {
+      const swatchLine = product.details.find(d => d.includes('Fabric Swatches:'));
+      if (swatchLine) {
+        const swatchStr = swatchLine.replace('Fabric Swatches:', '').trim();
+        swatchesList = swatchStr.split(',').map(s => {
+          const parts = s.split(':');
+          return { name: parts[0]?.trim(), hex: parts[1]?.trim() || '#111111' };
+        });
+      }
+    }
+    
+    // Fallback: detect from name/description
+    if (swatchesList.length === 0 && product.name) {
+      const colorMap = {
+        'indigo': '#1a237e',
+        'charcoal': '#37474f',
+        'sand': '#c2b280',
+        'desert': '#c2b280',
+        'acid': '#8d9db6',
+        'raw': '#0d1b2a',
+        'vintage': '#6d5c4e',
+        'black': '#1a1a1a',
+        'grey': '#616161',
+        'sage': '#7c9473',
+        'tinted': '#8b7355',
+      };
+      const text = `${product.name} ${product.description || ''}`.toLowerCase();
+      const detected = Object.entries(colorMap)
+        .filter(([keyword]) => text.includes(keyword))
+        .map(([name, hex]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), hex }));
+      
+      if (detected.length > 0) {
+        swatchesList = detected;
+      }
+    }
+    return swatchesList;
+  };
 
   const getProductRatingInfo = (productId) => {
     const allReviews = JSON.parse(localStorage.getItem('offkilt_product_reviews') || '{}');
@@ -120,7 +199,7 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
           </div>
           
           <div className="category-tabs">
-            {['all', 'jeans', 'skirts', 'baggy', 'relaxed', 'boot cut', 'slim', 'skinny'].map(tab => (
+            {categoriesList.map(tab => (
               <button 
                 key={tab}
                 className={`category-tab mono ${activeTab === tab ? 'active' : ''}`}
@@ -145,7 +224,11 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                   key={`${renderedCategory}-${product.id}`}
                   className="product-card"
                 >
-                  <div className="product-image-container">
+                  <div 
+                    className="product-image-container"
+                    onClick={() => onProductClick(product)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     {product.badge && <span className="product-card-badge">{product.badge}</span>}
 
                     {/* Wishlist heart button — no login required */}
@@ -167,10 +250,12 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                     )}
                     
                     <img 
-                      src={product.image} 
+                       src={product.image} 
                       alt={product.name} 
                       className={`product-image ${loadedImages[product.image] ? 'loaded' : 'loading-blur'}`}
                       loading="lazy"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => onProductClick(product)}
                       ref={(el) => {
                         if (el && el.complete && el.naturalWidth > 0 && !loadedImages[product.image]) {
                           handleImageLoad(product.image);
@@ -184,6 +269,8 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                         alt={`${product.name} alternate view`} 
                         className={`product-image-hover ${loadedImages[product.hoverImage] ? 'loaded' : 'loading-blur'}`} 
                         loading="lazy"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => onProductClick(product)}
                         ref={(el) => {
                           if (el && el.complete && el.naturalWidth > 0 && !loadedImages[product.hoverImage]) {
                             handleImageLoad(product.hoverImage);
@@ -192,10 +279,13 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                         onLoad={() => handleImageLoad(product.hoverImage)}
                       />
                     )}
-                    <div className="product-card-overlay">
+                    <div 
+                      className="product-card-overlay"
+                      onClick={() => onProductClick(product)}
+                    >
                       <button 
                         className="product-quick-btn mono"
-                        onClick={() => onProductClick(product)}
+                        onClick={(e) => { e.stopPropagation(); onProductClick(product); }}
                       >
                         Quick Details
                       </button>
@@ -208,13 +298,45 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                     onClick={() => onProductClick(product)}
                     style={{ cursor: 'pointer' }}
                   >
-                    <div className="product-meta">
-                      <span className="product-tag">{product.tagline}</span>
+                    <div className="product-meta" style={{ width: '100%', maxWidth: '100%' }}>
                       <h3 className="product-name">{product.name}</h3>
+                      
+                      {/* Calvin Klein style price display with discounts */}
+                      <div className="catalog-price-row-editorial">
+                        <span className="original-price-editorial">₹{(product.price * 2).toLocaleString('en-IN')}</span>
+                        <span className="sale-price-editorial">₹{product.price.toLocaleString('en-IN')}</span>
+                        <span className="discount-editorial">50% off</span>
+                      </div>
+
+                      <div className="extra-discount-editorial">
+                        Extra 20% off $100+
+                      </div>
+
+                      {/* Dynamic Color Swatches circular list */}
+                      {(() => {
+                        const swatchesList = parseSwatches(product);
+                        if (swatchesList && swatchesList.length > 0) {
+                          return (
+                            <div className="catalog-swatches-editorial">
+                              {swatchesList.map((color, i) => (
+                                <span
+                                  key={color.name}
+                                  className={`catalog-swatch-circle ${i === 0 ? 'active' : ''}`}
+                                  style={{ backgroundColor: color.hex }}
+                                  title={color.name}
+                                />
+                              ))}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+
+                      {/* Ratings stars display */}
                       {(() => {
                         const info = getProductRatingInfo(product.id);
                         return (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.68rem', color: 'var(--accent-gold)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.68rem', color: 'var(--accent-gold)', marginTop: '6px', fontFamily: 'var(--font-mono)' }}>
                             <Star size={10} fill="var(--accent-gold)" stroke="var(--accent-gold)" />
                             <span style={{ color: 'var(--text-light)', fontWeight: 600 }}>{info.rating}</span>
                             <span style={{ color: 'var(--text-muted)' }}>({info.count})</span>
@@ -222,10 +344,7 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                         );
                       })()}
                     </div>
-                    <div className="product-price-row">
-                      <div className="product-price">
-                        ₹{product.price.toLocaleString('en-IN')}
-                      </div>
+                    <div className="product-price-row" style={{ display: 'flex', alignSelf: 'flex-end', marginTop: '10px' }}>
                       {/* Mobile Quick Add button — replaces the price row on mobile tap */}
                       <button
                         className={`catalog-quick-add-btn ${addedIds[product.id] ? 'added' : ''}`}

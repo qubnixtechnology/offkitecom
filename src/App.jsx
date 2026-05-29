@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ShoppingBag, Menu, X, Phone, User, Search, Check, AlertCircle, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lenis from 'lenis';
-import { auth, profile, orders as ordersApi } from './services/api';
+import { auth, profile, orders as ordersApi, products as productsApi } from './services/api';
 import Preloader from './components/Preloader';
 import Hero from './components/Hero';
 import NewArrivals from './components/NewArrivals';
@@ -90,6 +90,34 @@ export default function App() {
     localStorage.getItem('offkilt_announcement_color') || '#ffffff'
   );
 
+  // Custom Font & Navigation Menu states
+  const [fontHeading, setFontHeading] = useState(() => localStorage.getItem('offkilt_font_heading') || 'Outfit');
+  const [fontBody, setFontBody] = useState(() => localStorage.getItem('offkilt_font_body') || 'Inter');
+  const [menuItems, setMenuItems] = useState(() => {
+    const defaults = [
+      { label: 'New', link: '#new-arrivals', visible: true },
+      { label: 'Men', link: '#campaign-men', category: 'jeans', visible: true },
+      { label: 'Women', link: '#campaign-women', category: 'skirts', visible: true },
+      { label: 'Collection', link: '#catalog', visible: true },
+      { label: 'After Dark', link: '#catalog', category: 'all', visible: true },
+      { label: 'Sale', link: '#catalog', category: 'all', visible: true }
+    ];
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_menus')) || defaults;
+    } catch (e) {
+      return defaults;
+    }
+  });
+  const [whatsappNumber, setWhatsappNumber] = useState(() => {
+    const stored = localStorage.getItem('offkilt_whatsapp');
+    if (stored) return stored.replace(/[^0-9]/g, '');
+    try {
+      const footer = JSON.parse(localStorage.getItem('offkilt_footer_settings'));
+      if (footer?.phone) return footer.phone.replace(/[^0-9]/g, '');
+    } catch(e) {}
+    return '918291155692';
+  });
+
   // Campaign Banners States
   const [campaignMen, setCampaignMen] = useState(() => {
     try {
@@ -134,6 +162,21 @@ export default function App() {
       setShowAnnouncement(localStorage.getItem('offkilt_announcement_show') !== 'false');
       setAnnouncementBg(localStorage.getItem('offkilt_announcement_bg') || '#111111');
       setAnnouncementColor(localStorage.getItem('offkilt_announcement_color') || '#ffffff');
+      setFontHeading(localStorage.getItem('offkilt_font_heading') || 'Outfit');
+      setFontBody(localStorage.getItem('offkilt_font_body') || 'Inter');
+      try {
+        const storedMenus = localStorage.getItem('offkilt_menus');
+        if (storedMenus) setMenuItems(JSON.parse(storedMenus));
+      } catch (e) {}
+      const storedWhatsapp = localStorage.getItem('offkilt_whatsapp');
+      if (storedWhatsapp) {
+        setWhatsappNumber(storedWhatsapp.replace(/[^0-9]/g, ''));
+      } else {
+        try {
+          const footer = JSON.parse(localStorage.getItem('offkilt_footer_settings'));
+          if (footer?.phone) setWhatsappNumber(footer.phone.replace(/[^0-9]/g, ''));
+        } catch(e) {}
+      }
       try {
         const men = JSON.parse(localStorage.getItem('offkilt_campaign_men'));
         if (men) setCampaignMen(men);
@@ -171,6 +214,8 @@ export default function App() {
     } catch { return []; }
   });
 
+  const lenisRef = useRef(null);
+
   // Initialize Lenis Smooth Scrolling
   useEffect(() => {
     const lenis = new Lenis({
@@ -178,6 +223,7 @@ export default function App() {
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       smoothWheel: true,
     });
+    lenisRef.current = lenis;
 
     function raf(time) {
       lenis.raf(time);
@@ -186,8 +232,26 @@ export default function App() {
 
     requestAnimationFrame(raf);
 
-    return () => lenis.destroy();
+    return () => {
+      lenis.destroy();
+      lenisRef.current = null;
+    };
   }, []);
+
+  // Disable body scroll and pause Lenis scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+      if (lenisRef.current) lenisRef.current.stop();
+    } else {
+      document.body.style.overflow = '';
+      if (lenisRef.current) lenisRef.current.start();
+    }
+    return () => {
+      document.body.style.overflow = '';
+      if (lenisRef.current) lenisRef.current.start();
+    };
+  }, [isMobileMenuOpen]);
 
   // Check auth and fetch past orders on mount
   useEffect(() => {
@@ -217,13 +281,28 @@ export default function App() {
     checkAuth();
   }, []);
 
-  // Monitor URL parameters for simulated password reset links on initialization
+  // Monitor URL parameters for simulated password reset links and product quick views on initialization
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('reset-email')) {
       setTimeout(() => {
         setIsProfileOpen(true);
       }, 0);
+    }
+
+    const prodId = params.get('product');
+    if (prodId) {
+      const loadProduct = async () => {
+        try {
+          const res = await productsApi.getOne(prodId);
+          if (res.data) {
+            handleQuickView(res.data);
+          }
+        } catch (e) {
+          console.error('Failed to load product from query param', e);
+        }
+      };
+      setTimeout(loadProduct, 200);
     }
   }, []);
 
@@ -301,8 +380,18 @@ export default function App() {
     );
   };
 
+  const handleCloseProductModal = () => {
+    setIsProductModalOpen(false);
+    setSelectedProduct(null);
+    const cleanUrl = `${window.location.origin}${window.location.pathname}`;
+    window.history.pushState({ path: cleanUrl }, '', cleanUrl);
+  };
+
   const handleQuickView = (product) => {
     if (!product) return;
+    const newUrl = `${window.location.origin}${window.location.pathname}?product=${product.id}`;
+    window.history.pushState({ path: newUrl }, '', newUrl);
+
     // Sanitize array fields — they may be JSON strings when coming from localStorage wishlist
     const parseArr = (val) => {
       if (Array.isArray(val)) return val;
@@ -513,6 +602,11 @@ export default function App() {
   return (
     <div className="app-container" style={{ paddingTop: showAnnouncement ? '36px' : '0px' }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=${fontHeading.replace(/ /g, '+')}:wght@300;400;500;700;800&family=${fontBody.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap');
+        :root {
+          --font-heading: '${fontHeading}', sans-serif;
+          --font-body: '${fontBody}', sans-serif;
+        }
         @keyframes marquee-scroll-announcement {
           0% { transform: translate3d(0, 0, 0); }
           100% { transform: translate3d(-50%, 0, 0); }
@@ -521,7 +615,7 @@ export default function App() {
       
       {showAnnouncement && (
         <div className="announcement-bar" style={{
-          position: 'fixed',
+          position: 'absolute',
           top: 0,
           left: 0,
           width: '100%',
@@ -593,116 +687,134 @@ export default function App() {
               </a>
 
               {/* Navigation Links — Calvin Klein Style */}
-              <nav className={`nav-links ${isMobileMenuOpen ? 'open' : ''}`} onMouseLeave={handleNavMouseLeave}>
-                <a 
-                  href="#new-arrivals" 
-                  className="nav-link"
-                  onClick={(e) => { e.preventDefault(); scrollToSection('new-arrivals'); }}
-                  onMouseEnter={() => handleNavMouseEnter(null)}
-                >
-                  New
-                </a>
-                <a 
-                  href="#campaign-men" 
-                  className="nav-link"
-                  onClick={(e) => { e.preventDefault(); setActiveCategory('jeans'); scrollToSection('catalog'); }}
-                  onMouseEnter={() => handleNavMouseEnter('men')}
-                >
-                  Men
-                </a>
-                <a 
-                  href="#campaign-women" 
-                  className="nav-link"
-                  onClick={(e) => { e.preventDefault(); setActiveCategory('skirts'); scrollToSection('catalog'); }}
-                  onMouseEnter={() => handleNavMouseEnter('women')}
-                >
-                  Women
-                </a>
-                <a 
-                  href="#catalog" 
-                  className={`nav-link ${activeSection === 'catalog' ? 'active' : ''}`}
-                  onClick={(e) => { e.preventDefault(); scrollToSection('catalog'); }}
-                  onMouseEnter={() => handleNavMouseEnter(null)}
-                >
-                  Collection
-                </a>
-                <a 
-                  href="#catalog" 
-                  className="nav-link"
-                  onClick={(e) => { e.preventDefault(); setActiveCategory('all'); scrollToSection('catalog'); }}
-                  onMouseEnter={() => handleNavMouseEnter(null)}
-                >
-                  After Dark
-                </a>
-                <a 
-                  href="#catalog" 
-                  className="nav-link"
-                  onClick={(e) => { e.preventDefault(); setActiveCategory('all'); scrollToSection('catalog'); }}
-                  onMouseEnter={() => handleNavMouseEnter(null)}
-                >
-                  Sale
-                </a>
+              <nav className={`nav-links ${isMobileMenuOpen ? 'open' : ''}`} data-lenis-prevent="true" onMouseLeave={handleNavMouseLeave}>
+                {menuItems.filter(item => item.visible !== false).map((item, idx) => (
+                  <a
+                    key={idx}
+                    href={item.link}
+                    className={`nav-link ${(item.link === '#catalog' && activeSection === 'catalog') ? 'active' : ''}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (item.category) {
+                        setActiveCategory(item.category);
+                      }
+                      const sectionId = item.link.replace('#', '');
+                      scrollToSection(sectionId || 'hero');
+                    }}
+                    onMouseEnter={() => {
+                      const labelLower = item.label.toLowerCase();
+                      if (labelLower === 'men') handleNavMouseEnter('men');
+                      else if (labelLower === 'women') handleNavMouseEnter('women');
+                      else handleNavMouseEnter(null);
+                    }}
+                  >
+                    {item.label}
+                  </a>
+                ))}
+
+                {/* Mobile Menu Spacer/Divider & Extras (Hidden on Desktop) */}
+                <div className="mobile-menu-divider" />
+                <div className="mobile-menu-extra-links">
+                  {currentUser ? (
+                    <>
+                      <button 
+                        className="mobile-extra-link" 
+                        onClick={() => { setIsMobileMenuOpen(false); setIsProfileOpen(true); }}
+                      >
+                        Account ({currentUser.name})
+                      </button>
+                      <button 
+                        className="mobile-extra-link" 
+                        onClick={() => { setIsMobileMenuOpen(false); handleLogout(); }}
+                        style={{ color: 'var(--accent-raw)' }}
+                      >
+                        Logout
+                      </button>
+                    </>
+                  ) : (
+                    <button 
+                      className="mobile-extra-link" 
+                      onClick={() => { setIsMobileMenuOpen(false); setIsProfileOpen(true); }}
+                    >
+                      Sign In / Register
+                    </button>
+                  )}
+                  <button 
+                    className="mobile-extra-link" 
+                    onClick={() => { setIsMobileMenuOpen(false); setIsTrackingOpen(true); }}
+                  >
+                    Track Order
+                  </button>
+                </div>
+                <div className="mobile-menu-footer">
+                  <a href={localStorage.getItem('offkilt_instagram') || 'https://instagram.com/off_kilt'} target="_blank" rel="noreferrer" className="mobile-social-link">Instagram</a>
+                  <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer" className="mobile-social-link">WhatsApp Support</a>
+                </div>
               </nav>
 
               {/* Actions: Profile & Cart Trigger */}
               <div className="header-actions">
-                <button 
-                  className="header-btn" 
-                  onClick={() => setIsProfileOpen(true)} 
-                  title="User Profile"
-                  style={{ display: 'flex', alignItems: 'center', position: 'relative' }}
-                >
-                  {currentUser && currentUser.profileImage ? (
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                      <img 
-                        src={currentUser.profileImage} 
-                        alt="Profile" 
-                        style={{ 
-                          width: '20px', 
-                          height: '20px', 
-                          borderRadius: '50%', 
-                          objectFit: 'cover', 
-                          border: '1px solid var(--accent-raw)' 
-                        }} 
-                      />
-                      <span style={{
-                        position: 'absolute',
-                        top: '-2px',
-                        right: '-2px',
-                        width: '7px',
-                        height: '7px',
-                        borderRadius: '50%',
-                        backgroundColor: 'var(--accent-raw)',
-                        border: '1px solid var(--bg-dark)'
-                      }} />
-                    </div>
-                  ) : (
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                      <User size={20} style={{ color: currentUser ? 'var(--accent-raw)' : 'inherit' }} />
-                      {currentUser && (
-                        <span style={{
-                          position: 'absolute',
-                          top: '-2px',
-                          right: '-2px',
-                          width: '7px',
-                          height: '7px',
-                          borderRadius: '50%',
-                          backgroundColor: 'var(--accent-raw)',
-                          border: '1px solid var(--bg-dark)'
-                        }} />
+                {!isMobileMenuOpen && (
+                  <>
+                    <button 
+                      className="header-btn" 
+                      onClick={() => setIsProfileOpen(true)} 
+                      title="User Profile"
+                      style={{ display: 'flex', alignItems: 'center', position: 'relative' }}
+                    >
+                      {currentUser && currentUser.profileImage ? (
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <img 
+                            src={currentUser.profileImage} 
+                            alt="Profile" 
+                            style={{ 
+                              width: '20px', 
+                              height: '20px', 
+                              borderRadius: '50%', 
+                              objectFit: 'cover', 
+                              border: '1px solid var(--accent-raw)' 
+                            }} 
+                          />
+                          <span style={{
+                            position: 'absolute',
+                            top: '-2px',
+                            right: '-2px',
+                            width: '7px',
+                            height: '7px',
+                            borderRadius: '50%',
+                            backgroundColor: 'var(--accent-raw)',
+                            border: '1px solid var(--bg-dark)'
+                          }} />
+                        </div>
+                      ) : (
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <User size={20} style={{ color: currentUser ? 'var(--accent-raw)' : 'inherit' }} />
+                          {currentUser && (
+                            <span style={{
+                              position: 'absolute',
+                              top: '-2px',
+                              right: '-2px',
+                              width: '7px',
+                              height: '7px',
+                              borderRadius: '50%',
+                              backgroundColor: 'var(--accent-raw)',
+                              border: '1px solid var(--bg-dark)'
+                            }} />
+                          )}
+                        </div>
                       )}
-                    </div>
-                  )}
-                </button>
+                    </button>
 
-                <button className="header-btn" onClick={() => setIsCartOpen(true)} title="View Cart">
-                  <ShoppingBag size={20} />
-                  {cartItems.length > 0 && (
-                    <span className="cart-count">
-                      {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
-                    </span>
-                  )}
-                </button>
+                    <button className="header-btn" onClick={() => setIsCartOpen(true)} title="View Cart">
+                      <ShoppingBag size={20} />
+                      {cartItems.length > 0 && (
+                        <span className="cart-count">
+                          {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
+                        </span>
+                      )}
+                    </button>
+                  </>
+                )}
                 
                 <button 
                   className="header-btn menu-toggle" 
@@ -748,14 +860,6 @@ export default function App() {
               </div>
             </div>
 
-            <NewArrivals
-              onProductClick={handleQuickView}
-              onAddToCart={(p) => handleAddToCart(p, p.sizes?.[0] || 'Free Size')}
-              wishlist={wishlist}
-              onWishlistToggle={handleWishlistToggle}
-              onViewAll={() => scrollToSection('catalog')}
-            />
-
             {/* Men's Campaign Section */}
             <CampaignSection
               gender="men"
@@ -778,6 +882,14 @@ export default function App() {
               ctaText={campaignWomen.ctaText}
               image={campaignWomen.image}
               onExplore={() => { setActiveCategory('skirts'); scrollToSection('catalog'); }}
+            />
+
+            <NewArrivals
+              onProductClick={handleQuickView}
+              onAddToCart={(p) => handleAddToCart(p, p.sizes?.[0] || 'Free Size')}
+              wishlist={wishlist}
+              onWishlistToggle={handleWishlistToggle}
+              onViewAll={() => scrollToSection('catalog')}
             />
 
             <BestSellers
@@ -819,12 +931,11 @@ export default function App() {
             onStoryClick={() => scrollToSection('story')} 
             onTrackClick={() => setIsTrackingOpen(true)}
             onOpenAdmin={() => {
-              if (!currentUser) {
-                const defaultAdmin = { name: 'Rebel Admin', email: 'admin@off-kilt.com', phone: '0000000000', address: 'Command Center', pincode: '000000', id: 0 };
-                setCurrentUser(defaultAdmin);
-                localStorage.setItem('offkilt_current_user', JSON.stringify(defaultAdmin));
+              if (currentUser?.is_admin) {
+                setIsAdminOpen(true);
+              } else {
+                setIsProfileOpen(true); // prompt them to log in
               }
-              setIsAdminOpen(true);
             }}
           />
 
@@ -833,10 +944,11 @@ export default function App() {
             key={selectedProduct ? selectedProduct.id : 'empty'}
             product={selectedProduct}
             isOpen={isProductModalOpen}
-            onClose={() => setIsProductModalOpen(false)}
+            onClose={handleCloseProductModal}
             onAddToCart={handleAddToCart}
             wishlist={wishlist}
             onWishlistToggle={handleWishlistToggle}
+            onProductClick={handleQuickView}
           />
 
           <CartDrawer 
@@ -904,16 +1016,16 @@ export default function App() {
             />
           )}
 
-          {isAdminOpen && (
+          {isAdminOpen && currentUser?.is_admin && (
             <AdminDashboard 
-              currentUser={currentUser || { name: 'Rebel Admin', email: 'admin@off-kilt.com', phone: '0000000000', address: 'Command Center', pincode: '000000', id: 0 }} 
+              currentUser={currentUser} 
               onClose={() => setIsAdminOpen(false)} 
             />
           )}
 
-          {/* Floating WhatsApp Widget */}
+           {/* Floating WhatsApp Widget */}
           <a 
-            href="https://wa.me/918291155692?text=Hi%20Off-Kilt%20Support,%20I%20have%20an%20inquiry%20regarding%20my%20recent%20order." 
+            href={`https://wa.me/${whatsappNumber}?text=Hi%20Off-Kilt%20Support,%20I%20have%20an%20inquiry%20regarding%20my%20recent%20order.`} 
             target="_blank" 
             rel="noopener noreferrer" 
             className="whatsapp-widget"

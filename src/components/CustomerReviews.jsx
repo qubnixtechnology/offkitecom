@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Star, CheckCircle } from 'lucide-react';
 
 const REVIEWS = [
@@ -32,6 +32,26 @@ const REVIEWS = [
     product: 'Wide Leg Jeans',
     verified: true,
   },
+  {
+    id: 'r4',
+    text: '"The fit is out of this world. It is so hard to find skirts that fit my waist and hips perfectly, but this one sits just right. 10/10 recommendation!"',
+    author: 'Sneha G.',
+    location: 'Bangalore, KA',
+    photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&h=200&auto=format&fit=crop',
+    rating: 5,
+    product: 'Asymmetrical Paneled Denim Skirt',
+    verified: true,
+  },
+  {
+    id: 'r5',
+    text: '"Super fast delivery and top-notch, neat packaging. The quality of the denim is heavy and authentic. Love the raw, undone edge aesthetic."',
+    author: 'Kriti M.',
+    location: 'Pune, MH',
+    photo: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=200&h=200&auto=format&fit=crop',
+    rating: 5,
+    product: 'Contrast-Stitch Double Knee Carpenter',
+    verified: true,
+  },
 ];
 
 function StarRow({ rating }) {
@@ -50,18 +70,68 @@ function StarRow({ rating }) {
 }
 
 export default function CustomerReviews() {
+  const [activeReviewIdx, setActiveReviewIdx] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
   const headerRef = useRef(null);
   const cardsRef = useRef([]);
+  const gridRef = useRef(null);
 
   useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
     const observer = new IntersectionObserver(
       (entries) => entries.forEach(e => e.isIntersecting && e.target.classList.add('in-view')),
       { threshold: 0.1 }
     );
     if (headerRef.current) observer.observe(headerRef.current);
     cardsRef.current.forEach(el => el && observer.observe(el));
-    return () => observer.disconnect();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      observer.disconnect();
+    };
   }, []);
+
+  const handleScroll = () => {
+    if (!gridRef.current) return;
+    const container = gridRef.current;
+    const cards = container.querySelectorAll('.review-card');
+    let closestIdx = 0;
+    let minDistance = Infinity;
+    
+    const containerRect = container.getBoundingClientRect();
+    const containerCenter = containerRect.top + containerRect.height / 2;
+    
+    cards.forEach((card, idx) => {
+      const cardRect = card.getBoundingClientRect();
+      const cardCenter = cardRect.top + cardRect.height / 2;
+      const distance = Math.abs(cardCenter - containerCenter);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIdx = idx;
+      }
+    });
+    
+    setActiveReviewIdx(closestIdx);
+  };
+
+  const scrollToReview = (idx) => {
+    if (!gridRef.current) return;
+    const container = gridRef.current;
+    const cards = container.querySelectorAll('.review-card');
+    const targetCard = cards[idx];
+    if (targetCard) {
+      container.scrollTo({
+        top: targetCard.offsetTop - 10,
+        behavior: 'smooth'
+      });
+      setActiveReviewIdx(idx);
+    }
+  };
 
   return (
     <section className="reviews-sec" id="reviews">
@@ -72,7 +142,7 @@ export default function CustomerReviews() {
           <p className="luxury-section-subtitle">Thousands of women trust <span style={{ fontFamily: 'var(--font-brand)', fontWeight: 700 }}>off-kilt</span> for their wardrobe. Here's what they have to say.</p>
         </div>
 
-        <div className="reviews-grid">
+        <div className="reviews-grid" ref={gridRef} onScroll={isMobile ? handleScroll : undefined} data-lenis-prevent={isMobile ? "true" : undefined}>
           {REVIEWS.map((review, idx) => (
             <div
               key={review.id}
@@ -109,41 +179,30 @@ export default function CustomerReviews() {
           ))}
         </div>
 
+        {/* Mobile Page indicator dots */}
+        <div className="reviews-mobile-dots">
+          {REVIEWS.map((_, i) => (
+            <button
+              key={i}
+              className={`review-dot ${activeReviewIdx === i ? 'active' : ''}`}
+              onClick={() => scrollToReview(i)}
+              aria-label={`Go to review ${i + 1}`}
+            />
+          ))}
+        </div>
+
         {/* Trust badges */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: 60,
-          marginTop: 70,
-          flexWrap: 'wrap',
-          paddingTop: 50,
-          borderTop: '1px solid var(--bg-cream)'
-        }}>
+        <div className="reviews-stats-row">
           {[
             { num: '10,000+', label: 'Happy Customers' },
             { num: '4.9', label: 'Average Rating' },
             { num: '5,000+', label: 'Reviews' },
           ].map((stat, i) => (
-            <div key={i} style={{ textAlign: 'center' }}>
-              <div style={{
-                fontFamily: 'var(--font-luxury)',
-                fontSize: '3rem',
-                fontWeight: 300,
-                color: 'var(--text-light)',
-                lineHeight: 1,
-                marginBottom: 8,
-                textTransform: 'none',
-                letterSpacing: '-0.02em',
-              }}>
+            <div key={i} className="stat-item">
+              <div className="stat-num">
                 {stat.num}
               </div>
-              <div style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.65rem',
-                letterSpacing: 3,
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-              }}>
+              <div className="stat-label">
                 {stat.label}
               </div>
             </div>

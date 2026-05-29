@@ -1,0 +1,26 @@
+name: 'off-kite local'
+values:
+  - key: baseUrl
+    value: 'http://127.0.0.1:8000/api'
+    enabled: true
+  - key: userEmail
+    value: 'user@example.com'
+    enabled: true
+  - key: userPassword
+    value: 'Password123!'
+    enabled: true
+  - key: authToken
+    value: ''
+    enabled: true
+  - key: adminAuthToken
+    value: ''
+    enabled: true
+  - key: productId
+    value: ''
+    enabled: true
+  - key: orderId
+    value: ''
+    enabled: true
+  - key: productCategory
+    value: 'shoes'
+    enabled: true

@@ -1,0 +1,14 @@
+$kind: http-request
+method: DELETE
+url: '{{baseUrl}}/products'
+order: 8000
+headers:
+  - key: Accept
+    value: application/json
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Method not allowed returns 404 or 405', function () {
+        pm.expect(pm.response.code).to.be.oneOf([404, 405]);
+      });

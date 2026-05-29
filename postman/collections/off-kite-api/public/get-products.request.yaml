@@ -1,0 +1,27 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/products'
+order: 1000
+headers:
+  - key: Accept
+    value: application/json
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Products list returns success', function () {
+        pm.expect(pm.response.code).to.equal(200);
+      });
+      const data = pm.response.json();
+      const items = data.data || data.products || data;
+      pm.test('Products response has array data', function () {
+        pm.expect(items).to.be.an('array');
+      });
+      if (Array.isArray(items) && items.length > 0) {
+        const first = items[0];
+        const id = first.id || first.product_id;
+        if (id) {
+          pm.collectionVariables.set('productId', String(id));
+          pm.environment.set('productId', String(id));
+        }
+      }

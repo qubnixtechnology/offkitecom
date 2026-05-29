@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const STYLES = [
   {
@@ -51,6 +51,41 @@ const STYLES = [
 export default function ShopByStyle({ onCategoryClick }) {
   const headerRef = useRef(null);
   const gridRef = useRef(null);
+  const [collectionsData, setCollectionsData] = useState(() => {
+    const defaults = {
+      bestSellersCover: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=800',
+      bestSellersTitle: 'Best Sellers',
+      trendingCover: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=700&q=85',
+      trendingTitle: 'Trending Collection',
+      styleCover: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&q=85',
+      styleTitle: 'Shop By Style'
+    };
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_homepage_collections')) || defaults;
+    } catch (e) {
+      return defaults;
+    }
+  });
+
+  useEffect(() => {
+    const handleSettingsUpdate = () => {
+      const defaults = {
+        bestSellersCover: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=800',
+        bestSellersTitle: 'Best Sellers',
+        trendingCover: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=700&q=85',
+        trendingTitle: 'Trending Collection',
+        styleCover: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&q=85',
+        styleTitle: 'Shop By Style'
+      };
+      try {
+        setCollectionsData(JSON.parse(localStorage.getItem('offkilt_homepage_collections')) || defaults);
+      } catch (e) {
+        setCollectionsData(defaults);
+      }
+    };
+    window.addEventListener('offkilt_settings_updated', handleSettingsUpdate);
+    return () => window.removeEventListener('offkilt_settings_updated', handleSettingsUpdate);
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -72,9 +107,28 @@ export default function ShopByStyle({ onCategoryClick }) {
       <div className="container">
         <div className="luxury-section-header section-reveal" ref={headerRef}>
           <span className="luxury-eyebrow">Browse Your Vibe</span>
-          <h2 className="luxury-section-title">Shop By <em>Style</em></h2>
+          <h2 className="luxury-section-title" style={{ textTransform: 'uppercase' }}>{collectionsData.styleTitle}</h2>
           <p className="luxury-section-subtitle">Find your aesthetic and explore curated looks that speak to who you are.</p>
         </div>
+
+        {collectionsData.styleCover && (
+          <div className="collection-cover-banner" style={{
+            position: 'relative',
+            width: '100%',
+            height: '350px',
+            marginBottom: '40px',
+            borderRadius: '4px',
+            overflow: 'hidden',
+            cursor: 'pointer'
+          }} onClick={() => onCategoryClick?.('all')}>
+            <img src={collectionsData.styleCover} alt={collectionsData.styleTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.1) 100%)' }} />
+            <div style={{ position: 'absolute', bottom: '30px', left: '30px', color: '#ffffff' }}>
+              <span className="mono" style={{ color: 'var(--accent-raw)', fontSize: '0.8rem', letterSpacing: '2px', textTransform: 'uppercase' }}>STYLE MANUAL</span>
+              <h3 style={{ fontSize: '1.8rem', fontFamily: 'var(--font-heading)', fontWeight: 'bold', margin: '4px 0 0 0', textTransform: 'uppercase' }}>{collectionsData.styleTitle}</h3>
+            </div>
+          </div>
+        )}
 
         <div className="style-grid" ref={gridRef}>
           {STYLES.map((style, idx) => (

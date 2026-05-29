@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ArrowDown, Sparkles } from 'lucide-react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -10,19 +10,50 @@ export default function Hero({ onExploreClick, onShopNewArrivals, isAppLoading }
   const heroRef = useRef(null);
   const bgRef = useRef(null);
 
+  const [heroSettings, setHeroSettings] = useState({
+    mediaUrl: '',
+    mediaType: 'video', // 'video' | 'image'
+    word1: 'FASHION',
+    word2: 'WITHOUT',
+    word3: 'LIMITS',
+    btn1Text: 'SHOP WOMEN',
+    btn2Text: 'SHOP MEN',
+    btn1Link: '#catalog',
+    btn2Link: '#catalog',
+  });
+
+  useEffect(() => {
+    const loadSettings = () => {
+      const stored = localStorage.getItem('offkilt_campaign_hero');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          setHeroSettings(prev => ({ ...prev, ...parsed }));
+        } catch (e) {
+          console.error('Error parsing hero settings', e);
+        }
+      }
+    };
+    loadSettings();
+    window.addEventListener('offkilt_hero_updated', loadSettings);
+    return () => window.removeEventListener('offkilt_hero_updated', loadSettings);
+  }, []);
+
   useEffect(() => {
     // GSAP Parallax on scroll
-    gsap.to(bgRef.current, {
-      yPercent: 40,
-      ease: "none",
-      scrollTrigger: {
-        trigger: heroRef.current,
-        start: "top top",
-        end: "bottom top",
-        scrub: true
-      }
-    });
-  }, []);
+    if (bgRef.current) {
+      gsap.to(bgRef.current, {
+        yPercent: 40,
+        ease: "none",
+        scrollTrigger: {
+          trigger: heroRef.current,
+          start: "top top",
+          end: "bottom top",
+          scrub: true
+        }
+      });
+    }
+  }, [heroSettings.mediaUrl]);
 
   const pretitleVariants = {
     hidden: { opacity: 0, letterSpacing: '0.25em', y: -5 },
@@ -79,24 +110,32 @@ export default function Hero({ onExploreClick, onShopNewArrivals, isAppLoading }
     }
   };
 
-  // Updated to luxury feminine fashion messaging
-  const titleText = "ELEGANCE DESIGNED FOR EVERY WOMAN";
-  const words = titleText.split(" ");
+  const isVideo = heroSettings.mediaUrl ? (heroSettings.mediaUrl.endsWith('.mp4') || heroSettings.mediaType === 'video') : true;
+  const mediaSrc = heroSettings.mediaUrl || (import.meta.env.DEV ? "/build/videos/hero_bg.mp4" : "/videos/hero_bg.mp4");
 
   return (
     <section className="hero-sec" id="hero" ref={heroRef}>
       <div className="hero-bg-wrapper" ref={bgRef}>
-        <video 
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="hero-bg hero-zoom"
-          poster={import.meta.env.DEV ? "/build/images/hero_streetwear.png" : "/images/hero_streetwear.png"}
-        >
-          <source src={import.meta.env.DEV ? "/build/videos/hero_bg.mp4" : "/videos/hero_bg.mp4"} type="video/mp4" />
-          <source src="https://cdn.shopify.com/videos/c/o/v/3bf4a509620e4e53aa454c856a432f1e.mp4" type="video/mp4" />
-        </video>
+        {isVideo ? (
+          <video 
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="hero-bg hero-zoom"
+            key={mediaSrc}
+          >
+            <source src={mediaSrc} type="video/mp4" />
+            <source src="https://cdn.shopify.com/videos/c/o/v/3bf4a509620e4e53aa454c856a432f1e.mp4" type="video/mp4" />
+          </video>
+        ) : (
+          <img 
+            src={mediaSrc} 
+            alt="Hero Background" 
+            className="hero-bg hero-zoom"
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        )}
       </div>
       <div className="hero-overlay"></div>
       
@@ -118,24 +157,30 @@ export default function Hero({ onExploreClick, onShopNewArrivals, isAppLoading }
           animate={isAppLoading ? "hidden" : "visible"}
           className="hero-title"
         >
-          {/* Row 1, Column 1: ELEGANCE (Right-aligned) */}
+          {/* Row 1, Column 1: Word 1 (Right-aligned) */}
           <div style={{ gridArea: '1 / 1 / 2 / 2', justifySelf: 'end', display: 'flex', overflow: 'hidden', whiteSpace: 'nowrap' }}>
             <span className="word-wrapper" style={{ whiteSpace: 'nowrap' }}>
-              <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>ELEGANCE</motion.span>
+              <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>
+                {heroSettings.word1.toUpperCase()}
+              </motion.span>
             </span>
           </div>
           
-          {/* Row 1, Column 3: FOR EVERY (Left-aligned) */}
+          {/* Row 1, Column 3: Word 2 (Left-aligned) */}
           <div style={{ gridArea: '1 / 3 / 2 / 4', justifySelf: 'start', display: 'flex', overflow: 'hidden', whiteSpace: 'nowrap' }}>
             <span className="word-wrapper" style={{ whiteSpace: 'nowrap' }}>
-              <motion.span variants={titleWordVariants} style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>FOR EVERY</motion.span>
+              <motion.span variants={titleWordVariants} style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>
+                {heroSettings.word2.toUpperCase()}
+              </motion.span>
             </span>
           </div>
 
-          {/* Row 2, Columns 1-3: WOMAN (Centered under the gap) */}
+          {/* Row 2, Columns 1-3: Word 3 (Centered under the gap) */}
           <div style={{ gridArea: '2 / 1 / 3 / 4', justifySelf: 'center', display: 'flex', overflow: 'hidden', marginTop: '6px', whiteSpace: 'nowrap' }}>
             <span className="word-wrapper" style={{ whiteSpace: 'nowrap' }}>
-              <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>WOMAN</motion.span>
+              <motion.span variants={titleWordVariants} className="highlight-accent" style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>
+                {heroSettings.word3.toUpperCase()}
+              </motion.span>
             </span>
           </div>
         </motion.h1>
@@ -155,12 +200,32 @@ export default function Hero({ onExploreClick, onShopNewArrivals, isAppLoading }
           animate={isAppLoading ? "hidden" : "visible"}
           className="hero-actions"
         >
-          <button className="btn-primary" onClick={onShopNewArrivals || onExploreClick}>
+          <button 
+            className="btn-primary" 
+            onClick={() => {
+              if (heroSettings.btn1Link.startsWith('#')) {
+                const el = document.getElementById(heroSettings.btn1Link.substring(1));
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                window.location.href = heroSettings.btn1Link;
+              }
+            }}
+          >
             <Sparkles size={15} />
-            Shop New Arrivals
+            {heroSettings.btn1Text}
           </button>
-          <button className="btn-outline-luxury" onClick={onExploreClick}>
-            Explore Collection <ArrowDown size={15} />
+          <button 
+            className="btn-outline-luxury" 
+            onClick={() => {
+              if (heroSettings.btn2Link.startsWith('#')) {
+                const el = document.getElementById(heroSettings.btn2Link.substring(1));
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                window.location.href = heroSettings.btn2Link;
+              }
+            }}
+          >
+            {heroSettings.btn2Text} <ArrowDown size={15} />
           </button>
         </motion.div>
       </div>

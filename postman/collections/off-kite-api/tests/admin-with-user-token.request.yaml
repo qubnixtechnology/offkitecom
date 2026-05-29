@@ -1,0 +1,28 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/admin/products'
+order: 4000
+headers:
+  - key: Accept
+    value: application/json
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{authToken}}'
+body:
+  type: formdata
+  content:
+    - key: name
+      type: text
+      value: Unauthorized Product
+    - key: price
+      type: text
+      value: '12.99'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Admin route with user token is rejected', function () {
+        pm.expect(pm.response.code).to.be.oneOf([401, 403]);
+      });

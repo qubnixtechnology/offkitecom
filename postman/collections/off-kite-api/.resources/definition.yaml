@@ -1,0 +1,8 @@
+$kind: collection
+name: off-kite API
+scripts:
+  - type: http:beforeRequest
+    code: |-
+      pm.collectionVariables.unset('productId');
+      pm.collectionVariables.unset('orderId');
+    language: text/javascript

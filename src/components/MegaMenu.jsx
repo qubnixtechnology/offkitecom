@@ -66,7 +66,27 @@ const DENIM_CATEGORIES = {
 
 export default function MegaMenu({ activeMenu, onCategoryClick, onClose, onMouseEnter, onMouseLeave }) {
   const menuRef = useRef(null);
-  const data = DENIM_CATEGORIES[activeMenu];
+  
+  const [denimCategories, setDenimCategories] = useState(() => {
+    const stored = localStorage.getItem('offkilt_mega_menu');
+    if (stored) {
+      try { return JSON.parse(stored); } catch (e) { return DENIM_CATEGORIES; }
+    }
+    return DENIM_CATEGORIES;
+  });
+
+  useEffect(() => {
+    const loadMegaMenu = () => {
+      const stored = localStorage.getItem('offkilt_mega_menu');
+      if (stored) {
+        try { setDenimCategories(JSON.parse(stored)); } catch (e) {}
+      }
+    };
+    window.addEventListener('offkilt_settings_updated', loadMegaMenu);
+    return () => window.removeEventListener('offkilt_settings_updated', loadMegaMenu);
+  }, []);
+
+  const data = denimCategories[activeMenu];
 
   if (!data) return null;
 

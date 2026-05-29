@@ -1,101 +1,104 @@
-import { useEffect, useRef } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
-const PARTNERS = [
+const DEFAULT_PARTNERS = [
   {
     name: 'Myntra',
     url: 'https://www.myntra.com/',
     color: '#ff3f6c',
-    logo: (
-      <svg viewBox="0 0 100 30" className="partner-logo-svg">
-        <text x="50" y="22" textAnchor="middle" fontFamily="'ITC Avant Garde Gothic', 'Century Gothic', 'Futura', sans-serif" fontWeight="800" fontSize="22" fill="currentColor">MYNTRA</text>
-      </svg>
-    )
+    logoText: 'MYNTRA',
+    active: true
   },
   {
     name: 'Ajio',
     url: 'https://www.ajio.com/',
     color: '#3f2a56',
-    logo: (
-      <svg viewBox="0 0 100 30" className="partner-logo-svg">
-        <text x="50" y="22" textAnchor="middle" fontFamily="'ITC Avant Garde Gothic', 'Century Gothic', 'Futura', sans-serif" fontWeight="800" fontSize="24" fill="currentColor">AJIO</text>
-      </svg>
-    )
+    logoText: 'AJIO',
+    active: true
   },
   {
     name: 'Amazon',
     url: 'https://www.amazon.in/',
     color: '#ff9900',
-    logo: (
-      <svg viewBox="0 0 120 30" className="partner-logo-svg">
-        <text x="60" y="22" textAnchor="middle" fontFamily="'ITC Avant Garde Gothic', 'Century Gothic', 'Futura', sans-serif" fontWeight="800" fontSize="22" fill="currentColor">amazon</text>
-        <path d="M30 26 Q60 32 90 26" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.6" />
-      </svg>
-    )
+    logoText: 'amazon',
+    active: true
   },
   {
     name: 'Flipkart',
     url: 'https://www.flipkart.com/',
     color: '#2874f0',
-    logo: (
-      <svg viewBox="0 0 120 30" className="partner-logo-svg">
-        <text x="60" y="22" textAnchor="middle" fontFamily="'ITC Avant Garde Gothic', 'Century Gothic', 'Futura', sans-serif" fontWeight="800" fontSize="20" fill="currentColor">Flipkart</text>
-      </svg>
-    )
+    logoText: 'Flipkart',
+    active: true
   }
 ];
 
 export default function SellerPartners() {
-  const sectionRef = useRef(null);
-  const headerRef = useRef(null);
+  const [partners, setPartners] = useState(() => {
+    const stored = localStorage.getItem('offkilt_partners');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        return DEFAULT_PARTNERS;
+      }
+    }
+    return DEFAULT_PARTNERS;
+  });
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => entries.forEach(e => {
-        if (e.isIntersecting) {
-          e.target.classList.add('in-view');
-          const cards = sectionRef.current?.querySelectorAll('.partner-card');
-          cards?.forEach((card, i) => setTimeout(() => card.classList.add('in-view'), i * 100));
-        }
-      }),
-      { threshold: 0.1 }
-    );
-    if (headerRef.current) observer.observe(headerRef.current);
-    if (sectionRef.current) observer.observe(sectionRef.current);
-    return () => observer.disconnect();
+    const loadPartners = () => {
+      const stored = localStorage.getItem('offkilt_partners');
+      if (stored) {
+        try {
+          setPartners(JSON.parse(stored));
+        } catch (e) {}
+      }
+    };
+    window.addEventListener('offkilt_settings_updated', loadPartners);
+    return () => window.removeEventListener('offkilt_settings_updated', loadPartners);
   }, []);
 
-  return (
-    <section className="seller-partners-sec" id="seller-partners" ref={sectionRef}>
-      <div className="container">
-        <div className="luxury-section-header section-reveal" ref={headerRef}>
-          <span className="luxury-eyebrow">Available On</span>
-          <h2 className="luxury-section-title">Our <em>Marketplace</em> Partners</h2>
-          <p className="luxury-section-subtitle">
-            Shop <span style={{ fontFamily: 'var(--font-brand)', fontWeight: 700 }}>off-kilt</span> on India's leading fashion and e-commerce platforms.
-          </p>
-        </div>
+  const activePartners = partners.filter(p => p.active !== false);
 
-        <div className="partners-grid">
-          {PARTNERS.map((partner, idx) => (
+  if (activePartners.length === 0) return null;
+
+  return (
+    <section className="seller-partners-sec" id="seller-partners">
+      <div className="partners-strip-wrapper">
+        <div className="partners-strip-label">
+          <span>AVAILABLE ON</span>
+        </div>
+        <div className="partners-strip-logos">
+          {activePartners.map((partner) => (
             <a
               key={partner.name}
               href={partner.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="partner-card section-reveal"
-              style={{ transitionDelay: `${idx * 0.08}s`, '--partner-color': partner.color }}
+              className="partner-strip-item"
+              style={{ 
+                '--partner-hover-color': partner.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
               title={`Shop on ${partner.name}`}
             >
-              <div className="partner-logo-wrapper">
-                {partner.logo}
-              </div>
-              <div className="partner-info">
-                <span className="partner-name">{partner.name}</span>
-                <span className="partner-link">
-                  Shop Now <ExternalLink size={11} />
-                </span>
-              </div>
+              {partner.imageUrl ? (
+                <img 
+                  src={partner.imageUrl} 
+                  alt={partner.name} 
+                  style={{ 
+                    maxHeight: '26px', 
+                    maxWidth: '120px', 
+                    objectFit: 'contain', 
+                    filter: 'brightness(0) invert(0)', 
+                    transition: 'opacity 0.3s ease' 
+                  }} 
+                  className="partner-logo-img"
+                />
+              ) : (
+                <span className="partner-strip-name">{partner.logoText || partner.name}</span>
+              )}
             </a>
           ))}
         </div>
@@ -103,3 +106,4 @@ export default function SellerPartners() {
     </section>
   );
 }
+

@@ -1,0 +1,14 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/does-not-exist'
+order: 7000
+headers:
+  - key: Accept
+    value: application/json
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Invalid route returns 404', function () {
+        pm.expect(pm.response.code).to.equal(404);
+      });

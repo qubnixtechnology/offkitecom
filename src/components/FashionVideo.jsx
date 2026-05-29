@@ -1,10 +1,31 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 
 export default function FashionVideo() {
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
+  const [settings, setSettings] = useState({
+    title: 'Style That Moves You',
+    quote: '"Confidence in every stitch. Elegance in every move."',
+    videoUrl: ''
+  });
+
+  useEffect(() => {
+    const loadSettings = () => {
+      const stored = localStorage.getItem('offkilt_fashion_film');
+      if (stored) {
+        try {
+          setSettings(JSON.parse(stored));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+    loadSettings();
+    window.addEventListener('offkilt_fashion_film_updated', loadSettings);
+    return () => window.removeEventListener('offkilt_fashion_film_updated', loadSettings);
+  }, []);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -23,23 +44,26 @@ export default function FashionVideo() {
     setIsMuted(!isMuted);
   };
 
+  const videoSrc = settings.videoUrl || (import.meta.env.DEV ? '/build/videos/hero_bg.mp4' : '/videos/hero_bg.mp4');
+
   return (
     <section className="fashion-video-sec" id="fashion-film">
       <video
         ref={videoRef}
+        key={videoSrc}
         autoPlay
         loop
         muted
         playsInline
         className="fashion-video-bg"
-        src={import.meta.env.DEV ? '/build/videos/hero_bg.mp4' : '/videos/hero_bg.mp4'}
+        src={videoSrc}
       />
       <div className="fashion-video-overlay" />
 
       <div className="fashion-video-content">
         <span className="fashion-video-eyebrow">Fashion Film</span>
         <h2 className="fashion-video-title">
-          Style That Moves You
+          {settings.title}
         </h2>
         <button
           className="fashion-video-play-btn"
@@ -49,7 +73,7 @@ export default function FashionVideo() {
           {isPlaying ? <Pause size={28} /> : <Play size={28} />}
         </button>
         <p className="fashion-video-quote">
-          "Confidence in every stitch. Elegance in every move."
+          {settings.quote}
         </p>
       </div>
 

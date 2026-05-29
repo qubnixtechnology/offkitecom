@@ -1,0 +1,31 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/login'
+order: 2000
+headers:
+  - key: Accept
+    value: application/json
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "{{userEmail}}",
+      "password": "{{userPassword}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Login returns success', function () {
+        pm.expect(pm.response.code).to.be.oneOf([200, 201]);
+      });
+      const data = pm.response.json();
+      const token = data.token || data.access_token || data.data?.token;
+      pm.test('Auth token exists', function () {
+        pm.expect(token).to.be.a('string').and.not.empty;
+      });
+      if (token) {
+        pm.environment.set('authToken', token);
+      }

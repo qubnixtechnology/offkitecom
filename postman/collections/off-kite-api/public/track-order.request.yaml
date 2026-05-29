@@ -1,0 +1,14 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/orders/track/{{orderId}}'
+order: 5000
+headers:
+  - key: Accept
+    value: application/json
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Track order returns expected status', function () {
+        pm.expect(pm.response.code).to.be.oneOf([200, 404]);
+      });

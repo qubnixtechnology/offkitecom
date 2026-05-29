@@ -4,9 +4,59 @@ import {
   X, Plus, Edit2, Trash2, Save, Image as ImageIcon, UploadCloud, 
   BarChart3, Package, ShoppingBag, Layout, List, FileText, Megaphone, 
   Tag, Users, Globe, RefreshCw, ShieldAlert, Database, UserCheck, 
-  Download, Upload, Search, Check, AlertTriangle, Eye, Printer 
+  Download, Upload, Search, Check, AlertTriangle, Eye, Printer,
+  Type, Share2, Phone, MapPin, HelpCircle, Layers, CreditCard, Key, ShieldCheck, Zap
 } from 'lucide-react';
 import { products as productsApi, admin as adminApi } from '../services/api';
+
+// Helper component for Q&A Manager row
+function QnaItemRow({ q, prodId, onSaveAnswer, onDelete }) {
+  const [ansText, setAnsText] = useState(q.answer || '');
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr auto', gap: '16px', alignItems: 'flex-start', padding: '12px', background: '#fcfcf9', borderRadius: '2px', border: '1px solid rgba(0,0,0,0.02)' }}>
+      <div>
+        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '4px' }}>QUESTION ({q.date})</div>
+        <p style={{ fontSize: '0.8rem', fontWeight: 500, color: '#111111' }}>{q.question}</p>
+      </div>
+      <div>
+        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '4px' }}>ADMIN REPLY</div>
+        <textarea 
+          value={ansText}
+          onChange={(e) => setAnsText(e.target.value)}
+          placeholder="Type your reply here..."
+          rows="2"
+          style={{ width: '100%', padding: '6px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', resize: 'vertical' }}
+        />
+      </div>
+      <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+        <button 
+          onClick={() => onSaveAnswer(prodId, q.id, ansText)}
+          className="btn-primary"
+          style={{ padding: '8px 12px', fontSize: '0.65rem', fontFamily: 'var(--font-mono)', width: 'auto' }}
+        >
+          SAVE
+        </button>
+        <button 
+          onClick={() => onDelete(prodId, q.id)}
+          style={{
+            padding: '8px',
+            color: '#ef4444',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            borderRadius: '2px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#fff5f5',
+            cursor: 'pointer'
+          }}
+          title="Delete Question"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminDashboard({ currentUser, onClose }) {
   const [activeTab, setActiveTab] = useState('analytics');
@@ -60,7 +110,8 @@ export default function AdminDashboard({ currentUser, onClose }) {
   const fetchProducts = async () => {
     setProductsLoading(true);
     try {
-      const res = await productsApi.getAll('all');
+      // Use admin endpoint to get ALL products (including inactive)
+      const res = await adminApi.getAllProducts();
       setProducts(res.data);
     } catch (err) {
       console.error(err);
@@ -306,9 +357,15 @@ export default function AdminDashboard({ currentUser, onClose }) {
       image: "/images/womens_campaign.png"
     };
     const defaultHero = {
-      title: "ELEGANCE DESIGNED FOR EVERY WOMAN",
-      subtitle: "Off-kilt challenges the ordinary to bring you premium raw and selvedge denim statements.",
-      videoUrl: "https://cdn.shopify.com/videos/c/o/v/3bf4a509620e4e53aa454c856a432f1e.mp4"
+      mediaUrl: '',
+      mediaType: 'video', // 'video' | 'image'
+      word1: 'FASHION',
+      word2: 'WITHOUT',
+      word3: 'LIMITS',
+      btn1Text: 'SHOP WOMEN',
+      btn2Text: 'SHOP MEN',
+      btn1Link: '#catalog',
+      btn2Link: '#catalog',
     };
 
     return {
@@ -336,7 +393,132 @@ export default function AdminDashboard({ currentUser, onClose }) {
     }
   };
 
-  // --- 5. NAVIGATION / MENUS CONTROL ---
+  // --- Q&A CMS ---
+  const [qnaProducts, setQnaProducts] = useState({});
+  useEffect(() => {
+    const allQna = JSON.parse(localStorage.getItem('offkilt_product_qna') || '{}');
+    setQnaProducts(allQna);
+  }, []);
+
+  const handleSaveAnswer = (productId, qnaId, answerText) => {
+    const allQna = JSON.parse(localStorage.getItem('offkilt_product_qna') || '{}');
+    const prodQnas = allQna[productId] || [];
+    const updated = prodQnas.map(q => q.id === qnaId ? { ...q, answer: answerText } : q);
+    allQna[productId] = updated;
+    localStorage.setItem('offkilt_product_qna', JSON.stringify(allQna));
+    setQnaProducts(allQna);
+    window.dispatchEvent(new Event('offkilt_qna_updated'));
+    alert('Answer saved successfully!');
+  };
+
+  const handleDeleteQuestion = (productId, qnaId) => {
+    if (!window.confirm('Are you sure you want to delete this question?')) return;
+    const allQna = JSON.parse(localStorage.getItem('offkilt_product_qna') || '{}');
+    const prodQnas = allQna[productId] || [];
+    const updated = prodQnas.filter(q => q.id !== qnaId);
+    allQna[productId] = updated;
+    localStorage.setItem('offkilt_product_qna', JSON.stringify(allQna));
+    setQnaProducts(allQna);
+    window.dispatchEvent(new Event('offkilt_qna_updated'));
+    alert('Question deleted.');
+  };
+
+  // --- Instagram Gallery CMS ---
+  const [igGallery, setIgGallery] = useState(() => {
+    const defaults = [
+      { id: 'ig1', src: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=700&q=85', likes: '4.2K', featured: true },
+      { id: 'ig2', src: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&q=85', likes: '2.1K' },
+      { id: 'ig3', src: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=500&q=85', likes: '1.8K' },
+      { id: 'ig4', src: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=500&q=85', likes: '3.3K' },
+      { id: 'ig5', src: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=500&q=85', likes: '5.7K' },
+      { id: 'ig6', src: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=500&q=85', likes: '987' },
+      { id: 'ig7', src: 'https://images.unsplash.com/photo-1485218126466-34e6392ec754?w=500&q=85', likes: '1.4K' },
+      { id: 'ig8', src: 'https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=500&q=85', likes: '2.9K' },
+      { id: 'ig9', src: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=500&q=85', likes: '1.2K' }
+    ];
+    return JSON.parse(localStorage.getItem('offkilt_instagram_gallery')) || defaults;
+  });
+
+  const handleSaveIgGallery = () => {
+    localStorage.setItem('offkilt_instagram_gallery', JSON.stringify(igGallery));
+    window.dispatchEvent(new Event('offkilt_instagram_updated'));
+    alert('Instagram Gallery saved!');
+  };
+
+  const handleAddIgItem = () => {
+    setIgGallery([...igGallery, { id: `ig-${Date.now()}`, src: '', likes: '0', featured: false }]);
+  };
+
+  const handleDeleteIgItem = (id) => {
+    setIgGallery(igGallery.filter(item => item.id !== id));
+  };
+
+  // --- Fashion Film CMS ---
+  const [fashionFilm, setFashionFilm] = useState(() => {
+    const defaults = {
+      title: 'Style That Moves You',
+      quote: '"Confidence in every stitch. Elegance in every move."',
+      videoUrl: ''
+    };
+    return JSON.parse(localStorage.getItem('offkilt_fashion_film')) || defaults;
+  });
+
+  const handleFashionFilmSave = () => {
+    localStorage.setItem('offkilt_fashion_film', JSON.stringify(fashionFilm));
+    window.dispatchEvent(new Event('offkilt_fashion_film_updated'));
+    alert('Fashion Film settings saved!');
+  };
+
+  // --- Narrative (BrandStory) CMS ---
+  const [narrative, setNarrative] = useState(() => {
+    const defaults = {
+      title: 'REDEFINING DENIM FROM THE SOUL',
+      body1: 'Born from the spirit of rebellion and self-expression, off-kilt challenges the ordinary and redefines modern denim. We create pieces that break away from tradition—clean yet bold, minimal yet impactful.',
+      quote: '"We don\'t create for the masses. We build for the individual who stands solid in their own skin."',
+      body2: 'Rooted in contemporary design and crafted with precision, our collections blend structure with individuality. Every stitch speaks confidence, every silhouette tells a story. This is for those who don’t follow trends—they set them.',
+      image: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=800'
+    };
+    return JSON.parse(localStorage.getItem('offkilt_brand_story')) || defaults;
+  });
+
+  const handleNarrativeSave = () => {
+    localStorage.setItem('offkilt_brand_story', JSON.stringify(narrative));
+    triggerSync('offkilt_settings_updated');
+    alert('Narrative settings saved!');
+  };
+
+  // --- Collections CMS ---
+  const [homepageCollections, setHomepageCollections] = useState(() => {
+    const defaults = {
+      bestSellersCover: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=800',
+      bestSellersTitle: 'Best Sellers',
+      trendingCover: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=700&q=85',
+      trendingTitle: 'Trending Collection',
+      styleCover: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&q=85',
+      styleTitle: 'Shop By Style'
+    };
+    return JSON.parse(localStorage.getItem('offkilt_homepage_collections')) || defaults;
+  });
+
+  const handleCollectionsSave = () => {
+    localStorage.setItem('offkilt_homepage_collections', JSON.stringify(homepageCollections));
+    triggerSync('offkilt_settings_updated');
+    alert('Homepage Collections saved!');
+  };
+
+  // --- Category List CMS ---
+  const [categoryList, setCategoryList] = useState(() => {
+    const defaults = ['all', 'jeans', 'skirts', 'cargos', 'shirts'];
+    return JSON.parse(localStorage.getItem('offkilt_categories_list')) || defaults;
+  });
+
+  const handleCategoriesSave = () => {
+    localStorage.setItem('offkilt_categories_list', JSON.stringify(categoryList));
+    triggerSync('offkilt_settings_updated');
+    alert('Category list saved!');
+  };
+
+  // --- NAVIGATION / MENUS CONTROL ---
   const [menuItems, setMenuItems] = useState(() => {
     const defaults = [
       { label: 'New', link: '#new-arrivals', visible: true },
@@ -354,6 +536,131 @@ export default function AdminDashboard({ currentUser, onClose }) {
     triggerSync('offkilt_settings_updated');
     alert('Header navigation settings saved.');
   };
+
+  const handleAddMenuItem = () => {
+    setMenuItems([...menuItems, { label: 'New Item', link: '#catalog', visible: true }]);
+  };
+
+  const handleDeleteMenuItem = (index) => {
+    setMenuItems(menuItems.filter((_, i) => i !== index));
+  };
+
+  // --- NEW CMS STATES & HANDLERS ---
+  // 1. Typography Settings
+  const [fontHeading, setFontHeading] = useState(() => localStorage.getItem('offkilt_font_heading') || 'Outfit');
+  const [fontBody, setFontBody] = useState(() => localStorage.getItem('offkilt_font_body') || 'Inter');
+
+  // 2. Footer Settings
+  const [footerSettings, setFooterSettings] = useState(() => {
+    const defaults = {
+      email1: 'info@off-kilt.com',
+      email2: 'offkiltfashion@gmail.com',
+      phone: '+91 8291155692',
+      address: 'Flat 402, Sea Breeze Apts, Bandra West, Mumbai, MH - 400050'
+    };
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_footer_settings')) || defaults;
+    } catch (e) {
+      return defaults;
+    }
+  });
+
+  // 3. Instagram & Socials Settings
+  const [socialSettings, setSocialSettings] = useState(() => {
+    const defaults = {
+      instagram: '@offkiltfashion',
+      instagramUrl: 'https://www.instagram.com/offkiltfashion',
+      whatsapp: '918291155692',
+      facebookUrl: 'https://facebook.com',
+      youtubeUrl: 'https://youtube.com'
+    };
+    try {
+      const stored = localStorage.getItem('offkilt_socials');
+      return stored ? JSON.parse(stored) : defaults;
+    } catch(e) {
+      return defaults;
+    }
+  });
+
+  // 4. Marketplace Partners Settings
+  const [partnersList, setPartnersList] = useState(() => {
+    const DEFAULT_PARTNERS = [
+      { name: 'Myntra', url: 'https://www.myntra.com/', color: '#ff3f6c', logoText: 'MYNTRA', active: true },
+      { name: 'Ajio', url: 'https://www.ajio.com/', color: '#3f2a56', logoText: 'AJIO', active: true },
+      { name: 'Amazon', url: 'https://www.amazon.in/', color: '#ff9900', logoText: 'amazon', active: true },
+      { name: 'Flipkart', url: 'https://www.flipkart.com/', color: '#2874f0', logoText: 'Flipkart', active: true }
+    ];
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_partners')) || DEFAULT_PARTNERS;
+    } catch (e) {
+      return DEFAULT_PARTNERS;
+    }
+  });
+
+  // 5. Mega Menu Settings
+  const [megaMenuSettings, setMegaMenuSettings] = useState(() => {
+    const DEFAULT_MEGA = {
+      men: {
+        fits: ['Baggy Fit', 'Relaxed Fit', 'Straight Fit', 'Bootcut Fit', 'Carpenter Pants'],
+        categories: ['Classic Jeans', 'Carpenter Edits', 'Selvedge Series', 'Utility Cargos', 'Distressed']
+      },
+      women: {
+        fits: ['High Waist Skirts', 'Asymmetrical skirts', 'Paneled Skirts', 'Relaxed Cargos', 'Baggy Jeans'],
+        categories: ['Denim Skirts', 'Street Cargos', 'Classic Fits', 'Paneled Skirts', 'Tops & Edits']
+      }
+    };
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_mega_menu')) || DEFAULT_MEGA;
+    } catch(e) {
+      return DEFAULT_MEGA;
+    }
+  });
+
+  const handleTypographySave = (e) => {
+    e.preventDefault();
+    localStorage.setItem('offkilt_font_heading', fontHeading);
+    localStorage.setItem('offkilt_font_body', fontBody);
+    triggerSync('offkilt_settings_updated');
+    alert('Typography settings updated!');
+  };
+
+  const handleFooterSettingsSave = (e) => {
+    e.preventDefault();
+    localStorage.setItem('offkilt_footer_settings', JSON.stringify(footerSettings));
+    localStorage.setItem('offkilt_footer_email1', footerSettings.email1);
+    localStorage.setItem('offkilt_footer_email2', footerSettings.email2 || '');
+    localStorage.setItem('offkilt_footer_phone', footerSettings.phone);
+    localStorage.setItem('offkilt_footer_address', footerSettings.address);
+    triggerSync('offkilt_settings_updated');
+    alert('Footer settings updated!');
+  };
+
+  const handleSocialSettingsSave = (e) => {
+    e.preventDefault();
+    localStorage.setItem('offkilt_socials', JSON.stringify(socialSettings));
+    localStorage.setItem('offkilt_instagram', socialSettings.instagram);
+    localStorage.setItem('offkilt_instagram_url', socialSettings.instagramUrl);
+    localStorage.setItem('offkilt_whatsapp', socialSettings.whatsapp);
+    localStorage.setItem('offkilt_facebook_url', socialSettings.facebookUrl || '');
+    localStorage.setItem('offkilt_youtube_url', socialSettings.youtubeUrl || '');
+    triggerSync('offkilt_settings_updated');
+    alert('Socials & Instagram settings updated!');
+  };
+
+  const handlePartnersSave = (e) => {
+    if(e) e.preventDefault();
+    localStorage.setItem('offkilt_partners', JSON.stringify(partnersList));
+    triggerSync('offkilt_settings_updated');
+    alert('Marketplace partners updated!');
+  };
+
+  const handleMegaMenuSave = (e) => {
+    e.preventDefault();
+    localStorage.setItem('offkilt_mega_menu', JSON.stringify(megaMenuSettings));
+    triggerSync('offkilt_settings_updated');
+    alert('Mega menu settings updated!');
+  };
+
 
   // --- 6. CMS POLICIES & FAQS ---
   const [policies, setPolicies] = useState(() => {
@@ -509,6 +816,37 @@ export default function AdminDashboard({ currentUser, onClose }) {
     }
   };
 
+  // --- PAYMENT GATEWAY STATE ---
+  const [razorpaySettings, setRazorpaySettings] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_razorpay') || 'null') || {
+        keyId: '',
+        keySecret: '',
+        businessName: 'off-kilt Fashion',
+        businessDescription: 'Premium Denim & Streetwear',
+        businessLogo: '',
+        upiId: '',
+        currency: 'INR',
+        theme: '#f97316',
+        enableCod: true,
+        enableLiveMode: false,
+      };
+    } catch { 
+      return { keyId: '', keySecret: '', businessName: 'off-kilt Fashion', businessDescription: 'Premium Denim & Streetwear', businessLogo: '', upiId: '', currency: 'INR', theme: '#f97316', enableCod: true, enableLiveMode: false };
+    }
+  });
+  const [rzpShowSecret, setRzpShowSecret] = useState(false);
+  const [rzpSaveSuccess, setRzpSaveSuccess] = useState(false);
+
+  const handleRazorpaySave = (e) => {
+    e.preventDefault();
+    localStorage.setItem('offkilt_razorpay', JSON.stringify(razorpaySettings));
+    triggerSync('offkilt_settings_updated');
+    setRzpSaveSuccess(true);
+    setTimeout(() => setRzpSaveSuccess(false), 3000);
+  };
+
+
   const handleFactoryReset = () => {
     if (window.confirm('WARNING: This will wipe all orders, custom products, settings, and reviews! Reset store to factory settings?')) {
       localStorage.clear();
@@ -516,6 +854,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
       window.location.reload();
     }
   };
+
 
   // --- 14. ADMIN ROLES ---
   const [roles, setRoles] = useState(() => {
@@ -544,8 +883,16 @@ export default function AdminDashboard({ currentUser, onClose }) {
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'products', label: 'Product Catalog', icon: Package },
     { id: 'orders', label: 'Order Manager', icon: ShoppingBag },
+    { id: 'payment', label: 'Payment Gateway', icon: CreditCard },
     { id: 'campaigns', label: 'Campaign CMS', icon: Layout },
+    { id: 'collections', label: 'Collections & Story', icon: Layers },
+    { id: 'qna', label: 'Q&A Manager', icon: HelpCircle },
+    { id: 'typography', label: 'Typography CMS', icon: Type },
     { id: 'menus', label: 'Header Navigation', icon: List },
+    { id: 'megamenu', label: 'Mega Menu Builder', icon: Layout },
+    { id: 'socials', label: 'Socials & Instagram', icon: Share2 },
+    { id: 'footer', label: 'Footer CMS', icon: MapPin },
+    { id: 'partners', label: 'Marketplace Partners', icon: Users },
     { id: 'policies', label: 'CMS Policies', icon: FileText },
     { id: 'announcement', label: 'Announcement Bar', icon: Megaphone },
     { id: 'coupons', label: 'Coupon Builder', icon: Tag },
@@ -556,6 +903,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
     { id: 'backups', label: 'System Backups', icon: Database },
     { id: 'roles', label: 'Admin Roles', icon: UserCheck }
   ];
+
 
   return (
     <div style={{
@@ -770,6 +1118,222 @@ export default function AdminDashboard({ currentUser, onClose }) {
             </div>
           )}
 
+          {/* PAYMENT GATEWAY TAB */}
+          {activeTab === 'payment' && (
+            <div style={{ maxWidth: '780px' }}>
+              
+              {/* Status Banner */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '16px',
+                backgroundColor: razorpaySettings.keyId ? '#f0fdf4' : '#fffbeb',
+                border: `1px solid ${razorpaySettings.keyId ? '#86efac' : '#fde68a'}`,
+                borderRadius: '8px', padding: '16px 20px', marginBottom: '32px'
+              }}>
+                <div style={{ fontSize: '2rem' }}>{razorpaySettings.keyId ? '✅' : '⚠️'}</div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: razorpaySettings.keyId ? '#16a34a' : '#92400e' }}>
+                    {razorpaySettings.keyId 
+                      ? (razorpaySettings.enableLiveMode ? '🟢 LIVE MODE ACTIVE — Real payments are being collected' : '🟡 TEST MODE — Payments are simulated (no real money)') 
+                      : 'Razorpay Not Configured — Payments are fully simulated'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '2px' }}>
+                    {razorpaySettings.keyId 
+                      ? `Key: ${razorpaySettings.keyId.slice(0,8)}••••••••  |  Business: ${razorpaySettings.businessName}`
+                      : 'Enter your Razorpay credentials below to enable real payment collection.'}
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleRazorpaySave} style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+
+                {/* API Credentials */}
+                <div style={{ backgroundColor: '#fff', padding: '28px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.07)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                    <Key size={18} color="var(--accent-raw)" />
+                    <h3 style={{ fontSize: '0.9rem', fontFamily: 'var(--font-mono)', letterSpacing: '1px', textTransform: 'uppercase' }}>API Credentials</h3>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Razorpay Key ID *</label>
+                      <input type="text" value={razorpaySettings.keyId}
+                        onChange={e => setRazorpaySettings(p => ({ ...p, keyId: e.target.value.trim() }))}
+                        placeholder="rzp_test_XXXXXXXXXXXXXXXXXX"
+                        style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '6px', fontSize: '0.85rem', fontFamily: 'monospace', outline: 'none' }}
+                      />
+                      <p style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px' }}>Starts with <code>rzp_test_</code> (test) or <code>rzp_live_</code> (live)</p>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Key Secret *</label>
+                      <div style={{ position: 'relative' }}>
+                        <input type={rzpShowSecret ? 'text' : 'password'} value={razorpaySettings.keySecret}
+                          onChange={e => setRazorpaySettings(p => ({ ...p, keySecret: e.target.value.trim() }))}
+                          placeholder="••••••••••••••••••••••"
+                          style={{ width: '100%', padding: '10px 40px 10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '6px', fontSize: '0.85rem', fontFamily: 'monospace', outline: 'none' }}
+                        />
+                        <button type="button" onClick={() => setRzpShowSecret(p => !p)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>
+                          <Eye size={16} />
+                        </button>
+                      </div>
+                      <p style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px' }}>Never share this. Stored locally in your browser only.</p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your UPI ID (for QR fallback)</label>
+                      <input type="text" value={razorpaySettings.upiId}
+                        onChange={e => setRazorpaySettings(p => ({ ...p, upiId: e.target.value.trim() }))}
+                        placeholder="yourname@oksbi"
+                        style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '6px', fontSize: '0.85rem', fontFamily: 'monospace', outline: 'none' }}
+                      />
+                      <p style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px' }}>Used for QR code when Razorpay SDK is not loaded</p>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Checkout Theme Color</label>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <input type="color" value={razorpaySettings.theme}
+                          onChange={e => setRazorpaySettings(p => ({ ...p, theme: e.target.value }))}
+                          style={{ width: '48px', height: '40px', border: 'none', padding: '0', cursor: 'pointer', borderRadius: '4px' }}
+                        />
+                        <input type="text" value={razorpaySettings.theme}
+                          onChange={e => setRazorpaySettings(p => ({ ...p, theme: e.target.value }))}
+                          style={{ flex: 1, padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '6px', fontSize: '0.85rem', fontFamily: 'monospace', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Business Info */}
+                <div style={{ backgroundColor: '#fff', padding: '28px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.07)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                    <ShieldCheck size={18} color="var(--accent-raw)" />
+                    <h3 style={{ fontSize: '0.9rem', fontFamily: 'var(--font-mono)', letterSpacing: '1px', textTransform: 'uppercase' }}>Business Info (shown on checkout popup)</h3>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Business Name</label>
+                      <input type="text" value={razorpaySettings.businessName}
+                        onChange={e => setRazorpaySettings(p => ({ ...p, businessName: e.target.value }))}
+                        placeholder="off-kilt Fashion"
+                        style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Business Description</label>
+                      <input type="text" value={razorpaySettings.businessDescription}
+                        onChange={e => setRazorpaySettings(p => ({ ...p, businessDescription: e.target.value }))}
+                        placeholder="Premium Denim & Streetwear"
+                        style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Business Logo URL (optional)</label>
+                    <input type="url" value={razorpaySettings.businessLogo}
+                      onChange={e => setRazorpaySettings(p => ({ ...p, businessLogo: e.target.value }))}
+                      placeholder="https://yourdomain.com/logo.png"
+                      style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Mode Toggles */}
+                <div style={{ backgroundColor: '#fff', padding: '28px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.07)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                    <Zap size={18} color="var(--accent-raw)" />
+                    <h3 style={{ fontSize: '0.9rem', fontFamily: 'var(--font-mono)', letterSpacing: '1px', textTransform: 'uppercase' }}>Payment Settings</h3>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: razorpaySettings.enableLiveMode ? '#fef2f2' : '#f9fafb', borderRadius: '6px', border: `1px solid ${razorpaySettings.enableLiveMode ? '#fecaca' : '#e5e7eb'}` }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.85rem', color: razorpaySettings.enableLiveMode ? '#dc2626' : '#374151' }}>
+                          {razorpaySettings.enableLiveMode ? '🔴 LIVE MODE — Real money is charged' : '🟡 Test Mode — No real money charged'}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '2px' }}>
+                          {razorpaySettings.enableLiveMode ? 'Customers pay real money. Use rzp_live_ keys.' : 'Safe testing. Use rzp_test_ keys.'}
+                        </div>
+                      </div>
+                      <label style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', cursor: 'pointer', flexShrink: 0 }}>
+                        <input type="checkbox" checked={razorpaySettings.enableLiveMode} onChange={e => {
+                          if (e.target.checked && !window.confirm('⚠️ Switch to LIVE MODE? Real customers will be charged. Ensure your rzp_live_ key is set.')) return;
+                          setRazorpaySettings(p => ({ ...p, enableLiveMode: e.target.checked }));
+                        }} style={{ opacity: 0, width: 0, height: 0 }} />
+                        <span style={{ position: 'absolute', inset: 0, backgroundColor: razorpaySettings.enableLiveMode ? '#dc2626' : '#d1d5db', borderRadius: '13px', transition: '0.3s' }}>
+                          <span style={{ position: 'absolute', left: razorpaySettings.enableLiveMode ? '24px' : '2px', top: '2px', width: '22px', height: '22px', backgroundColor: '#fff', borderRadius: '50%', transition: '0.3s' }} />
+                        </span>
+                      </label>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>Cash on Delivery (COD)</div>
+                        <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '2px' }}>Show COD at checkout (always simulated — no payment).</div>
+                      </div>
+                      <label style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', cursor: 'pointer', flexShrink: 0 }}>
+                        <input type="checkbox" checked={razorpaySettings.enableCod} onChange={e => setRazorpaySettings(p => ({ ...p, enableCod: e.target.checked }))} style={{ opacity: 0, width: 0, height: 0 }} />
+                        <span style={{ position: 'absolute', inset: 0, backgroundColor: razorpaySettings.enableCod ? 'var(--accent-raw)' : '#d1d5db', borderRadius: '13px', transition: '0.3s' }}>
+                          <span style={{ position: 'absolute', left: razorpaySettings.enableCod ? '24px' : '2px', top: '2px', width: '22px', height: '22px', backgroundColor: '#fff', borderRadius: '50%', transition: '0.3s' }} />
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* How to get keys */}
+                <div style={{ backgroundColor: '#eff6ff', padding: '20px 24px', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.8rem', color: '#1d4ed8', marginBottom: '10px' }}>📋 How to get your Razorpay API Keys</div>
+                  <ol style={{ fontSize: '0.78rem', color: '#1e40af', lineHeight: '1.8', paddingLeft: '20px', margin: 0 }}>
+                    <li>Go to <strong>dashboard.razorpay.com</strong> → Login or Sign Up (free)</li>
+                    <li>Click <strong>Settings</strong> → <strong>API Keys</strong></li>
+                    <li>Click <strong>"Generate Test Key"</strong> for testing or <strong>"Generate Live Key"</strong> for production</li>
+                    <li>Copy the <strong>Key ID</strong> and <strong>Key Secret</strong></li>
+                    <li>Paste them above and click <strong>Save Gateway Settings</strong></li>
+                  </ol>
+                  <div style={{ marginTop: '12px', fontSize: '0.72rem', color: '#6b7280' }}>
+                    ⚡ Test card: <code>4111 1111 1111 1111</code> | Any CVV & future expiry | OTP: <code>1234</code>
+                  </div>
+                </div>
+
+                {/* Save & Test */}
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button type="submit" style={{ padding: '12px 28px', backgroundColor: 'var(--accent-raw)', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-mono)', letterSpacing: '1px' }}>
+                    <Save size={16} /> SAVE GATEWAY SETTINGS
+                  </button>
+                  {rzpSaveSuccess && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#16a34a', fontWeight: 600, fontSize: '0.85rem' }}>
+                      <Check size={16} /> Saved! Checkout will now use these credentials.
+                    </div>
+                  )}
+                  {razorpaySettings.keyId && (
+                    <button type="button"
+                      onClick={() => {
+                        const s = razorpaySettings;
+                        if (!s.keyId) { alert('Save your settings first!'); return; }
+                        if (!window.Razorpay) { alert('Razorpay SDK not loaded. Check internet connection.'); return; }
+                        const rzp = new window.Razorpay({
+                          key: s.keyId,
+                          amount: 100,
+                          currency: 'INR',
+                          name: s.businessName || 'off-kilt Fashion',
+                          description: 'Gateway Connection Test ₹1',
+                          image: s.businessLogo || '',
+                          handler: () => alert('✅ Razorpay connection successful! Your gateway is working perfectly.'),
+                          prefill: { name: 'Admin Test', email: 'admin@offkite.com', contact: '9000000000' },
+                          theme: { color: s.theme || '#f97316' },
+                        });
+                        rzp.open();
+                      }}
+                      style={{ padding: '12px 20px', backgroundColor: '#f0fdf4', color: '#16a34a', border: '1.5px solid #86efac', borderRadius: '6px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-mono)' }}
+                    >
+                      <Zap size={14} /> TEST CONNECTION (₹1)
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+          )}
+
           {/* 2. PRODUCT CMS */}
           {activeTab === 'products' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px', alignItems: 'start' }}>
@@ -914,17 +1478,14 @@ export default function AdminDashboard({ currentUser, onClose }) {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div>
                       <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Category</label>
-                      <select 
+                      <input 
+                        type="text" 
                         value={productForm.category} 
-                        onChange={(e) => setProductForm({...productForm, category: e.target.value})}
-                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', backgroundColor: '#ffffff' }}
-                      >
-                        <option value="jeans">Men / Jeans</option>
-                        <option value="skirts">Women / Skirts</option>
-                        <option value="tops">Tops / Edits</option>
-                        <option value="denim fits">Denim Fits</option>
-                        <option value="new arrivals">New Arrivals</option>
-                      </select>
+                        onChange={(e) => setProductForm({...productForm, category: e.target.value.toLowerCase()})}
+                        placeholder="e.g. jeans, skirts, footwear, accessories"
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                        required
+                      />
                     </div>
                     <div>
                       <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Stock Count</label>
@@ -1145,95 +1706,807 @@ export default function AdminDashboard({ currentUser, onClose }) {
 
           {/* 4. CAMPAIGN CMS */}
           {activeTab === 'campaigns' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
-              {/* Men's campaign configuration */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+              
+              {/* Hero Banner configuration */}
               <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
-                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>MEN'S CAMPAIGN CMS</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>HERO BANNER CMS</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                   <div>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Title</label>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Background Media URL (Video or Image)</label>
                     <input 
                       type="text" 
-                      value={campaigns.men.title} 
-                      onChange={(e) => handleCampaignSave('men', { ...campaigns.men, title: e.target.value })} 
+                      value={campaigns.hero.mediaUrl || ''} 
+                      onChange={(e) => {
+                        const updated = { ...campaigns.hero, mediaUrl: e.target.value };
+                        setCampaigns(prev => ({ ...prev, hero: updated }));
+                        localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
+                        window.dispatchEvent(new Event('offkilt_hero_updated'));
+                      }} 
+                      placeholder="e.g. /videos/hero_bg.mp4 or external URL"
                       style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
                     />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Subtitle</label>
-                    <textarea 
-                      value={campaigns.men.subtitle} 
-                      onChange={(e) => handleCampaignSave('men', { ...campaigns.men, subtitle: e.target.value })} 
-                      rows="2"
-                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                    ></textarea>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>CTA Button Label</label>
-                    <input 
-                      type="text" 
-                      value={campaigns.men.ctaText} 
-                      onChange={(e) => handleCampaignSave('men', { ...campaigns.men, ctaText: e.target.value })} 
-                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Cover Banner</label>
-                    <div style={{ position: 'relative', border: '1px dashed rgba(0,0,0,0.15)', borderRadius: '2px', padding: '16px', textAlign: 'center', height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                      <input type="file" accept="image/*" onChange={(e) => handleCampaignImageUpload('men', e.target.files?.[0])} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
-                      {campaigns.men.image ? (
-                        <img src={campaigns.men.image} alt="Men Preview" style={{ maxHeight: '100%', objectFit: 'contain' }} />
-                      ) : (
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Upload Men's Campaign Image</span>
-                      )}
+                    <div style={{ marginTop: '6px' }}>
+                      <input 
+                        type="file" 
+                        accept="image/*,video/*" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              const isVideo = file.type.startsWith('video/');
+                              const updated = { 
+                                ...campaigns.hero, 
+                                mediaUrl: reader.result,
+                                mediaType: isVideo ? 'video' : 'image'
+                              };
+                              setCampaigns(prev => ({ ...prev, hero: updated }));
+                              localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
+                              window.dispatchEvent(new Event('offkilt_hero_updated'));
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        style={{ fontSize: '0.75rem', width: '100%' }}
+                      />
                     </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Media Type</label>
+                    <select
+                      value={campaigns.hero.mediaType || 'video'}
+                      onChange={(e) => {
+                        const updated = { ...campaigns.hero, mediaType: e.target.value };
+                        setCampaigns(prev => ({ ...prev, hero: updated }));
+                        localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
+                        window.dispatchEvent(new Event('offkilt_hero_updated'));
+                      }}
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    >
+                      <option value="video">Video</option>
+                      <option value="image">Image</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Title Word 1 (Split Design)</label>
+                    <input 
+                      type="text" 
+                      value={campaigns.hero.word1 || 'FASHION'} 
+                      onChange={(e) => {
+                        const updated = { ...campaigns.hero, word1: e.target.value };
+                        setCampaigns(prev => ({ ...prev, hero: updated }));
+                        localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
+                        window.dispatchEvent(new Event('offkilt_hero_updated'));
+                      }} 
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Title Word 2</label>
+                    <input 
+                      type="text" 
+                      value={campaigns.hero.word2 || 'WITHOUT'} 
+                      onChange={(e) => {
+                        const updated = { ...campaigns.hero, word2: e.target.value };
+                        setCampaigns(prev => ({ ...prev, hero: updated }));
+                        localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
+                        window.dispatchEvent(new Event('offkilt_hero_updated'));
+                      }} 
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Title Word 3</label>
+                    <input 
+                      type="text" 
+                      value={campaigns.hero.word3 || 'LIMITS'} 
+                      onChange={(e) => {
+                        const updated = { ...campaigns.hero, word3: e.target.value };
+                        setCampaigns(prev => ({ ...prev, hero: updated }));
+                        localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
+                        window.dispatchEvent(new Event('offkilt_hero_updated'));
+                      }} 
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Button 1 Text</label>
+                    <input 
+                      type="text" 
+                      value={campaigns.hero.btn1Text || 'SHOP WOMEN'} 
+                      onChange={(e) => {
+                        const updated = { ...campaigns.hero, btn1Text: e.target.value };
+                        setCampaigns(prev => ({ ...prev, hero: updated }));
+                        localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
+                        window.dispatchEvent(new Event('offkilt_hero_updated'));
+                      }} 
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Button 1 Action/Link</label>
+                    <input 
+                      type="text" 
+                      value={campaigns.hero.btn1Link || '#catalog'} 
+                      onChange={(e) => {
+                        const updated = { ...campaigns.hero, btn1Link: e.target.value };
+                        setCampaigns(prev => ({ ...prev, hero: updated }));
+                        localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
+                        window.dispatchEvent(new Event('offkilt_hero_updated'));
+                      }} 
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Button 2 Text</label>
+                    <input 
+                      type="text" 
+                      value={campaigns.hero.btn2Text || 'SHOP MEN'} 
+                      onChange={(e) => {
+                        const updated = { ...campaigns.hero, btn2Text: e.target.value };
+                        setCampaigns(prev => ({ ...prev, hero: updated }));
+                        localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
+                        window.dispatchEvent(new Event('offkilt_hero_updated'));
+                      }} 
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Button 2 Action/Link</label>
+                    <input 
+                      type="text" 
+                      value={campaigns.hero.btn2Link || '#catalog'} 
+                      onChange={(e) => {
+                        const updated = { ...campaigns.hero, btn2Link: e.target.value };
+                        setCampaigns(prev => ({ ...prev, hero: updated }));
+                        localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
+                        window.dispatchEvent(new Event('offkilt_hero_updated'));
+                      }} 
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Women's campaign configuration */}
+              {/* Fashion Film CMS */}
               <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
-                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>WOMEN'S CAMPAIGN CMS</h3>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>FASHION FILM CMS</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Title</label>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Video Source URL</label>
                     <input 
                       type="text" 
-                      value={campaigns.women.title} 
-                      onChange={(e) => handleCampaignSave('women', { ...campaigns.women, title: e.target.value })} 
+                      value={fashionFilm.videoUrl} 
+                      onChange={(e) => setFashionFilm({ ...fashionFilm, videoUrl: e.target.value })} 
+                      placeholder="e.g. /videos/fashion_film.mp4 or empty for default"
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                    <div style={{ marginTop: '6px' }}>
+                      <input 
+                        type="file" 
+                        accept="video/*" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setFashionFilm(prev => ({ ...prev, videoUrl: reader.result }));
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        style={{ fontSize: '0.75rem', width: '100%' }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Title</label>
+                    <input 
+                      type="text" 
+                      value={fashionFilm.title} 
+                      onChange={(e) => setFashionFilm({ ...fashionFilm, title: e.target.value })} 
                       style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Subtitle</label>
-                    <textarea 
-                      value={campaigns.women.subtitle} 
-                      onChange={(e) => handleCampaignSave('women', { ...campaigns.women, subtitle: e.target.value })} 
-                      rows="2"
-                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                    ></textarea>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>CTA Button Label</label>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Quote</label>
                     <input 
                       type="text" 
-                      value={campaigns.women.ctaText} 
-                      onChange={(e) => handleCampaignSave('women', { ...campaigns.women, ctaText: e.target.value })} 
+                      value={fashionFilm.quote} 
+                      onChange={(e) => setFashionFilm({ ...fashionFilm, quote: e.target.value })} 
                       style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
                     />
                   </div>
-                  <div>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Cover Banner</label>
-                    <div style={{ position: 'relative', border: '1px dashed rgba(0,0,0,0.15)', borderRadius: '2px', padding: '16px', textAlign: 'center', height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                      <input type="file" accept="image/*" onChange={(e) => handleCampaignImageUpload('women', e.target.files?.[0])} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
-                      {campaigns.women.image ? (
-                        <img src={campaigns.women.image} alt="Women Preview" style={{ maxHeight: '100%', objectFit: 'contain' }} />
-                      ) : (
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Upload Women's Campaign Image</span>
-                      )}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <button type="button" onClick={handleFashionFilmSave} className="btn-primary">
+                      <Save size={16} /> Save Fashion Film Settings
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid layout for Men and Women campaigns */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                {/* Men's campaign configuration */}
+                <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                  <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>MEN'S CAMPAIGN CMS</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Title</label>
+                      <input 
+                        type="text" 
+                        value={campaigns.men.title} 
+                        onChange={(e) => handleCampaignSave('men', { ...campaigns.men, title: e.target.value })} 
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Subtitle</label>
+                      <textarea 
+                        value={campaigns.men.subtitle} 
+                        onChange={(e) => handleCampaignSave('men', { ...campaigns.men, subtitle: e.target.value })} 
+                        rows="2"
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      ></textarea>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>CTA Button Label</label>
+                      <input 
+                        type="text" 
+                        value={campaigns.men.ctaText} 
+                        onChange={(e) => handleCampaignSave('men', { ...campaigns.men, ctaText: e.target.value })} 
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Cover Banner</label>
+                      <div style={{ position: 'relative', border: '1px dashed rgba(0,0,0,0.15)', borderRadius: '2px', padding: '16px', textAlign: 'center', height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        <input type="file" accept="image/*" onChange={(e) => handleCampaignImageUpload('men', e.target.files?.[0])} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+                        {campaigns.men.image ? (
+                          <img src={campaigns.men.image} alt="Men Preview" style={{ maxHeight: '100%', objectFit: 'contain' }} />
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Upload Men's Campaign Image</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Women's campaign configuration */}
+                <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                  <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>WOMEN'S CAMPAIGN CMS</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Title</label>
+                      <input 
+                        type="text" 
+                        value={campaigns.women.title} 
+                        onChange={(e) => handleCampaignSave('women', { ...campaigns.women, title: e.target.value })} 
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Subtitle</label>
+                      <textarea 
+                        value={campaigns.women.subtitle} 
+                        onChange={(e) => handleCampaignSave('women', { ...campaigns.women, subtitle: e.target.value })} 
+                        rows="2"
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      ></textarea>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>CTA Button Label</label>
+                      <input 
+                        type="text" 
+                        value={campaigns.women.ctaText} 
+                        onChange={(e) => handleCampaignSave('women', { ...campaigns.women, ctaText: e.target.value })} 
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Cover Banner</label>
+                      <div style={{ position: 'relative', border: '1px dashed rgba(0,0,0,0.15)', borderRadius: '2px', padding: '16px', textAlign: 'center', height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        <input type="file" accept="image/*" onChange={(e) => handleCampaignImageUpload('women', e.target.files?.[0])} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+                        {campaigns.women.image ? (
+                          <img src={campaigns.women.image} alt="Women Preview" style={{ maxHeight: '100%', objectFit: 'contain' }} />
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Upload Women's Campaign Image</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Typography Settings Tab */}
+          {activeTab === 'typography' && (
+            <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+              <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>TYPOGRAPHY & BRAND FONTS</h3>
+              <form onSubmit={handleTypographySave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Heading Font Style</label>
+                  <select 
+                    value={fontHeading} 
+                    onChange={(e) => setFontHeading(e.target.value)}
+                    style={{ width: '100%', padding: '10px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', backgroundColor: '#ffffff' }}
+                  >
+                    <option value="Outfit">Outfit (Modern Geometrical Sans)</option>
+                    <option value="Syne">Syne (Artistic & Edgy)</option>
+                    <option value="Playfair Display">Playfair Display (Zara Serif Style)</option>
+                    <option value="Space Grotesk">Space Grotesk (Tech Brutalist)</option>
+                    <option value="Cormorant Garamond">Cormorant Garamond (Premium Luxury Serif)</option>
+                    <option value="Montserrat">Montserrat (Clean Classic Geometric)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Body / Interface Font Style</label>
+                  <select 
+                    value={fontBody} 
+                    onChange={(e) => setFontBody(e.target.value)}
+                    style={{ width: '100%', padding: '10px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', backgroundColor: '#ffffff' }}
+                  >
+                    <option value="Inter">Inter (Premium Neutral Sans)</option>
+                    <option value="Manrope">Manrope (Modern Humanist Sans)</option>
+                    <option value="Roboto Mono">Roboto Mono (Clean Technical Monospace)</option>
+                    <option value="DM Sans">DM Sans (Minimalist Geometric)</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                  <button type="submit" className="btn-primary">
+                    <Save size={16} /> Save Typography Configs
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Mega Menu Settings Tab */}
+          {activeTab === 'megamenu' && (
+            <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+              <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>MEGA MENU CATEGORIZATIONS BUILDER</h3>
+              <form onSubmit={handleMegaMenuSave} style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                  {/* Men's Mega Menu Column */}
+                  <div>
+                    <h4 style={{ fontSize: '0.8rem', fontWeight: 700, borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '6px', marginBottom: '16px', textTransform: 'uppercase' }}>Men's Fits & Categories</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>FITS (Comma Separated)</label>
+                        <textarea
+                          value={megaMenuSettings.men.fits.join(', ')}
+                          onChange={(e) => {
+                            const fits = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                            setMegaMenuSettings({ ...megaMenuSettings, men: { ...megaMenuSettings.men, fits } });
+                          }}
+                          rows="3"
+                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>CATEGORIES (Comma Separated)</label>
+                        <textarea
+                          value={megaMenuSettings.men.categories.join(', ')}
+                          onChange={(e) => {
+                            const categories = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                            setMegaMenuSettings({ ...megaMenuSettings, men: { ...megaMenuSettings.men, categories } });
+                          }}
+                          rows="3"
+                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Women's Mega Menu Column */}
+                  <div>
+                    <h4 style={{ fontSize: '0.8rem', fontWeight: 700, borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '6px', marginBottom: '16px', textTransform: 'uppercase' }}>Women's Fits & Categories</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>FITS (Comma Separated)</label>
+                        <textarea
+                          value={megaMenuSettings.women.fits.join(', ')}
+                          onChange={(e) => {
+                            const fits = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                            setMegaMenuSettings({ ...megaMenuSettings, women: { ...megaMenuSettings.women, fits } });
+                          }}
+                          rows="3"
+                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>CATEGORIES (Comma Separated)</label>
+                        <textarea
+                          value={megaMenuSettings.women.categories.join(', ')}
+                          onChange={(e) => {
+                            const categories = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                            setMegaMenuSettings({ ...megaMenuSettings, women: { ...megaMenuSettings.women, categories } });
+                          }}
+                          rows="3"
+                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                  <button type="submit" className="btn-primary">
+                    <Save size={16} /> Save Mega Menu Configurations
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Socials & Instagram Settings Tab */}
+          {activeTab === 'socials' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>SOCIAL MEDIA & SUPPORT CONFIG</h3>
+                <form onSubmit={handleSocialSettingsSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-grey)' }}>Instagram Handle</label>
+                      <input 
+                        type="text" 
+                        value={socialSettings.instagram} 
+                        onChange={(e) => setSocialSettings({ ...socialSettings, instagram: e.target.value })} 
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                        placeholder="@offkiltfashion"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-grey)' }}>Instagram URL (Reels/Stories Link)</label>
+                      <input 
+                        type="text" 
+                        value={socialSettings.instagramUrl} 
+                        onChange={(e) => setSocialSettings({ ...socialSettings, instagramUrl: e.target.value })} 
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                        placeholder="https://www.instagram.com/offkiltfashion"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-grey)' }}>WhatsApp Support Number (With Country Code)</label>
+                      <input 
+                        type="text" 
+                        value={socialSettings.whatsapp} 
+                        onChange={(e) => setSocialSettings({ ...socialSettings, whatsapp: e.target.value })} 
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                        placeholder="918291155692"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-grey)' }}>Facebook Brand Page URL</label>
+                      <input 
+                        type="text" 
+                        value={socialSettings.facebookUrl || ''} 
+                        onChange={(e) => setSocialSettings({ ...socialSettings, facebookUrl: e.target.value })} 
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                        placeholder="https://facebook.com/offkilt"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-grey)' }}>YouTube Channel Link</label>
+                    <input 
+                      type="text" 
+                      value={socialSettings.youtubeUrl || ''} 
+                      onChange={(e) => setSocialSettings({ ...socialSettings, youtubeUrl: e.target.value })} 
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                      placeholder="https://youtube.com/c/offkilt"
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <button type="submit" className="btn-primary">
+                      <Save size={16} /> Save Social Configurations
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Instagram Gallery Manager Card */}
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <h3 style={{ fontSize: '0.9rem', letterSpacing: '1px' }}>INSTAGRAM GALLERY MANAGER</h3>
+                  <button 
+                    type="button" 
+                    onClick={handleAddIgItem} 
+                    className="btn-primary" 
+                    style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                  >
+                    <Plus size={12} /> Add Post
+                  </button>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {igGallery.map((item, idx) => (
+                    <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 100px 50px', gap: '12px', alignItems: 'center', padding: '12px', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '2px', backgroundColor: '#fcfcf9' }}>
+                      <div>
+                        <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Image URL</label>
+                        <input 
+                          type="text" 
+                          value={item.src} 
+                          onChange={(e) => {
+                            const updated = [...igGallery];
+                            updated[idx].src = e.target.value;
+                            setIgGallery(updated);
+                          }}
+                          placeholder="https://images.unsplash.com/..."
+                          style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                        />
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                const updated = [...igGallery];
+                                updated[idx].src = reader.result;
+                                setIgGallery(updated);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          style={{ fontSize: '0.65rem', marginTop: '4px', width: '100%' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Likes Display</label>
+                        <input 
+                          type="text" 
+                          value={item.likes} 
+                          onChange={(e) => {
+                            const updated = [...igGallery];
+                            updated[idx].likes = e.target.value;
+                            setIgGallery(updated);
+                          }}
+                          placeholder="e.g. 4.2K"
+                          style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Featured</label>
+                        <input 
+                          type="checkbox" 
+                          checked={item.featured === true} 
+                          onChange={(e) => {
+                            const updated = igGallery.map((g, i) => ({ ...g, featured: i === idx ? e.target.checked : false }));
+                            setIgGallery(updated);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <button 
+                          type="button" 
+                          onClick={() => handleDeleteIgItem(item.id)}
+                          style={{ color: '#ef4444', marginTop: '14px', cursor: 'pointer' }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                  <button type="button" onClick={handleSaveIgGallery} className="btn-primary">
+                    <Save size={16} /> Save Gallery Items
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Footer Settings Tab */}
+          {activeTab === 'footer' && (
+            <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+              <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>FOOTER CONTACT INFO & ADDRESS CMS</h3>
+              <form onSubmit={handleFooterSettingsSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-grey)' }}>Primary Email</label>
+                    <input 
+                      type="email" 
+                      value={footerSettings.email1} 
+                      onChange={(e) => setFooterSettings({ ...footerSettings, email1: e.target.value })} 
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-grey)' }}>Secondary Email</label>
+                    <input 
+                      type="email" 
+                      value={footerSettings.email2} 
+                      onChange={(e) => setFooterSettings({ ...footerSettings, email2: e.target.value })} 
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-grey)' }}>Support Mobile Phone / WhatsApp</label>
+                  <input 
+                    type="text" 
+                    value={footerSettings.phone} 
+                    onChange={(e) => setFooterSettings({ ...footerSettings, phone: e.target.value })} 
+                    style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-grey)' }}>Physical Warehouse Address (Includes MapPin Icon Rendering)</label>
+                  <textarea 
+                    value={footerSettings.address} 
+                    onChange={(e) => setFooterSettings({ ...footerSettings, address: e.target.value })} 
+                    rows="3"
+                    style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', resize: 'vertical' }}
+                    required
+                  ></textarea>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                  <button type="submit" className="btn-primary">
+                    <Save size={16} /> Save Footer Details
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Marketplace Partners Settings Tab */}
+          {activeTab === 'partners' && (
+            <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '0.9rem', letterSpacing: '1px' }}>MARKETPLACE PARTNERS DIRECTORY</h3>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    const newPartnerList = [...partnersList, { name: 'New Partner', url: '#', color: '#111111', logoText: 'NEW', imageUrl: '', active: true }];
+                    setPartnersList(newPartnerList);
+                  }}
+                  className="btn-primary"
+                  style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                >
+                  <Plus size={12} /> Add Partner
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {partnersList.map((partner, idx) => (
+                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr 60px 40px', gap: '12px', alignItems: 'center', padding: '12px', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '2px', backgroundColor: '#fcfcf9' }}>
+                    <div>
+                      <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Name</label>
+                      <input 
+                        type="text" 
+                        value={partner.name} 
+                        onChange={(e) => {
+                          const updated = [...partnersList];
+                          updated[idx].name = e.target.value;
+                          setPartnersList(updated);
+                        }}
+                        style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Storefront Link (URL)</label>
+                      <input 
+                        type="text" 
+                        value={partner.url} 
+                        onChange={(e) => {
+                          const updated = [...partnersList];
+                          updated[idx].url = e.target.value;
+                          setPartnersList(updated);
+                        }}
+                        style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Logo Text</label>
+                      <input 
+                        type="text" 
+                        value={partner.logoText} 
+                        onChange={(e) => {
+                          const updated = [...partnersList];
+                          updated[idx].logoText = e.target.value;
+                          setPartnersList(updated);
+                        }}
+                        style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Logo Image URL</label>
+                      <input 
+                        type="text" 
+                        value={partner.imageUrl || ''} 
+                        onChange={(e) => {
+                          const updated = [...partnersList];
+                          updated[idx].imageUrl = e.target.value;
+                          setPartnersList(updated);
+                        }}
+                        style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                        placeholder="https://..."
+                      />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              const updated = [...partnersList];
+                              updated[idx].imageUrl = reader.result;
+                              setPartnersList(updated);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        style={{ fontSize: '0.65rem', marginTop: '4px', width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Hover Accent Color</label>
+                      <input 
+                        type="text" 
+                        value={partner.color} 
+                        onChange={(e) => {
+                          const updated = [...partnersList];
+                          updated[idx].color = e.target.value;
+                          setPartnersList(updated);
+                        }}
+                        style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', fontFamily: 'var(--font-mono)' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Active</label>
+                      <input 
+                        type="checkbox" 
+                        checked={partner.active !== false} 
+                        onChange={(e) => {
+                          const updated = [...partnersList];
+                          updated[idx].active = e.target.checked;
+                          setPartnersList(updated);
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const updated = partnersList.filter((_, i) => i !== idx);
+                          setPartnersList(updated);
+                        }}
+                        style={{ color: '#ef4444', marginTop: '14px' }}
+                        title="Delete Partner"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                <button type="button" onClick={handlePartnersSave} className="btn-primary">
+                  <Save size={16} /> Save Marketplace Partners
+                </button>
               </div>
             </div>
           )}
@@ -1244,7 +2517,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
               <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>HEADER NAVIGATION MENU MANAGER</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {menuItems.map((item, index) => (
-                  <div key={index} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 1fr 100px', gap: '12px', alignItems: 'center', padding: '12px', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '2px', backgroundColor: '#fcfcf9' }}>
+                  <div key={index} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 1fr 100px 50px', gap: '12px', alignItems: 'center', padding: '12px', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '2px', backgroundColor: '#fcfcf9' }}>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                       <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Menu Label</label>
                       <input 
@@ -1297,10 +2570,23 @@ export default function AdminDashboard({ currentUser, onClose }) {
                         }}
                       />
                     </div>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <button 
+                        type="button" 
+                        onClick={() => handleDeleteMenuItem(index)}
+                        style={{ color: '#ef4444', marginTop: '14px', cursor: 'pointer' }}
+                        title="Delete Menu Link"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 ))}
                 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+                  <button onClick={handleAddMenuItem} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Plus size={16} /> Add Menu Item
+                  </button>
                   <button onClick={handleMenuSave} className="btn-primary">
                     <Save size={16} /> Save Navigation Changes
                   </button>
@@ -1814,6 +3100,284 @@ export default function AdminDashboard({ currentUser, onClose }) {
                   <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '16px' }}>Wipe all changes and restore original defaults.</p>
                   <button onClick={handleFactoryReset} className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '8px 12px', backgroundColor: '#ef4444', color: '#ffffff' }}>Reset Storage</button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* COLLECTIONS & STORY PANEL */}
+          {activeTab === 'collections' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+              
+              {/* Brand Story (Narrative) CMS Card */}
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>THE NARRATIVE & BRAND STORY</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Title</label>
+                    <input 
+                      type="text" 
+                      value={narrative.title} 
+                      onChange={(e) => setNarrative({ ...narrative, title: e.target.value })} 
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>First Paragraph</label>
+                    <textarea 
+                      value={narrative.body1} 
+                      onChange={(e) => setNarrative({ ...narrative, body1: e.target.value })} 
+                      rows="3"
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Pull Quote</label>
+                    <input 
+                      type="text" 
+                      value={narrative.quote} 
+                      onChange={(e) => setNarrative({ ...narrative, quote: e.target.value })} 
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Second Paragraph</label>
+                    <textarea 
+                      value={narrative.body2} 
+                      onChange={(e) => setNarrative({ ...narrative, body2: e.target.value })} 
+                      rows="3"
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Cover Image URL</label>
+                    <input 
+                      type="text" 
+                      value={narrative.image} 
+                      onChange={(e) => setNarrative({ ...narrative, image: e.target.value })} 
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                    <div style={{ marginTop: '6px' }}>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setNarrative(prev => ({ ...prev, image: reader.result }));
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        style={{ fontSize: '0.75rem', width: '100%' }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <button type="button" onClick={handleNarrativeSave} className="btn-primary">
+                      <Save size={16} /> Save Brand Narrative
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Homepage Collections Card */}
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>HOMEPAGE COLLECTIONS COVERS & LINKS</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  
+                  {/* Best Sellers */}
+                  <div style={{ border: '1px solid rgba(0,0,0,0.04)', padding: '16px', borderRadius: '2px' }}>
+                    <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '12px' }}>BEST SELLERS GRID</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Collection Title</label>
+                        <input 
+                          type="text" 
+                          value={homepageCollections.bestSellersTitle} 
+                          onChange={(e) => setHomepageCollections({ ...homepageCollections, bestSellersTitle: e.target.value })}
+                          style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Cover Image URL</label>
+                        <input 
+                          type="text" 
+                          value={homepageCollections.bestSellersCover} 
+                          onChange={(e) => setHomepageCollections({ ...homepageCollections, bestSellersCover: e.target.value })}
+                          style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)' }}
+                        />
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setHomepageCollections(prev => ({ ...prev, bestSellersCover: reader.result }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          style={{ fontSize: '0.65rem', marginTop: '4px', width: '100%' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Trending Collection */}
+                  <div style={{ border: '1px solid rgba(0,0,0,0.04)', padding: '16px', borderRadius: '2px' }}>
+                    <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '12px' }}>TRENDING GRID</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Collection Title</label>
+                        <input 
+                          type="text" 
+                          value={homepageCollections.trendingTitle} 
+                          onChange={(e) => setHomepageCollections({ ...homepageCollections, trendingTitle: e.target.value })}
+                          style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Cover Image URL</label>
+                        <input 
+                          type="text" 
+                          value={homepageCollections.trendingCover} 
+                          onChange={(e) => setHomepageCollections({ ...homepageCollections, trendingCover: e.target.value })}
+                          style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)' }}
+                        />
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setHomepageCollections(prev => ({ ...prev, trendingCover: reader.result }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          style={{ fontSize: '0.65rem', marginTop: '4px', width: '100%' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Shop by Style */}
+                  <div style={{ border: '1px solid rgba(0,0,0,0.04)', padding: '16px', borderRadius: '2px', gridColumn: 'span 2' }}>
+                    <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '12px' }}>SHOP BY STYLE</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Section Title</label>
+                        <input 
+                          type="text" 
+                          value={homepageCollections.styleTitle} 
+                          onChange={(e) => setHomepageCollections({ ...homepageCollections, styleTitle: e.target.value })}
+                          style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Cover Image URL</label>
+                        <input 
+                          type="text" 
+                          value={homepageCollections.styleCover} 
+                          onChange={(e) => setHomepageCollections({ ...homepageCollections, styleCover: e.target.value })}
+                          style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)' }}
+                        />
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setHomepageCollections(prev => ({ ...prev, styleCover: reader.result }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          style={{ fontSize: '0.65rem', marginTop: '4px', width: '100%' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                  <button type="button" onClick={handleCollectionsSave} className="btn-primary">
+                    <Save size={16} /> Save Collections Settings
+                  </button>
+                </div>
+              </div>
+
+              {/* Product Categories List Card */}
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>STOREFRONT CATEGORY TABS</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Active Categories (Comma-separated)</label>
+                    <input 
+                      type="text" 
+                      value={categoryList.join(', ')} 
+                      onChange={(e) => {
+                        const arr = e.target.value.split(',').map(x => x.trim()).filter(Boolean);
+                        setCategoryList(arr);
+                      }} 
+                      placeholder="e.g. all, jeans, skirts, cargos, shirts"
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <button type="button" onClick={handleCategoriesSave} className="btn-primary">
+                      <Save size={16} /> Save Storefront Categories
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Q&A MANAGER PANEL */}
+          {activeTab === 'qna' && (
+            <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+              <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>PRODUCT Q&A MANAGER</h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {Object.keys(qnaProducts).length === 0 || Object.values(qnaProducts).flat().length === 0 ? (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-grey)', fontStyle: 'italic', textAlign: 'center', padding: '30px 0' }}>
+                    No questions have been submitted by customers yet.
+                  </p>
+                ) : (
+                  Object.entries(qnaProducts).map(([prodId, qList]) => {
+                    if (!qList || qList.length === 0) return null;
+                    const prod = products.find(p => p.id === prodId) || { name: `Product ID: ${prodId}`, image: '' };
+                    return (
+                      <div key={prodId} style={{ border: '1px solid rgba(0,0,0,0.06)', padding: '20px', borderRadius: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', borderBottom: '1px solid rgba(0,0,0,0.04)', paddingBottom: '12px' }}>
+                          {prod.image && <img src={prod.image} alt={prod.name} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '2px' }} />}
+                          <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{prod.name.toUpperCase()}</h4>
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                          {qList.map((q) => (
+                            <QnaItemRow 
+                              key={q.id} 
+                              q={q} 
+                              prodId={prodId} 
+                              onSaveAnswer={handleSaveAnswer}
+                              onDelete={handleDeleteQuestion}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           )}

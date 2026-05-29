@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Heart } from 'lucide-react';
 
 function InstagramIcon({ size = 18, color = 'white' }) {
@@ -42,19 +42,16 @@ const GALLERY_ITEMS = [
   },
   {
     id: 'ig6',
-    // Was broken — using verified alternative
     src: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=500&q=85',
     likes: '987',
   },
   {
     id: 'ig7',
-    // Was broken — using verified alternative
     src: 'https://images.unsplash.com/photo-1485218126466-34e6392ec754?w=500&q=85',
     likes: '1.4K',
   },
   {
     id: 'ig8',
-    // Was broken — using verified alternative
     src: 'https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=500&q=85',
     likes: '2.9K',
   },
@@ -67,6 +64,50 @@ const GALLERY_ITEMS = [
 
 export default function InstagramGallery() {
   const headerRef = useRef(null);
+  
+  const [igSettings, setIgSettings] = useState(() => {
+    const handle = localStorage.getItem('offkilt_instagram') || '@offkiltfashion';
+    return {
+      handle: handle,
+      url: localStorage.getItem('offkilt_instagram_url') || `https://www.instagram.com/${handle.replace('@', '')}`
+    };
+  });
+
+  const [galleryItems, setGalleryItems] = useState(() => {
+    const stored = localStorage.getItem('offkilt_instagram_gallery');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        return GALLERY_ITEMS;
+      }
+    }
+    return GALLERY_ITEMS;
+  });
+
+  useEffect(() => {
+    const loadSettings = () => {
+      const handle = localStorage.getItem('offkilt_instagram') || '@offkiltfashion';
+      setIgSettings({
+        handle: handle,
+        url: localStorage.getItem('offkilt_instagram_url') || `https://www.instagram.com/${handle.replace('@', '')}`
+      });
+    };
+    const loadGallery = () => {
+      const stored = localStorage.getItem('offkilt_instagram_gallery');
+      if (stored) {
+        try {
+          setGalleryItems(JSON.parse(stored));
+        } catch (e) {}
+      }
+    };
+    window.addEventListener('offkilt_settings_updated', loadSettings);
+    window.addEventListener('offkilt_instagram_updated', loadGallery);
+    return () => {
+      window.removeEventListener('offkilt_settings_updated', loadSettings);
+      window.removeEventListener('offkilt_instagram_updated', loadGallery);
+    };
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -78,7 +119,7 @@ export default function InstagramGallery() {
   }, []);
 
   const openInstagram = () => {
-    window.open('https://www.instagram.com/offkiltfashion', '_blank', 'noopener,noreferrer');
+    window.open(igSettings.url, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -94,11 +135,11 @@ export default function InstagramGallery() {
           <div className="instagram-handle-icon">
             <InstagramIcon size={18} />
           </div>
-          <span className="instagram-handle-text">@offkiltfashion</span>
+          <span className="instagram-handle-text">{igSettings.handle}</span>
         </div>
 
         <div className="instagram-grid">
-          {GALLERY_ITEMS.map((item) => (
+          {galleryItems.map((item) => (
             <div
               key={item.id}
               className={`instagram-item${item.featured ? ' ig-featured' : ''}`}
@@ -116,7 +157,7 @@ export default function InstagramGallery() {
                   <Heart size={16} fill="white" color="white" />
                   {item.likes}
                 </div>
-                <span className="instagram-overlay-text">@offkiltfashion</span>
+                <span className="instagram-overlay-text">{igSettings.handle}</span>
               </div>
             </div>
           ))}
@@ -125,7 +166,7 @@ export default function InstagramGallery() {
         <div className="instagram-follow-cta">
           <button className="instagram-follow-btn" onClick={openInstagram}>
             <InstagramIcon size={16} />
-            Follow @offkiltfashion
+            Follow {igSettings.handle}
           </button>
         </div>
       </div>

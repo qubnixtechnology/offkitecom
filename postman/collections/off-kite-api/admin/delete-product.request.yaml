@@ -1,0 +1,19 @@
+$kind: http-request
+method: DELETE
+url: '{{baseUrl}}/admin/products/{{productId}}'
+order: 3000
+headers:
+  - key: Accept
+    value: application/json
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{adminAuthToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Delete product returns success', function () {
+        pm.expect(pm.response.code).to.be.oneOf([200, 202, 204]);
+      });

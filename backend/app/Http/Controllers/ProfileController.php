@@ -6,23 +6,37 @@ use Illuminate\Http\Request;
 
 class ProfileController extends Controller
 {
+    // ─── Get authenticated user's profile ────────────────────────────────────
+
     public function show(Request $request)
     {
         return response()->json($request->user());
     }
 
+    // ─── Update profile ───────────────────────────────────────────────────────
+
     public function update(Request $request)
     {
+        $user = $request->user();
+
         $request->validate([
-            'name' => 'string|max:255',
-            'phone' => 'string|max:255',
-            'address' => 'string',
-            'pincode' => 'string|max:20',
+            'name'          => 'sometimes|required|string|max:255',
+            'email'         => 'sometimes|required|email|max:255|unique:users,email,' . $user->id,
+            'phone'         => 'nullable|string|max:20',
+            'address'       => 'nullable|string',
+            'pincode'       => 'nullable|string|max:20',
+            'profile_image' => 'nullable|string', // base64 or URL
         ]);
 
-        $user = $request->user();
-        $user->update($request->only(['name', 'phone', 'address', 'pincode']));
+        $user->update($request->only([
+            'name',
+            'email',
+            'phone',
+            'address',
+            'pincode',
+            'profile_image',
+        ]));
 
-        return response()->json($user);
+        return response()->json($user->fresh());
     }
 }

@@ -1,0 +1,28 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/admin/products/{{productId}}'
+order: 2000
+headers:
+  - key: Accept
+    value: application/json
+  - key: Content-Type
+    value: application/json
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{adminAuthToken}}'
+body:
+  type: json
+  content: |-
+    {
+      "name": "Updated Test Product",
+      "price": 109.99
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Update product returns success', function () {
+        pm.expect(pm.response.code).to.be.oneOf([200, 202]);
+      });

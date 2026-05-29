@@ -762,8 +762,9 @@ export default function UserProfileModal({
                       </div>
                     )}
 
-                    {currentUser?.email === 'admin@off-kilt.com' && (
+                    {(currentUser?.is_admin === true) && (
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', backgroundColor: '#f9731608', border: '1px dashed #f9731633', padding: '12px 16px', borderRadius: '4px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                        <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--accent-raw)', fontWeight: 800 }}>ADMIN ACCESS:</span>
                         <button 
                           onClick={onOpenAdmin}
                           className="btn-primary" 
@@ -997,12 +998,7 @@ export default function UserProfileModal({
 
                         {/* Info */}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          {product.tagline && (
-                            <div style={{ fontSize: '0.6rem', color: 'var(--accent-raw)', fontFamily: 'var(--font-mono)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                              {product.tagline}
-                            </div>
-                          )}
-                          <div style={{ fontSize: '0.82rem', color: 'var(--text-light)', fontWeight: 600, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 5 }}>
+                          <div className="wishlist-item-title" style={{ fontSize: '0.82rem', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 5 }}>
                             {product.name}
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

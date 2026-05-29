@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -8,6 +8,30 @@ export default function BrandStory() {
   const sectionRef = useRef(null);
   const leftRef = useRef(null);
   const rightRef = useRef(null);
+
+  const [story, setStory] = useState({
+    title: 'REDEFINING DENIM FROM THE SOUL',
+    body1: 'Born from the spirit of rebellion and self-expression, off-kilt challenges the ordinary and redefines modern denim. We create pieces that break away from tradition—clean yet bold, minimal yet impactful.',
+    quote: '"We don\'t create for the masses. We build for the individual who stands solid in their own skin."',
+    body2: 'Rooted in contemporary design and crafted with precision, our collections blend structure with individuality. Every stitch speaks confidence, every silhouette tells a story. This is for those who don’t follow trends—they set them.',
+    image: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=800'
+  });
+
+  useEffect(() => {
+    const loadStory = () => {
+      const stored = localStorage.getItem('offkilt_brand_story');
+      if (stored) {
+        try {
+          setStory(prev => ({ ...prev, ...JSON.parse(stored) }));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+    loadStory();
+    window.addEventListener('offkilt_settings_updated', loadStory);
+    return () => window.removeEventListener('offkilt_settings_updated', loadStory);
+  }, []);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -44,7 +68,7 @@ export default function BrandStory() {
     }, sectionRef);
 
     return () => ctx.revert(); // cleanup
-  }, []);
+  }, [story.image]);
 
   return (
     <section className="story-sec" id="story" ref={sectionRef}>
@@ -54,21 +78,21 @@ export default function BrandStory() {
           <div className="story-left" ref={leftRef}>
             <div className="story-title-group">
               <span className="mono story-subtitle">THE NARRATIVE</span>
-              <h2 className="story-title">REDEFINING DENIM FROM THE SOUL</h2>
+              <h2 className="story-title">{story.title}</h2>
             </div>
             
             <p className="story-body">
-              Born from the spirit of rebellion and self-expression, <span style={{ fontFamily: 'var(--font-brand)', fontWeight: 700 }}>off-kilt</span> challenges the ordinary and redefines modern denim. We create pieces that break away from tradition—clean yet bold, minimal yet impactful.
+              {story.body1}
             </p>
             
             <p className="story-quote">
-              "We don't create for the masses. We build for the individual who stands solid in their own skin."
+              {story.quote}
             </p>
             
             <p className="story-body" style={{ color: 'var(--text-grey)' }}>
-              Rooted in contemporary design and crafted with precision, our collections blend structure with individuality. Every stitch speaks confidence, every silhouette tells a story. This is for those who don’t follow trends—they set them.
+              {story.body2}
             </p>
-
+ 
             <div className="story-highlight-box">
               <div className="highlight-item">
                 <span className="highlight-num">100%</span>
@@ -88,7 +112,7 @@ export default function BrandStory() {
           <div className="story-right" ref={rightRef}>
             <div className="story-image-wrapper">
               <img 
-                src="https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=800" 
+                src={story.image} 
                 alt="off-kilt denim closeup" 
                 className="story-img"
               />

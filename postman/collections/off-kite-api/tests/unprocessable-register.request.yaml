@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/register'
+order: 5000
+headers:
+  - key: Accept
+    value: application/json
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "",
+      "email": "not-an-email",
+      "password": "123",
+      "password_confirmation": "different"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Validation failure returns 422', function () {
+        pm.expect(pm.response.code).to.equal(422);
+      });

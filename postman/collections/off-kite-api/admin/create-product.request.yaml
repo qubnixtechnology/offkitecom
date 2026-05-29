@@ -1,0 +1,41 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/admin/products'
+order: 1000
+headers:
+  - key: Accept
+    value: application/json
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{adminAuthToken}}'
+body:
+  type: formdata
+  content:
+    - key: name
+      type: text
+      value: Test Product
+    - key: price
+      type: text
+      value: '99.99'
+    - key: stock
+      type: text
+      value: '10'
+    - key: category
+      type: text
+      value: '{{productCategory}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Create product returns success', function () {
+        pm.expect(pm.response.code).to.be.oneOf([200, 201]);
+      });
+      const data = pm.response.json();
+      const product = data.data || data.product || data;
+      const id = product.id || product.product_id;
+      if (id) {
+        pm.collectionVariables.set('productId', String(id));
+        pm.environment.set('productId', String(id));
+      }
