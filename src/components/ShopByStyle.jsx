@@ -57,13 +57,27 @@ export default function ShopByStyle({ onCategoryClick }) {
       bestSellersTitle: 'Best Sellers',
       trendingCover: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=700&q=85',
       trendingTitle: 'Trending Collection',
+      trendingTagline: 'TRENDING LOOKBOOK',
       styleCover: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&q=85',
-      styleTitle: 'Shop By Style'
+      styleTitle: 'Shop By Style',
+      styleTagline: 'STYLE MANUAL'
     };
     try {
       return JSON.parse(localStorage.getItem('offkilt_homepage_collections')) || defaults;
     } catch (e) {
       return defaults;
+    }
+  });
+
+  const [stylesList, setStylesList] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('offkilt_homepage_grid_cards')) || {};
+      return STYLES.map(s => {
+        const custom = stored[s.id];
+        return custom ? { ...s, name: custom.title || s.name, count: custom.tag || s.count, bg: custom.bg || s.bg } : s;
+      });
+    } catch (e) {
+      return STYLES;
     }
   });
 
@@ -74,14 +88,23 @@ export default function ShopByStyle({ onCategoryClick }) {
         bestSellersTitle: 'Best Sellers',
         trendingCover: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=700&q=85',
         trendingTitle: 'Trending Collection',
+        trendingTagline: 'TRENDING LOOKBOOK',
         styleCover: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&q=85',
-        styleTitle: 'Shop By Style'
+        styleTitle: 'Shop By Style',
+        styleTagline: 'STYLE MANUAL'
       };
       try {
         setCollectionsData(JSON.parse(localStorage.getItem('offkilt_homepage_collections')) || defaults);
       } catch (e) {
         setCollectionsData(defaults);
       }
+      try {
+        const storedGrid = JSON.parse(localStorage.getItem('offkilt_homepage_grid_cards')) || {};
+        setStylesList(STYLES.map(s => {
+          const custom = storedGrid[s.id];
+          return custom ? { ...s, name: custom.title || s.name, count: custom.tag || s.count, bg: custom.bg || s.bg } : s;
+        }));
+      } catch (e) {}
     };
     window.addEventListener('offkilt_settings_updated', handleSettingsUpdate);
     return () => window.removeEventListener('offkilt_settings_updated', handleSettingsUpdate);
@@ -124,14 +147,14 @@ export default function ShopByStyle({ onCategoryClick }) {
             <img src={collectionsData.styleCover} alt={collectionsData.styleTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.1) 100%)' }} />
             <div style={{ position: 'absolute', bottom: '30px', left: '30px', color: '#ffffff' }}>
-              <span className="mono" style={{ color: 'var(--accent-raw)', fontSize: '0.8rem', letterSpacing: '2px', textTransform: 'uppercase' }}>STYLE MANUAL</span>
+              <span className="mono" style={{ color: 'var(--accent-raw)', fontSize: '0.8rem', letterSpacing: '2px', textTransform: 'uppercase' }}>{collectionsData.styleTagline || 'STYLE MANUAL'}</span>
               <h3 style={{ fontSize: '1.8rem', fontFamily: 'var(--font-heading)', fontWeight: 'bold', margin: '4px 0 0 0', textTransform: 'uppercase' }}>{collectionsData.styleTitle}</h3>
             </div>
           </div>
         )}
 
         <div className="style-grid" ref={gridRef}>
-          {STYLES.map((style, idx) => (
+          {stylesList.map((style, idx) => (
             <div
               key={style.id}
               className="style-card section-reveal"

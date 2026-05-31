@@ -110,27 +110,95 @@ export default function Hero({ onExploreClick, onShopNewArrivals, isAppLoading }
     }
   };
 
-  const isVideo = heroSettings.mediaUrl ? (heroSettings.mediaUrl.endsWith('.mp4') || heroSettings.mediaType === 'video') : true;
-  const mediaSrc = heroSettings.mediaUrl || (import.meta.env.DEV ? "/build/videos/hero_bg.mp4" : "/videos/hero_bg.mp4");
+  const [resolvedMediaSrc, setResolvedMediaSrc] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl = null;
+
+    const resolveMedia = async () => {
+      const src = heroSettings.mediaUrl;
+      if (!src) {
+        setResolvedMediaSrc(import.meta.env.DEV ? "/build/videos/hero_bg.mp4" : "/videos/hero_bg.mp4");
+        return;
+      }
+
+      if (src.startsWith('indexeddb:')) {
+        const key = src.replace('indexeddb:', '');
+        try {
+          const { getMediaFromIndexedDB } = await import('../services/db');
+          const blob = await getMediaFromIndexedDB(key);
+          if (blob && active) {
+            objectUrl = URL.createObjectURL(blob);
+            setResolvedMediaSrc(objectUrl);
+          }
+        } catch (err) {
+          console.error('Failed to load hero media from IndexedDB:', err);
+        }
+      } else {
+        setResolvedMediaSrc(src);
+      }
+    };
+
+    resolveMedia();
+
+    return () => {
+      active = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [heroSettings.mediaUrl]);
+
+  const isYouTubeUrl = (url) => {
+    if (!url) return false;
+    return url.includes('youtube.com') || url.includes('youtu.be');
+  };
+
+  const getYouTubeEmbedUrl = (url) => {
+    if (!url) return '';
+    let videoId = '';
+    if (url.includes('youtu.be/')) {
+      videoId = url.split('youtu.be/')[1]?.split(/[?#]/)[0];
+    } else if (url.includes('v=')) {
+      videoId = url.split('v=')[1]?.split(/[&#]/)[0];
+    } else if (url.includes('embed/')) {
+      videoId = url.split('embed/')[1]?.split(/[?#]/)[0];
+    }
+    return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1&enablejsapi=1` : url;
+  };
+
+  const hasYouTube = isYouTubeUrl(resolvedMediaSrc);
+  const isVideo = heroSettings.mediaType === 'video' || (resolvedMediaSrc && (resolvedMediaSrc.endsWith('.mp4') || resolvedMediaSrc.startsWith('blob:') || resolvedMediaSrc.startsWith('data:video/')));
 
   return (
     <section className="hero-sec" id="hero" ref={heroRef}>
       <div className="hero-bg-wrapper" ref={bgRef}>
-        {isVideo ? (
+        {hasYouTube ? (
+          <iframe
+            src={getYouTubeEmbedUrl(resolvedMediaSrc)}
+            title="Hero Background YouTube"
+            frameBorder="0"
+            allow="autoplay; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="hero-bg hero-zoom"
+            style={{ width: '100vw', height: '56.25vw', minHeight: '100vh', minWidth: '177.77vh', transform: 'translate(-50%, -50%)', position: 'absolute', top: '50%', left: '50%', border: 'none', pointerEvents: 'none' }}
+          />
+        ) : isVideo ? (
           <video 
             autoPlay
             loop
             muted
             playsInline
             className="hero-bg hero-zoom"
-            key={mediaSrc}
+            key={resolvedMediaSrc}
           >
-            <source src={mediaSrc} type="video/mp4" />
+            <source src={resolvedMediaSrc} type="video/mp4" />
             <source src="https://cdn.shopify.com/videos/c/o/v/3bf4a509620e4e53aa454c856a432f1e.mp4" type="video/mp4" />
           </video>
         ) : (
           <img 
-            src={mediaSrc} 
+            src={resolvedMediaSrc} 
             alt="Hero Background" 
             className="hero-bg hero-zoom"
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}

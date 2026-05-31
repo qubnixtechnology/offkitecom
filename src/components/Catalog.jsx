@@ -20,29 +20,55 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
     }
   });
 
+  const [promoText, setPromoText] = useState('Extra 20% off $100+');
+  const [showPromo, setShowPromo] = useState(false);
+  const [categoryMetadata, setCategoryMetadata] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_category_metadata')) || {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const handleSettingsUpdate = () => {
+    const defaults = ['all', 'jeans', 'skirts', 'baggy', 'relaxed', 'boot cut', 'slim', 'skinny'];
+    try {
+      const stored = JSON.parse(localStorage.getItem('offkilt_categories_list'));
+      if (stored && Array.isArray(stored)) {
+        setCategoriesList(stored);
+      } else {
+        setCategoriesList(defaults);
+      }
+    } catch (e) {
+      setCategoriesList(defaults);
+    }
+    try {
+      const storedMeta = JSON.parse(localStorage.getItem('offkilt_category_metadata'));
+      if (storedMeta) setCategoryMetadata(storedMeta);
+    } catch (e) {}
+    
+    // Load global promo values
+    const text = localStorage.getItem('offkilt_promo_discount_text') || 'Extra 20% off $100+';
+    const show = localStorage.getItem('offkilt_promo_discount_show') !== 'false';
+    setPromoText(text);
+    setShowPromo(show);
+  };
+
+  useEffect(() => {
+    handleSettingsUpdate();
+  }, []);
+
   useEffect(() => {
     const handleReviews = () => setReviewTrigger(prev => prev + 1);
     const handleProducts = () => setProductTrigger(prev => prev + 1);
-    const handleSettings = () => {
-      const defaults = ['all', 'jeans', 'skirts', 'baggy', 'relaxed', 'boot cut', 'slim', 'skinny'];
-      try {
-        const stored = JSON.parse(localStorage.getItem('offkilt_categories_list'));
-        if (stored && Array.isArray(stored)) {
-          setCategoriesList(stored);
-        } else {
-          setCategoriesList(defaults);
-        }
-      } catch (e) {
-        setCategoriesList(defaults);
-      }
-    };
+    
     window.addEventListener('offkilt_reviews_updated', handleReviews);
     window.addEventListener('offkilt_products_updated', handleProducts);
-    window.addEventListener('offkilt_settings_updated', handleSettings);
+    window.addEventListener('offkilt_settings_updated', handleSettingsUpdate);
     return () => {
       window.removeEventListener('offkilt_reviews_updated', handleReviews);
       window.removeEventListener('offkilt_products_updated', handleProducts);
-      window.removeEventListener('offkilt_settings_updated', handleSettings);
+      window.removeEventListener('offkilt_settings_updated', handleSettingsUpdate);
     };
   }, []);
 
@@ -125,21 +151,37 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
       try {
         const fits = ['baggy', 'relaxed', 'boot cut', 'slim', 'skinny'];
         const isFit = fits.includes(activeTab.toLowerCase());
-        const apiCategory = ['jeans', 'skirts'].includes(activeTab) ? activeTab : (isFit ? 'jeans' : 'all');
+        // For known API categories use them directly; for custom/unknown use 'all'
+        const knownApiCategories = ['jeans', 'skirts'];
+        const apiCategory = knownApiCategories.includes(activeTab) ? activeTab : (isFit ? 'jeans' : 'all');
         
         const res = await productsApi.getAll(apiCategory);
-        const mapped = res.data.map(p => ({
-          ...p,
-          details: typeof p.details === 'string' ? JSON.parse(p.details) : p.details,
-          sizes: typeof p.sizes === 'string' ? JSON.parse(p.sizes) : p.sizes,
-          images: typeof p.images === 'string' ? JSON.parse(p.images) : p.images,
-          hoverImage: p.hover_image,
-        }));
+        const mapped = res.data.map(p => {
+          let details = p.details;
+          if (typeof details === 'string') {
+            try { details = JSON.parse(details); } catch(e) { details = [details]; }
+          }
+          let sizes = p.sizes;
+          if (typeof sizes === 'string') {
+            try { sizes = JSON.parse(sizes); } catch(e) { sizes = []; }
+          }
+          let images = p.images;
+          if (typeof images === 'string') {
+            try { images = JSON.parse(images); } catch(e) { images = []; }
+          }
+          return {
+            ...p,
+            details,
+            sizes,
+            images,
+            hoverImage: p.hover_image || p.hoverImage,
+          };
+        });
 
         let filtered = mapped;
         if (isFit) {
           const fitKeyword = activeTab.toLowerCase();
-          filtered = mapped.filter(p => {
+          const byFit = mapped.filter(p => {
             const name = (p.name || '').toLowerCase();
             const desc = (p.description || '').toLowerCase();
             const detailsText = Array.isArray(p.details) 
@@ -153,12 +195,19 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
             }
             return name.includes(fitKeyword) || desc.includes(fitKeyword) || detailsText.includes(fitKeyword);
           });
+          // If no products match the fit filter, show all rather than empty
+          filtered = byFit.length > 0 ? byFit : mapped;
+        } else if (activeTab !== 'all' && !knownApiCategories.includes(activeTab)) {
+          // Custom category: try matching by p.category first, fall back to show all products
+          const byCategory = mapped.filter(p => p.category && p.category.toLowerCase() === activeTab.toLowerCase());
+          filtered = byCategory.length > 0 ? byCategory : mapped;
         }
 
         setProductsList(filtered);
         setRenderedCategory(activeTab);
       } catch (err) {
         console.error("Failed to fetch products", err);
+        setProductsList([]);
       } finally {
         setLoading(false);
       }
@@ -172,7 +221,7 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
   const handleQuickAdd = (e, product) => {
     e.stopPropagation();
     const sizes = Array.isArray(product.sizes) ? product.sizes
-      : (typeof product.sizes === 'string' ? JSON.parse(product.sizes || '[]') : []);
+      : (typeof product.sizes === 'string' ? (() => { try { return JSON.parse(product.sizes || '[]'); } catch(e) { return []; } })() : []);
     
     if (sizes.length > 1) {
       // Multiple sizes — open product detail for size selection
@@ -191,25 +240,58 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
     <section className="catalog-sec" id="catalog">
       <div className="container">
         
-        <div className="catalog-header">
-          <div className="catalog-title-wrapper">
-            <span className="mono" style={{ color: 'var(--accent-raw)' }}>THE COLLECTIONS</span>
-            <h2 className="catalog-title">DENIM &amp; STREET EDITS</h2>
-            <p>Browse by category or denim fit — every piece crafted with precision.</p>
-          </div>
+        {(() => {
+          const meta = categoryMetadata[(activeTab || '').toLowerCase()] || {};
+          const title = (activeTab || '').toUpperCase();
+          const tagline = meta.tagline || "Browse by category or denim fit — every piece crafted with precision.";
+          const cover = meta.coverImage;
           
-          <div className="category-tabs">
-            {categoriesList.map(tab => (
-              <button 
-                key={tab}
-                className={`category-tab mono ${activeTab === tab ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab)}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
+          return (
+            <div className="catalog-header-wrapper" style={{ marginBottom: '24px' }}>
+              {cover ? (
+                <div className="category-cover-banner" style={{ 
+                  backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.85)), url(${cover})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  padding: '60px 40px',
+                  borderRadius: '4px',
+                  marginBottom: '20px',
+                  color: '#ffffff',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-end',
+                  minHeight: '220px',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  boxShadow: 'inset 0 0 100px rgba(0,0,0,0.5)'
+                }}>
+                  <span className="mono" style={{ color: 'var(--accent-raw)', letterSpacing: '2px', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase' }}>CATEGORY</span>
+                  <h2 style={{ fontSize: '2.2rem', fontWeight: 800, margin: '6px 0', textTransform: 'uppercase', letterSpacing: '1px', textShadow: '2px 2px 8px rgba(0,0,0,0.7)', fontFamily: 'var(--font-heading)' }}>{title}</h2>
+                  <p style={{ fontSize: '0.9rem', color: '#eaeaea', maxWidth: '600px', fontWeight: 400, textShadow: '1px 1px 4px rgba(0,0,0,0.6)', margin: 0 }}>{tagline}</p>
+                </div>
+              ) : (
+                <div className="catalog-header" style={{ marginBottom: '20px' }}>
+                  <div className="catalog-title-wrapper">
+                    <span className="mono" style={{ color: 'var(--accent-raw)' }}>THE COLLECTIONS</span>
+                    <h2 className="catalog-title">DENIM &amp; STREET EDITS</h2>
+                    <p>{tagline}</p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="category-tabs" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
+                {categoriesList.map(tab => (
+                  <button 
+                    key={tab}
+                    className={`category-tab mono ${activeTab === tab ? 'active' : ''}`}
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         <div style={{ position: 'relative', width: '100%', minHeight: '400px' }}>
           {loading && <div className="catalog-loading-bar" />}
@@ -308,9 +390,6 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                         <span className="discount-editorial">50% off</span>
                       </div>
 
-                      <div className="extra-discount-editorial">
-                        Extra 20% off $100+
-                      </div>
 
                       {/* Dynamic Color Swatches circular list */}
                       {(() => {

@@ -59,6 +59,15 @@ export default function App() {
   // Mega menu hover state
   const [activeMegaMenu, setActiveMegaMenu] = useState(null);
   const megaMenuTimeoutRef = useRef(null);
+  const [megaMenuKeys, setMegaMenuKeys] = useState(() => {
+    try {
+      const stored = localStorage.getItem('offkilt_mega_menu');
+      if (stored) {
+        return Object.keys(JSON.parse(stored));
+      }
+    } catch (e) {}
+    return ['men', 'women'];
+  });
 
   // Toast Notification State
   const [toast, setToast] = useState(null);
@@ -155,9 +164,27 @@ export default function App() {
     }
   });
 
+  // Check if current user is blocked
+  const checkBlockedUser = () => {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('offkilt_current_user'));
+      if (storedUser) {
+        const users = JSON.parse(localStorage.getItem('offkilt_users') || '[]');
+        const latestUser = users.find(u => u.email === storedUser.email);
+        if (latestUser?.is_blocked || storedUser.is_blocked) {
+          localStorage.removeItem('offkilt_current_user');
+          localStorage.removeItem('offkilt_auth_token');
+          setCurrentUser(null);
+          showToast('Your session has ended because this account is blocked.', 'error');
+        }
+      }
+    } catch (e) {}
+  };
+
   // Settings sync listener
   useEffect(() => {
     const handleSettingsUpdate = () => {
+      checkBlockedUser();
       setAnnouncementText(localStorage.getItem('offkilt_announcement_text') || '✦ GET FREE SHIPPING ON ORDERS ABOVE ₹5,000 | EXTRA 10% OFF USE CODE: OFFKILT10 ✦');
       setShowAnnouncement(localStorage.getItem('offkilt_announcement_show') !== 'false');
       setAnnouncementBg(localStorage.getItem('offkilt_announcement_bg') || '#111111');
@@ -185,6 +212,10 @@ export default function App() {
         const women = JSON.parse(localStorage.getItem('offkilt_campaign_women'));
         if (women) setCampaignWomen(women);
       } catch {}
+      try {
+        const storedMega = localStorage.getItem('offkilt_mega_menu');
+        if (storedMega) setMegaMenuKeys(Object.keys(JSON.parse(storedMega)));
+      } catch (e) {}
     };
     window.addEventListener('offkilt_settings_updated', handleSettingsUpdate);
     return () => window.removeEventListener('offkilt_settings_updated', handleSettingsUpdate);
@@ -255,6 +286,7 @@ export default function App() {
 
   // Check auth and fetch past orders on mount
   useEffect(() => {
+    checkBlockedUser();
     const checkAuth = async () => {
       const token = localStorage.getItem('offkilt_auth_token');
       if (token) {
@@ -262,6 +294,13 @@ export default function App() {
           const res = await profile.get();
           const user = res.data?.user || res.data;
           if (user && Object.keys(user).length > 0) {
+            if (user.is_blocked) {
+              setCurrentUser(null);
+              localStorage.removeItem('offkilt_auth_token');
+              localStorage.removeItem('offkilt_current_user');
+              showToast('Your session has ended because this account is blocked.', 'error');
+              return;
+            }
             setCurrentUser(user);
             const ordersRes = await ordersApi.getAll();
             setPastOrders(ordersRes.data);
@@ -514,10 +553,13 @@ export default function App() {
     const orderId2 = `OK-${Math.floor(100000 + Math.random() * 900000)}`;
     
     const order1 = {
+      id: orderId1,
       orderId: orderId1,
       email: currentUser.email,
       phone: currentUser.phone,
+      shipping_address: `${currentUser.address}, Pincode - ${currentUser.pincode}`,
       shippingAddress: `${currentUser.address}, Pincode - ${currentUser.pincode}`,
+      payment_method: 'UPI Instant Pay',
       paymentMethod: 'UPI Instant Pay',
       date: new Date().toLocaleDateString('en-IN', {
         year: 'numeric',
@@ -526,6 +568,7 @@ export default function App() {
         hour: '2-digit',
         minute: '2-digit'
       }),
+      created_at: new Date().toISOString(),
       items: [
         {
           id: "OKJ24201",
@@ -537,15 +580,23 @@ export default function App() {
         }
       ],
       subtotal: 2999 * Math.ceil(itemCount / 2),
+      discount: 0,
+      coupon_code: null,
+      shipping_fee: 0,
       shipping: 0,
+      total: 2999 * Math.ceil(itemCount / 2),
+      status: 'confirmed',
       stepVal: 4 // In Transit
     };
 
     const order2 = {
+      id: orderId2,
       orderId: orderId2,
       email: currentUser.email,
       phone: currentUser.phone,
+      shipping_address: `${currentUser.address}, Pincode - ${currentUser.pincode}`,
       shippingAddress: `${currentUser.address}, Pincode - ${currentUser.pincode}`,
+      payment_method: 'Credit Card',
       paymentMethod: 'Credit Card',
       date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', {
         year: 'numeric',
@@ -554,6 +605,7 @@ export default function App() {
         hour: '2-digit',
         minute: '2-digit'
       }),
+      created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
       items: [
         {
           id: "OKJ24205",
@@ -565,13 +617,19 @@ export default function App() {
         }
       ],
       subtotal: 1999 * Math.floor(itemCount / 2),
+      discount: 0,
+      coupon_code: null,
+      shipping_fee: 0,
       shipping: 0,
+      total: 1999 * Math.floor(itemCount / 2),
+      status: 'delivered',
       stepVal: 5 // Delivered
     };
 
     const newOrders = [order1, order2, ...pastOrders];
     setPastOrders(newOrders);
     localStorage.setItem('offkilt_orders', JSON.stringify(newOrders));
+    window.dispatchEvent(new Event('offkilt_orders_updated'));
   };
 
   const scrollToSection = (id) => {
@@ -702,10 +760,12 @@ export default function App() {
                       scrollToSection(sectionId || 'hero');
                     }}
                     onMouseEnter={() => {
-                      const labelLower = item.label.toLowerCase();
-                      if (labelLower === 'men') handleNavMouseEnter('men');
-                      else if (labelLower === 'women') handleNavMouseEnter('women');
-                      else handleNavMouseEnter(null);
+                      const labelSlug = item.label.toLowerCase().trim().replace(/\s+/g, '-');
+                      if (megaMenuKeys.includes(labelSlug)) {
+                        handleNavMouseEnter(labelSlug);
+                      } else {
+                        handleNavMouseEnter(null);
+                      }
                     }}
                   >
                     {item.label}

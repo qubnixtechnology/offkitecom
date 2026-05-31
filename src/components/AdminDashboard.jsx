@@ -8,6 +8,7 @@ import {
   Type, Share2, Phone, MapPin, HelpCircle, Layers, CreditCard, Key, ShieldCheck, Zap
 } from 'lucide-react';
 import { products as productsApi, admin as adminApi } from '../services/api';
+import { saveMediaToIndexedDB } from '../services/db';
 
 // Helper component for Q&A Manager row
 function QnaItemRow({ q, prodId, onSaveAnswer, onDelete }) {
@@ -68,30 +69,26 @@ export default function AdminDashboard({ currentUser, onClose }) {
 
   // --- 1. ANALYTICS STATE & MOCKS ---
   const [analyticsData, setAnalyticsData] = useState({
-    totalSales: 245200,
-    totalOrders: 48,
-    abandonmentRate: 24,
-    conversionRate: 3.6,
+    totalSales: 0,
+    totalOrders: 0,
+    abandonmentRate: 0,
+    conversionRate: 0,
     weeklySales: [
-      { day: 'Mon', amount: 32000 },
-      { day: 'Tue', amount: 45000 },
-      { day: 'Wed', amount: 28000 },
-      { day: 'Thu', amount: 52000 },
-      { day: 'Fri', amount: 48000 },
-      { day: 'Sat', amount: 64000 },
-      { day: 'Sun', amount: 58000 }
+      { day: 'Mon', amount: 0 },
+      { day: 'Tue', amount: 0 },
+      { day: 'Wed', amount: 0 },
+      { day: 'Thu', amount: 0 },
+      { day: 'Fri', amount: 0 },
+      { day: 'Sat', amount: 0 },
+      { day: 'Sun', amount: 0 }
     ],
     fitDistribution: [
-      { fit: 'Baggy', pct: 45, color: 'var(--accent-raw)' },
-      { fit: 'Relaxed', pct: 25, color: 'var(--accent-gold)' },
-      { fit: 'Boot Cut', pct: 15, color: '#3b82f6' },
-      { fit: 'Slim/Skinny', pct: 15, color: '#10b981' }
+      { fit: 'Baggy', pct: 0, color: 'var(--accent-raw)' },
+      { fit: 'Relaxed', pct: 0, color: 'var(--accent-gold)' },
+      { fit: 'Boot Cut', pct: 0, color: '#3b82f6' },
+      { fit: 'Slim/Skinny', pct: 0, color: '#10b981' }
     ],
-    bestSellers: [
-      { id: 'OKJ24201', name: 'Asymmetric Raw Carpenter Jeans', qty: 18, revenue: 53982 },
-      { id: 'OKJ24205', name: 'Asymmetrical Paneled Denim Skirt', qty: 14, revenue: 27986 },
-      { id: 'OKJ24202', name: 'Raw Edge Baggy Denim Cargo', qty: 11, revenue: 38489 }
-    ]
+    bestSellers: []
   });
 
   // --- 2. PRODUCTS CRUD STATE & LOGIC ---
@@ -120,8 +117,21 @@ export default function AdminDashboard({ currentUser, onClose }) {
     }
   };
 
+  const fetchOrders = async () => {
+    try {
+      const res = await adminApi.getAllOrders();
+      if (res.data) {
+        setOrders(res.data);
+        localStorage.setItem('offkilt_orders', JSON.stringify(res.data));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchOrders();
   }, []);
 
   const handleProductSubmit = async (e) => {
@@ -272,56 +282,144 @@ export default function AdminDashboard({ currentUser, onClose }) {
 
   // --- 3. ORDERS STATE & INVOICING ---
   const [orders, setOrders] = useState(() => {
-    const stored = JSON.parse(localStorage.getItem('offkilt_orders') || '[]');
-    if (stored.length === 0) {
-      // Seed default orders if empty
-      const seeded = [
-        {
-          id: 'OK-482910',
-          email: 'simran.k@example.com',
-          phone: '9876543210',
-          shipping_address: 'Flat 402, Sea Breeze Apts, Bandra West, Mumbai, Maharashtra - 400050',
-          payment_method: 'UPI Instant Pay',
-          date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN'),
-          status: 'confirmed',
-          items: [
-            { id: 'OKJ24201', name: 'Asymmetric Raw Carpenter Jeans', price: 2999, quantity: 1, selectedSize: '32', image: '/images/products/AMAZON LISTING/AMAZON LISTING/OKJ24201/iloveimg-resized (20)/0fb309ab-0d27-4569-b0a8-01cbfe745a22.webp' }
-          ],
-          subtotal: 2999,
-          discount: 300,
-          coupon_code: 'OFFKILT10',
-          shipping_fee: 0,
-          total: 2699,
-          tracking_number: 'ECOM9938472910'
-        },
-        {
-          id: 'OK-109284',
-          email: 'rahul.s@example.com',
-          phone: '8877665544',
-          shipping_address: 'House 14, Gali 2, Shanti Kunj, Vasant Kunj, New Delhi, Delhi - 110070',
-          payment_method: 'Cash On Delivery (COD)',
-          date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN'),
-          status: 'delivered',
-          items: [
-            { id: 'OKJ24205', name: 'Asymmetrical Paneled Denim Skirt', price: 1999, quantity: 2, selectedSize: '30', image: '/images/products/AMAZON LISTING/AMAZON LISTING/SKIRT/OKJ24205/iloveimg-resized (14)/4be88751-b68c-4d3c-9f2e-0357693a1f61.webp' }
-          ],
-          subtotal: 3998,
-          discount: 0,
-          coupon_code: null,
-          shipping_fee: 99,
-          total: 4097,
-          tracking_number: 'SHIP882749102'
-        }
-      ];
-      localStorage.setItem('offkilt_orders', JSON.stringify(seeded));
-      return seeded;
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_orders')) || [];
+    } catch (e) {
+      return [];
     }
-    return stored;
   });
+
+  // Dynamic analytics helper calculations based on actual orders list
+  const getWeeklySales = (ordersList) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const salesByDay = {
+      'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0
+    };
+    
+    ordersList.forEach(o => {
+      let dayName = 'Mon';
+      try {
+        const dateStr = o.created_at || o.date;
+        if (dateStr) {
+          const d = new Date(dateStr);
+          if (!isNaN(d.getTime())) {
+            dayName = days[d.getDay()];
+          }
+        }
+      } catch (e) {}
+      if (salesByDay[dayName] !== undefined) {
+        salesByDay[dayName] += Number(o.total || 0);
+      }
+    });
+
+    return Object.keys(salesByDay).map(day => ({
+      day,
+      amount: salesByDay[day]
+    }));
+  };
+
+  const getFitDistribution = (ordersList) => {
+    let baggy = 0, relaxed = 0, bootcut = 0, slim = 0;
+    ordersList.forEach(o => {
+      if (o.items) {
+        o.items.forEach(item => {
+          const name = (item.name || '').toLowerCase();
+          if (name.includes('baggy') || name.includes('cargo') || name.includes('carpenter')) {
+            baggy += item.quantity || 1;
+          } else if (name.includes('relaxed') || name.includes('paneled') || name.includes('skirt')) {
+            relaxed += item.quantity || 1;
+          } else if (name.includes('boot') || name.includes('cut')) {
+            bootcut += item.quantity || 1;
+          } else {
+            slim += item.quantity || 1;
+          }
+        });
+      }
+    });
+    
+    const total = baggy + relaxed + bootcut + slim;
+    if (total === 0) {
+      return [
+        { fit: 'Baggy', pct: 0, color: 'var(--accent-raw)' },
+        { fit: 'Relaxed', pct: 0, color: 'var(--accent-gold)' },
+        { fit: 'Boot Cut', pct: 0, color: '#3b82f6' },
+        { fit: 'Slim/Skinny', pct: 0, color: '#10b981' }
+      ];
+    }
+    
+    return [
+      { fit: 'Baggy', pct: Math.round((baggy / total) * 100), color: 'var(--accent-raw)' },
+      { fit: 'Relaxed', pct: Math.round((relaxed / total) * 100), color: 'var(--accent-gold)' },
+      { fit: 'Boot Cut', pct: Math.round((bootcut / total) * 100), color: '#3b82f6' },
+      { fit: 'Slim/Skinny', pct: Math.round((slim / total) * 100), color: '#10b981' }
+    ];
+  };
+
+  const getBestSellers = (ordersList) => {
+    const productStats = {};
+    ordersList.forEach(o => {
+      if (o.items) {
+        o.items.forEach(item => {
+          const id = item.id || item.productId || 'UNKNOWN';
+          const name = item.name || 'Unknown Product';
+          const qty = item.quantity || 1;
+          const revenue = Number(item.price || 0) * qty;
+          
+          if (!productStats[id]) {
+            productStats[id] = { id, name, qty: 0, revenue: 0 };
+          }
+          productStats[id].qty += qty;
+          productStats[id].revenue += revenue;
+        });
+      }
+    });
+    
+    return Object.values(productStats)
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 5);
+  };
+
+  useEffect(() => {
+    const totalOrders = orders.length;
+    const totalSales = orders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+    const weeklySales = getWeeklySales(orders);
+    const fitDistribution = getFitDistribution(orders);
+    const bestSellers = getBestSellers(orders);
+    
+    const abandonmentRate = totalOrders > 0 ? 24 : 0;
+    const conversionRate = totalOrders > 0 ? 3.6 : 0;
+
+    setAnalyticsData({
+      totalSales,
+      totalOrders,
+      abandonmentRate,
+      conversionRate,
+      weeklySales,
+      fitDistribution,
+      bestSellers
+    });
+  }, [orders]);
 
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [orderSearch, setOrderSearch] = useState('');
+
+  // Helper derived values for invoice rendering with robust camelCase & snake_case fallbacks
+  const getInvoiceDetails = (order) => {
+    if (!order) return {};
+    const total = order.total !== undefined && order.total !== null 
+      ? order.total 
+      : ((order.subtotal || 0) - (order.discount || 0) + (order.shipping_fee !== undefined ? order.shipping_fee : (order.shipping !== undefined ? order.shipping : 0)));
+    const shipping = order.shipping_fee !== undefined 
+      ? order.shipping_fee 
+      : (order.shipping !== undefined ? order.shipping : 0);
+    const address = order.shipping_address || order.shippingAddress || '';
+    const method = order.payment_method || order.paymentMethod || 'Prepaid';
+    const date = order.date || (order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN') : '');
+    return { total, shipping, address, method, date };
+  };
+  const invoiceDetails = getInvoiceDetails(selectedOrder);
+
 
   const updateOrderStatus = (orderId, status) => {
     const updated = orders.map(o => (o.id === orderId || o.orderId === orderId) ? { ...o, status } : o);
@@ -378,18 +476,80 @@ export default function AdminDashboard({ currentUser, onClose }) {
   const handleCampaignSave = (section, data) => {
     const updated = { ...campaigns, [section]: data };
     setCampaigns(updated);
-    localStorage.setItem(`offkilt_campaign_${section}`, JSON.stringify(data));
+  };
+
+  const handleCampaignSaveBtn = (section) => {
+    localStorage.setItem(`offkilt_campaign_${section}`, JSON.stringify(campaigns[section]));
     triggerSync('offkilt_settings_updated');
-    alert(`${section.toUpperCase()} campaign settings saved!`);
+    alert(`${section === 'men' ? "Men's" : "Women's"} campaign settings saved!`);
   };
 
   const handleCampaignImageUpload = (section, file) => {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        handleCampaignSave(section, { ...campaigns[section], image: reader.result });
+        setCampaigns(prev => ({
+          ...prev,
+          [section]: { ...prev[section], image: reader.result }
+        }));
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleHeroMediaUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const isVideo = file.type.startsWith('video/');
+        if (isVideo) {
+          await saveMediaToIndexedDB('hero_video_blob', file);
+          const updated = { 
+            ...campaigns.hero, 
+            mediaUrl: 'indexeddb:hero_video_blob',
+            mediaType: 'video'
+          };
+          setCampaigns(prev => ({ ...prev, hero: updated }));
+          localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
+          window.dispatchEvent(new Event('offkilt_hero_updated'));
+          alert('Hero background video uploaded successfully!');
+        } else {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const updated = { 
+              ...campaigns.hero, 
+              mediaUrl: reader.result,
+              mediaType: 'image'
+            };
+            setCampaigns(prev => ({ ...prev, hero: updated }));
+            localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
+            window.dispatchEvent(new Event('offkilt_hero_updated'));
+            alert('Hero background image updated successfully!');
+          };
+          reader.readAsDataURL(file);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to upload hero media.');
+      }
+    }
+  };
+
+  const handleFashionFilmVideoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('video/')) {
+        alert('Please select a valid video file.');
+        return;
+      }
+      try {
+        await saveMediaToIndexedDB('fashion_film_video_blob', file);
+        setFashionFilm(prev => ({ ...prev, videoUrl: 'indexeddb:fashion_film_video_blob' }));
+        alert('Video uploaded successfully to local database! Press "Save Fashion Film Settings" to apply.');
+      } catch (err) {
+        console.error(err);
+        alert('Failed to save video to local database.');
+      }
     }
   };
 
@@ -494,8 +654,10 @@ export default function AdminDashboard({ currentUser, onClose }) {
       bestSellersTitle: 'Best Sellers',
       trendingCover: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=700&q=85',
       trendingTitle: 'Trending Collection',
+      trendingTagline: 'TRENDING LOOKBOOK',
       styleCover: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&q=85',
-      styleTitle: 'Shop By Style'
+      styleTitle: 'Shop By Style',
+      styleTagline: 'STYLE MANUAL'
     };
     return JSON.parse(localStorage.getItem('offkilt_homepage_collections')) || defaults;
   });
@@ -509,14 +671,104 @@ export default function AdminDashboard({ currentUser, onClose }) {
   // --- Category List CMS ---
   const [categoryList, setCategoryList] = useState(() => {
     const defaults = ['all', 'jeans', 'skirts', 'cargos', 'shirts'];
-    return JSON.parse(localStorage.getItem('offkilt_categories_list')) || defaults;
+    try {
+      const stored = JSON.parse(localStorage.getItem('offkilt_categories_list'));
+      return (Array.isArray(stored) && stored.length > 0) ? stored : defaults;
+    } catch (e) {
+      return defaults;
+    }
+  });
+  const [categoriesInput, setCategoriesInput] = useState(() => {
+    try {
+      const defaults = ['all', 'jeans', 'skirts', 'cargos', 'shirts'];
+      const stored = JSON.parse(localStorage.getItem('offkilt_categories_list'));
+      const list = (Array.isArray(stored) && stored.length > 0) ? stored : defaults;
+      return list.join(', ');
+    } catch (e) {
+      return 'all, jeans, skirts, cargos, shirts';
+    }
   });
 
   const handleCategoriesSave = () => {
-    localStorage.setItem('offkilt_categories_list', JSON.stringify(categoryList));
+    const arr = categoriesInput.split(',').map(x => x.trim()).filter(Boolean);
+    setCategoryList(arr);
+    localStorage.setItem('offkilt_categories_list', JSON.stringify(arr));
     triggerSync('offkilt_settings_updated');
     alert('Category list saved!');
   };
+
+  // --- Category Banner Metadata CMS ---
+  const [categoryMetadata, setCategoryMetadata] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_category_metadata')) || {};
+    } catch (e) {
+      return {};
+    }
+  });
+  const [selectedMetaCategory, setSelectedMetaCategory] = useState('all');
+  const [categoryMetaForm, setCategoryMetaForm] = useState({ tagline: '', coverImage: '' });
+
+  const handleSelectMetaCategory = (cat) => {
+    setSelectedMetaCategory(cat);
+    const meta = categoryMetadata[cat.toLowerCase()] || { tagline: '', coverImage: '' };
+    setCategoryMetaForm({
+      tagline: meta.tagline || '',
+      coverImage: meta.coverImage || ''
+    });
+  };
+
+  useEffect(() => {
+    const firstCat = categoryList[0] || 'all';
+    setSelectedMetaCategory(firstCat);
+    const meta = categoryMetadata[firstCat.toLowerCase()] || { tagline: '', coverImage: '' };
+    setCategoryMetaForm({
+      tagline: meta.tagline || '',
+      coverImage: meta.coverImage || ''
+    });
+  }, [categoryList]);
+
+  // --- Homepage Grid Cards CMS ---
+  const [gridCardsMetadata, setGridCardsMetadata] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_homepage_grid_cards')) || {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const GRID_CARD_DEFAULTS = {
+    // Trending Lookbook (TrendingCollection)
+    'summer': { title: 'Summer Breeze', tag: 'Collection', bg: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=600&q=85' },
+    'party': { title: 'Party Glam', tag: 'Occasion Wear', bg: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=600&q=85' },
+    'office': { title: 'Office Chic', tag: 'Work Edit', bg: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&q=85' },
+    'ethnic': { title: 'Ethnic Fusion', tag: 'Heritage', bg: 'https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=600&q=85' },
+    'street': { title: 'Street Style', tag: 'Urban', bg: 'https://images.unsplash.com/photo-1485218126466-34e6392ec754?w=600&q=85' },
+    // Shop By Style (ShopByStyle)
+    'casual': { title: 'Casual', tag: 'Effortlessly cool', bg: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&q=85' },
+    'minimal': { title: 'Minimal', tag: 'Less is more', bg: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=400&q=85' },
+    'korean': { title: 'Korean Fashion', tag: 'K-style vibes', bg: 'https://images.unsplash.com/photo-1485218126466-34e6392ec754?w=400&q=85' },
+    'western': { title: 'Western', tag: 'Modern west edit', bg: 'https://images.unsplash.com/photo-1584370848010-d7fe6bc767ec?w=400&q=85' },
+    'traditional': { title: 'Traditional', tag: 'Heritage meets now', bg: 'https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=400&q=85' },
+    'evening': { title: 'Luxury Evening', tag: 'Night of elegance', bg: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=400&q=85' }
+  };
+
+  const [selectedGridCardId, setSelectedGridCardId] = useState('summer');
+  const [gridCardForm, setGridCardForm] = useState({ title: '', tag: '', bg: '' });
+
+  const handleSelectGridCard = (cardId) => {
+    setSelectedGridCardId(cardId);
+    const custom = gridCardsMetadata[cardId] || {};
+    const fallback = GRID_CARD_DEFAULTS[cardId] || { title: '', tag: '', bg: '' };
+    setGridCardForm({
+      title: custom.title || fallback.title || '',
+      tag: custom.tag || fallback.tag || '',
+      bg: custom.bg || fallback.bg || ''
+    });
+  };
+
+  useEffect(() => {
+    handleSelectGridCard('summer');
+  }, []);
 
   // --- NAVIGATION / MENUS CONTROL ---
   const [menuItems, setMenuItems] = useState(() => {
@@ -601,12 +853,64 @@ export default function AdminDashboard({ currentUser, onClose }) {
   const [megaMenuSettings, setMegaMenuSettings] = useState(() => {
     const DEFAULT_MEGA = {
       men: {
-        fits: ['Baggy Fit', 'Relaxed Fit', 'Straight Fit', 'Bootcut Fit', 'Carpenter Pants'],
-        categories: ['Classic Jeans', 'Carpenter Edits', 'Selvedge Series', 'Utility Cargos', 'Distressed']
+        label: 'Men',
+        sections: [
+          {
+            title: 'DENIM FIT',
+            links: [
+              { name: 'Baggy', filter: 'baggy' },
+              { name: 'Relaxed', filter: 'relaxed' },
+              { name: 'Boot Cut', filter: 'boot cut' },
+              { name: 'Slim', filter: 'slim' },
+              { name: 'Skinny', filter: 'skinny' },
+            ]
+          },
+          {
+            title: 'CATEGORIES',
+            links: [
+              { name: 'All Jeans', filter: 'jeans' },
+              { name: 'New Arrivals', filter: 'all' },
+              { name: 'Cargo & Utility', filter: 'jeans' },
+              { name: 'Carpenter', filter: 'jeans' },
+            ]
+          }
+        ],
+        featured: {
+          image: '/images/mens_campaign.png',
+          title: 'Men\'s SS26 Campaign',
+          cta: 'Explore Men\'s',
+          filter: 'jeans'
+        }
       },
       women: {
-        fits: ['High Waist Skirts', 'Asymmetrical skirts', 'Paneled Skirts', 'Relaxed Cargos', 'Baggy Jeans'],
-        categories: ['Denim Skirts', 'Street Cargos', 'Classic Fits', 'Paneled Skirts', 'Tops & Edits']
+        label: 'Women',
+        sections: [
+          {
+            title: 'DENIM FIT',
+            links: [
+              { name: 'Baggy', filter: 'baggy' },
+              { name: 'Relaxed', filter: 'relaxed' },
+              { name: 'Boot Cut', filter: 'boot cut' },
+              { name: 'Slim', filter: 'slim' },
+              { name: 'Skinny', filter: 'skinny' },
+            ]
+          },
+          {
+            title: 'CATEGORIES',
+            links: [
+              { name: 'All Products', filter: 'all' },
+              { name: 'Denim Skirts', filter: 'skirts' },
+              { name: 'Kilt Skirts', filter: 'skirts' },
+              { name: 'New Arrivals', filter: 'all' },
+            ]
+          }
+        ],
+        featured: {
+          image: '/images/womens_campaign.png',
+          title: 'Women\'s SS26 Campaign',
+          cta: 'Explore Women\'s',
+          filter: 'skirts'
+        }
       }
     };
     try {
@@ -615,6 +919,111 @@ export default function AdminDashboard({ currentUser, onClose }) {
       return DEFAULT_MEGA;
     }
   });
+
+  const [selectedMegaKey, setSelectedMegaKey] = useState('men');
+  const [newMegaKeyInput, setNewMegaKeyInput] = useState('');
+
+  const handleAddMegaCategory = () => {
+    const key = newMegaKeyInput.toLowerCase().trim().replace(/\s+/g, '-');
+    if (!key) return;
+    if (megaMenuSettings[key]) {
+      alert('This mega menu category already exists!');
+      return;
+    }
+    const label = newMegaKeyInput.trim();
+    const updated = {
+      ...megaMenuSettings,
+      [key]: {
+        label: label,
+        sections: [
+          { title: 'CATEGORIES', links: [{ name: `All ${label}`, filter: 'all' }] }
+        ],
+        featured: {
+          image: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=800',
+          title: `${label} Collection`,
+          cta: 'Shop Now',
+          filter: 'all'
+        }
+      }
+    };
+    setMegaMenuSettings(updated);
+    setSelectedMegaKey(key);
+    setNewMegaKeyInput('');
+    alert(`Category "${label}" added to Mega Menu! Remember to add it to Header Navigation too.`);
+  };
+
+  const handleDeleteMegaCategory = (key) => {
+    if (key === 'men' || key === 'women') {
+      alert('Default categories "Men" and "Women" cannot be deleted.');
+      return;
+    }
+    if (window.confirm(`Are you sure you want to delete the "${key}" Mega Menu category?`)) {
+      const updated = { ...megaMenuSettings };
+      delete updated[key];
+      setMegaMenuSettings(updated);
+      setSelectedMegaKey('men');
+    }
+  };
+
+  const handleAddSection = () => {
+    const current = megaMenuSettings[selectedMegaKey];
+    if (!current) return;
+    const updatedSections = [...(current.sections || []), { title: 'NEW SECTION', links: [{ name: 'New Link', filter: 'all' }] }];
+    setMegaMenuSettings({
+      ...megaMenuSettings,
+      [selectedMegaKey]: {
+        ...current,
+        sections: updatedSections
+      }
+    });
+  };
+
+  const handleDeleteSection = (secIdx) => {
+    const current = megaMenuSettings[selectedMegaKey];
+    if (!current) return;
+    const updatedSections = (current.sections || []).filter((_, idx) => idx !== secIdx);
+    setMegaMenuSettings({
+      ...megaMenuSettings,
+      [selectedMegaKey]: {
+        ...current,
+        sections: updatedSections
+      }
+    });
+  };
+
+  const handleAddLink = (secIdx) => {
+    const current = megaMenuSettings[selectedMegaKey];
+    if (!current) return;
+    const updatedSections = [...(current.sections || [])];
+    updatedSections[secIdx] = {
+      ...updatedSections[secIdx],
+      links: [...(updatedSections[secIdx].links || []), { name: 'New Link', filter: 'all' }]
+    };
+    setMegaMenuSettings({
+      ...megaMenuSettings,
+      [selectedMegaKey]: {
+        ...current,
+        sections: updatedSections
+      }
+    });
+  };
+
+  const handleDeleteLink = (secIdx, linkIdx) => {
+    const current = megaMenuSettings[selectedMegaKey];
+    if (!current) return;
+    const updatedSections = [...(current.sections || [])];
+    updatedSections[secIdx] = {
+      ...updatedSections[secIdx],
+      links: (updatedSections[secIdx].links || []).filter((_, idx) => idx !== linkIdx)
+    };
+    setMegaMenuSettings({
+      ...megaMenuSettings,
+      [selectedMegaKey]: {
+        ...current,
+        sections: updatedSections
+      }
+    });
+  };
 
   const handleTypographySave = (e) => {
     e.preventDefault();
@@ -749,7 +1158,18 @@ export default function AdminDashboard({ currentUser, onClose }) {
       home: { title: 'off-kilt | Modern Heavyweight Denim & Street Edits', desc: 'Born from raw rebellion. Shop our asymmetrical carpenter jeans, premium paneled denim skirts, and street essentials.', keywords: 'off-kilt, raw denim, carpenter jeans, premium skirts' },
       catalog: { title: 'Shop Collections | off-kilt Selvedge Edits', desc: 'Browse the latest release of baggy, relaxed, bootcut and skinny fits from off-kilt. Free shipping across India.', keywords: 'off-kilt collections, selvedge denim' }
     };
-    return JSON.parse(localStorage.getItem('offkilt_seo') || JSON.stringify(defaults));
+    try {
+      const parsed = JSON.parse(localStorage.getItem('offkilt_seo'));
+      if (parsed) {
+        return {
+          home: { ...defaults.home, ...parsed.home },
+          catalog: { ...defaults.catalog, ...parsed.catalog }
+        };
+      }
+      return defaults;
+    } catch(e) {
+      return defaults;
+    }
   });
 
   const handleSeoSave = () => {
@@ -847,6 +1267,27 @@ export default function AdminDashboard({ currentUser, onClose }) {
   };
 
 
+  const handleClearOrdersAndAnalytics = async () => {
+    if (window.confirm('Wipe all order history and reset analytics to zero for a clean production start? This cannot be undone.')) {
+      try {
+        for (const order of orders) {
+          const id = order.id || order.orderId;
+          if (id) {
+            await adminApi.deleteOrder(id);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to delete some orders from backend API", err);
+      }
+      localStorage.removeItem('offkilt_orders');
+      setOrders([]);
+      triggerSync('offkilt_orders_updated');
+      triggerSync('offkilt_settings_updated');
+      alert('Order history cleared and analytics reset to zero.');
+    }
+  };
+
+
   const handleFactoryReset = () => {
     if (window.confirm('WARNING: This will wipe all orders, custom products, settings, and reviews! Reset store to factory settings?')) {
       localStorage.clear();
@@ -866,16 +1307,82 @@ export default function AdminDashboard({ currentUser, onClose }) {
     return JSON.parse(localStorage.getItem('offkilt_admin_roles') || JSON.stringify(defaults));
   });
   const [newAdmin, setNewAdmin] = useState({ name: '', email: '', role: 'Catalog Manager' });
+  const [editingAdminEmail, setEditingAdminEmail] = useState(null);
 
   const handleAddAdmin = (e) => {
     e.preventDefault();
     if (!newAdmin.name || !newAdmin.email) return;
     const permissions = newAdmin.role === 'Super Admin' ? 'Full Access' : 
                         (newAdmin.role === 'Catalog Manager' ? 'Write: Catalog, Content CMS' : 'Write: Orders, Shipments');
-    const updated = [...roles, { ...newAdmin, permissions }];
+    
+    let updated;
+    if (editingAdminEmail) {
+      updated = roles.map(r => r.email === editingAdminEmail ? { ...newAdmin, permissions } : r);
+      setEditingAdminEmail(null);
+      alert('Access Operator updated successfully!');
+    } else {
+      if (roles.some(r => r.email === newAdmin.email)) {
+        alert("An admin account with this email already exists!");
+        return;
+      }
+      updated = [...roles, { ...newAdmin, permissions }];
+      alert('Access Operator registered successfully!');
+    }
+    
     setRoles(updated);
     localStorage.setItem('offkilt_admin_roles', JSON.stringify(updated));
     setNewAdmin({ name: '', email: '', role: 'Catalog Manager' });
+  };
+
+  const handleDeleteAdmin = (email) => {
+    if (email === currentUser?.email) {
+      alert("You cannot remove your own admin access!");
+      return;
+    }
+    if (window.confirm(`Are you sure you want to remove admin access for ${email}?`)) {
+      const updated = roles.filter(r => r.email !== email);
+      setRoles(updated);
+      localStorage.setItem('offkilt_admin_roles', JSON.stringify(updated));
+      alert('Access Operator removed successfully.');
+    }
+  };
+
+  // --- Promo Discount CMS ---
+  const [promoText, setPromoText] = useState(() => localStorage.getItem('offkilt_promo_discount_text') || 'Extra 20% off ₹8,000+');
+  const [showPromo, setShowPromo] = useState(() => localStorage.getItem('offkilt_promo_discount_show') !== 'false');
+
+  const handlePromoDiscountSave = (e) => {
+    e.preventDefault();
+    localStorage.setItem('offkilt_promo_discount_text', promoText);
+    localStorage.setItem('offkilt_promo_discount_show', showPromo ? 'true' : 'false');
+    triggerSync('offkilt_settings_updated');
+    alert('Promotional discount settings saved!');
+  };
+
+  // --- Product SEO CMS ---
+  const [productSeoList, setProductSeoList] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_seo_products')) || {};
+    } catch(e) {
+      return {};
+    }
+  });
+  const [selectedSeoProductId, setSelectedSeoProductId] = useState(null);
+  const [seoProductForm, setSeoProductForm] = useState({ title: '', desc: '', keywords: '' });
+  const [seoProductSearch, setSeoProductSearch] = useState('');
+
+  const handleSaveProductSeo = (e) => {
+    e.preventDefault();
+    if (!selectedSeoProductId) return;
+    const updated = {
+      ...productSeoList,
+      [selectedSeoProductId]: seoProductForm
+    };
+    setProductSeoList(updated);
+    localStorage.setItem('offkilt_seo_products', JSON.stringify(updated));
+    setSelectedSeoProductId(null);
+    setSeoProductForm({ title: '', desc: '', keywords: '' });
+    alert('Product SEO tags saved!');
   };
 
   // --- RENDERING TABS SIDEBAR ---
@@ -898,7 +1405,6 @@ export default function AdminDashboard({ currentUser, onClose }) {
     { id: 'coupons', label: 'Coupon Builder', icon: Tag },
     { id: 'customers', label: 'Customer DB', icon: Users },
     { id: 'seo', label: 'SEO Tags', icon: Globe },
-    { id: 'marketplace', label: 'Marketplace Sync', icon: RefreshCw },
     { id: 'logs', label: 'Security & Logs', icon: ShieldAlert },
     { id: 'backups', label: 'System Backups', icon: Database },
     { id: 'roles', label: 'Admin Roles', icon: UserCheck }
@@ -1367,6 +1873,21 @@ export default function AdminDashboard({ currentUser, onClose }) {
                   >
                     <Plus size={14} /> Clear Form
                   </button>
+                  <button 
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm('Are you sure you want to reset the product catalog to default premium products? This will overwrite your current changes.')) {
+                        localStorage.removeItem('offkilt_products');
+                        await fetchProducts();
+                        triggerSync('offkilt_products_updated');
+                        alert('Inventory reset to default products!');
+                      }
+                    }}
+                    className="btn-secondary"
+                    style={{ padding: '10px 16px', fontSize: '0.75rem', border: '1px solid #d97706', color: '#d97706', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <RefreshCw size={14} /> Reset to Defaults
+                  </button>
                 </div>
 
                 <div style={{ backgroundColor: '#ffffff', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden' }}>
@@ -1683,7 +2204,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                                 <button type="submit" style={{ padding: '4px 8px', backgroundColor: 'var(--accent-raw)', color: '#ffffff', borderRadius: '2px', fontSize: '0.65rem' }}>Save</button>
                               </form>
                             </td>
-                            <td className="mono" style={{ padding: '12px', fontWeight: 'bold' }}>₹{o.total?.toLocaleString('en-IN')}</td>
+                            <td className="mono" style={{ padding: '12px', fontWeight: 'bold' }}>₹{(o.total !== undefined && o.total !== null ? o.total : (o.subtotal - (o.discount || 0) + (o.shipping_fee || o.shipping || 0)))?.toLocaleString('en-IN')}</td>
                             <td style={{ padding: '12px', textAlign: 'right' }}>
                               <button 
                                 onClick={() => {
@@ -1730,24 +2251,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       <input 
                         type="file" 
                         accept="image/*,video/*" 
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              const isVideo = file.type.startsWith('video/');
-                              const updated = { 
-                                ...campaigns.hero, 
-                                mediaUrl: reader.result,
-                                mediaType: isVideo ? 'video' : 'image'
-                              };
-                              setCampaigns(prev => ({ ...prev, hero: updated }));
-                              localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
-                              window.dispatchEvent(new Event('offkilt_hero_updated'));
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
+                        onChange={handleHeroMediaUpload}
                         style={{ fontSize: '0.75rem', width: '100%' }}
                       />
                     </div>
@@ -1867,6 +2371,19 @@ export default function AdminDashboard({ currentUser, onClose }) {
                     />
                   </div>
                 </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.setItem('offkilt_campaign_hero', JSON.stringify(campaigns.hero));
+                      window.dispatchEvent(new Event('offkilt_hero_updated'));
+                      alert('Hero Banner saved successfully!');
+                    }}
+                    className="btn-primary"
+                  >
+                    <Save size={16} /> Save Hero Banner
+                  </button>
+                </div>
               </div>
 
               {/* Fashion Film CMS */}
@@ -1886,16 +2403,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       <input 
                         type="file" 
                         accept="video/*" 
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setFashionFilm(prev => ({ ...prev, videoUrl: reader.result }));
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
+                        onChange={handleFashionFilmVideoUpload}
                         style={{ fontSize: '0.75rem', width: '100%' }}
                       />
                     </div>
@@ -1970,6 +2478,11 @@ export default function AdminDashboard({ currentUser, onClose }) {
                         )}
                       </div>
                     </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                      <button type="button" onClick={() => handleCampaignSaveBtn('men')} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Save size={14} /> Save Men's Campaign Settings
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2015,6 +2528,11 @@ export default function AdminDashboard({ currentUser, onClose }) {
                         )}
                       </div>
                     </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                      <button type="button" onClick={() => handleCampaignSaveBtn('women')} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Save size={14} /> Save Women's Campaign Settings
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2059,84 +2577,6 @@ export default function AdminDashboard({ currentUser, onClose }) {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
                   <button type="submit" className="btn-primary">
                     <Save size={16} /> Save Typography Configs
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Mega Menu Settings Tab */}
-          {activeTab === 'megamenu' && (
-            <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
-              <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>MEGA MENU CATEGORIZATIONS BUILDER</h3>
-              <form onSubmit={handleMegaMenuSave} style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
-                  {/* Men's Mega Menu Column */}
-                  <div>
-                    <h4 style={{ fontSize: '0.8rem', fontWeight: 700, borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '6px', marginBottom: '16px', textTransform: 'uppercase' }}>Men's Fits & Categories</h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                      <div>
-                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>FITS (Comma Separated)</label>
-                        <textarea
-                          value={megaMenuSettings.men.fits.join(', ')}
-                          onChange={(e) => {
-                            const fits = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                            setMegaMenuSettings({ ...megaMenuSettings, men: { ...megaMenuSettings.men, fits } });
-                          }}
-                          rows="3"
-                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>CATEGORIES (Comma Separated)</label>
-                        <textarea
-                          value={megaMenuSettings.men.categories.join(', ')}
-                          onChange={(e) => {
-                            const categories = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                            setMegaMenuSettings({ ...megaMenuSettings, men: { ...megaMenuSettings.men, categories } });
-                          }}
-                          rows="3"
-                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Women's Mega Menu Column */}
-                  <div>
-                    <h4 style={{ fontSize: '0.8rem', fontWeight: 700, borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '6px', marginBottom: '16px', textTransform: 'uppercase' }}>Women's Fits & Categories</h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                      <div>
-                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>FITS (Comma Separated)</label>
-                        <textarea
-                          value={megaMenuSettings.women.fits.join(', ')}
-                          onChange={(e) => {
-                            const fits = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                            setMegaMenuSettings({ ...megaMenuSettings, women: { ...megaMenuSettings.women, fits } });
-                          }}
-                          rows="3"
-                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>CATEGORIES (Comma Separated)</label>
-                        <textarea
-                          value={megaMenuSettings.women.categories.join(', ')}
-                          onChange={(e) => {
-                            const categories = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                            setMegaMenuSettings({ ...megaMenuSettings, women: { ...megaMenuSettings.women, categories } });
-                          }}
-                          rows="3"
-                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-                  <button type="submit" className="btn-primary">
-                    <Save size={16} /> Save Mega Menu Configurations
                   </button>
                 </div>
               </form>
@@ -2227,15 +2667,19 @@ export default function AdminDashboard({ currentUser, onClose }) {
                     className="btn-primary" 
                     style={{ padding: '6px 12px', fontSize: '0.75rem' }}
                   >
-                    <Plus size={12} /> Add Post
+                    Add Image
                   </button>
                 </div>
-                
+
+                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '4px', fontSize: '0.75rem', color: '#1e40af' }}>
+                  💡 <strong>Featured Option</strong>: Only one post can be featured at a time. The featured post will be highlighted as the prominent large cover on the storefront Instagram grid. Other posts will display around it.
+                </div>
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {igGallery.map((item, idx) => (
-                    <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 100px 50px', gap: '12px', alignItems: 'center', padding: '12px', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '2px', backgroundColor: '#fcfcf9' }}>
+                    <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 100px 50px', gap: '12px', alignItems: 'center', padding: '12px', border: '1px solid rgba(0,0,0,0.04)', borderRadius: '2px', backgroundColor: '#fcfcf9' }}>
                       <div>
-                        <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Image URL</label>
+                        <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Image URL / File</label>
                         <input 
                           type="text" 
                           value={item.src} 
@@ -2263,6 +2707,20 @@ export default function AdminDashboard({ currentUser, onClose }) {
                             }
                           }}
                           style={{ fontSize: '0.65rem', marginTop: '4px', width: '100%' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Post / Story URL</label>
+                        <input 
+                          type="text" 
+                          value={item.postUrl || ''} 
+                          onChange={(e) => {
+                            const updated = [...igGallery];
+                            updated[idx].postUrl = e.target.value;
+                            setIgGallery(updated);
+                          }}
+                          placeholder="https://instagram.com/p/..."
+                          style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
                         />
                       </div>
                       <div>
@@ -2595,6 +3053,336 @@ export default function AdminDashboard({ currentUser, onClose }) {
             </div>
           )}
 
+          {/* Mega Menu Builder CMS */}
+          {activeTab === 'megamenu' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>MEGA MENU CATEGORIES</h3>
+                
+                {/* Category Selection Tabs & Adding New Category */}
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '20px', marginBottom: '20px' }}>
+                  {Object.keys(megaMenuSettings).map(key => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSelectedMegaKey(key)}
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '0.75rem',
+                        fontFamily: 'var(--font-mono)',
+                        border: '1px solid rgba(0,0,0,0.1)',
+                        backgroundColor: selectedMegaKey === key ? 'var(--accent-raw)' : '#ffffff',
+                        color: selectedMegaKey === key ? '#ffffff' : '#111111',
+                        borderRadius: '2px',
+                        textTransform: 'uppercase',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {megaMenuSettings[key].label || key}
+                    </button>
+                  ))}
+                  
+                  <div style={{ flex: 1 }} />
+                  
+                  {/* Add new mega menu key */}
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      placeholder="Add Category (e.g. Footwear)"
+                      value={newMegaKeyInput}
+                      onChange={(e) => setNewMegaKeyInput(e.target.value)}
+                      style={{ padding: '6px 12px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddMegaCategory}
+                      className="btn-primary"
+                      style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                    >
+                      <Plus size={12} /> Add Tab
+                    </button>
+                  </div>
+                </div>
+
+                {/* Selected Category Editor */}
+                {megaMenuSettings[selectedMegaKey] ? (
+                  <form onSubmit={handleMegaMenuSave} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-grey)' }}>Tab Label</label>
+                        <input
+                          type="text"
+                          value={megaMenuSettings[selectedMegaKey].label || ''}
+                          onChange={(e) => {
+                            setMegaMenuSettings({
+                              ...megaMenuSettings,
+                              [selectedMegaKey]: {
+                                ...megaMenuSettings[selectedMegaKey],
+                                label: e.target.value
+                              }
+                            });
+                          }}
+                          style={{ padding: '6px 12px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                          required
+                        />
+                      </div>
+                      
+                      {selectedMegaKey !== 'men' && selectedMegaKey !== 'women' && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMegaCategory(selectedMegaKey)}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: '#fff5f5',
+                            color: '#ef4444',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            borderRadius: '2px',
+                            fontSize: '0.75rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Trash2 size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} /> Delete Tab
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Columns / Sections List */}
+                    <div>
+                      <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '14px', borderBottom: '1px solid rgba(0,0,0,0.04)', paddingBottom: '6px' }}>MENU COLUMNS</h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        {(megaMenuSettings[selectedMegaKey].sections || []).map((sec, secIdx) => (
+                          <div key={secIdx} style={{ padding: '16px', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '4px', backgroundColor: '#fcfcf9' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <label style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-muted)' }}>Column Title</label>
+                                <input
+                                  type="text"
+                                  value={sec.title || ''}
+                                  onChange={(e) => {
+                                    const updatedSecs = [...megaMenuSettings[selectedMegaKey].sections];
+                                    updatedSecs[secIdx].title = e.target.value.toUpperCase();
+                                    setMegaMenuSettings({
+                                      ...megaMenuSettings,
+                                      [selectedMegaKey]: {
+                                        ...megaMenuSettings[selectedMegaKey],
+                                        sections: updatedSecs
+                                      }
+                                    });
+                                  }}
+                                  style={{ padding: '4px 8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', fontWeight: 'bold' }}
+                                />
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddLink(secIdx)}
+                                  style={{ padding: '4px 8px', fontSize: '0.65rem', border: '1px solid var(--accent-raw)', color: 'var(--accent-raw)', backgroundColor: '#ffffff', borderRadius: '2px', cursor: 'pointer' }}
+                                >
+                                  + Add Link
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteSection(secIdx)}
+                                  style={{ padding: '4px 8px', fontSize: '0.65rem', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', backgroundColor: '#fff5f5', borderRadius: '2px', cursor: 'pointer' }}
+                                >
+                                  Delete Column
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Links inside this section */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '20px' }}>
+                              {(sec.links || []).map((link, linkIdx) => (
+                                <div key={linkIdx} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr auto', gap: '10px', alignItems: 'center' }}>
+                                  <div>
+                                    <label style={{ fontSize: '0.55rem', color: 'var(--text-muted)', display: 'block' }}>Link Label</label>
+                                    <input
+                                      type="text"
+                                      value={link.name || ''}
+                                      onChange={(e) => {
+                                        const updatedSecs = [...megaMenuSettings[selectedMegaKey].sections];
+                                        updatedSecs[secIdx].links[linkIdx].name = e.target.value;
+                                        setMegaMenuSettings({
+                                          ...megaMenuSettings,
+                                          [selectedMegaKey]: {
+                                            ...megaMenuSettings[selectedMegaKey],
+                                            sections: updatedSecs
+                                          }
+                                        });
+                                      }}
+                                      style={{ width: '100%', padding: '4px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: '0.55rem', color: 'var(--text-muted)', display: 'block' }}>Category Filter Value</label>
+                                    <input
+                                      type="text"
+                                      value={link.filter || ''}
+                                      onChange={(e) => {
+                                        const updatedSecs = [...megaMenuSettings[selectedMegaKey].sections];
+                                        updatedSecs[secIdx].links[linkIdx].filter = e.target.value.toLowerCase().trim();
+                                        setMegaMenuSettings({
+                                          ...megaMenuSettings,
+                                          [selectedMegaKey]: {
+                                            ...megaMenuSettings[selectedMegaKey],
+                                            sections: updatedSecs
+                                          }
+                                        });
+                                      }}
+                                      style={{ width: '100%', padding: '4px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteLink(secIdx, linkIdx)}
+                                    style={{ color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer', marginTop: '14px' }}
+                                    title="Delete Link"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <button
+                        type="button"
+                        onClick={handleAddSection}
+                        className="btn-secondary"
+                        style={{ marginTop: '12px', padding: '6px 12px', fontSize: '0.75rem' }}
+                      >
+                        + Add Column
+                      </button>
+                    </div>
+
+                    {/* Featured Promotion Card */}
+                    <div style={{ border: '1px solid rgba(0,0,0,0.06)', borderRadius: '4px', padding: '20px', backgroundColor: '#ffffff' }}>
+                      <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '14px', borderBottom: '1px solid rgba(0,0,0,0.04)', paddingBottom: '6px' }}>FEATURED PROMOTION CARD</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '4px' }}>Card Cover Title</label>
+                          <input
+                            type="text"
+                            value={megaMenuSettings[selectedMegaKey].featured?.title || ''}
+                            onChange={(e) => {
+                              setMegaMenuSettings({
+                                ...megaMenuSettings,
+                                [selectedMegaKey]: {
+                                  ...megaMenuSettings[selectedMegaKey],
+                                  featured: {
+                                    ...megaMenuSettings[selectedMegaKey].featured,
+                                    title: e.target.value
+                                  }
+                                }
+                              });
+                            }}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '4px' }}>Card Call To Action (CTA)</label>
+                          <input
+                            type="text"
+                            value={megaMenuSettings[selectedMegaKey].featured?.cta || ''}
+                            onChange={(e) => {
+                              setMegaMenuSettings({
+                                ...megaMenuSettings,
+                                [selectedMegaKey]: {
+                                  ...megaMenuSettings[selectedMegaKey],
+                                  featured: {
+                                    ...megaMenuSettings[selectedMegaKey].featured,
+                                    cta: e.target.value
+                                  }
+                                }
+                              });
+                            }}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '4px' }}>Card Category Filter (Redirect Target)</label>
+                          <input
+                            type="text"
+                            value={megaMenuSettings[selectedMegaKey].featured?.filter || ''}
+                            onChange={(e) => {
+                              setMegaMenuSettings({
+                                ...megaMenuSettings,
+                                [selectedMegaKey]: {
+                                  ...megaMenuSettings[selectedMegaKey],
+                                  featured: {
+                                    ...megaMenuSettings[selectedMegaKey].featured,
+                                    filter: e.target.value
+                                  }
+                                }
+                              });
+                            }}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '4px' }}>Featured Image URL</label>
+                          <input
+                            type="text"
+                            value={megaMenuSettings[selectedMegaKey].featured?.image || ''}
+                            onChange={(e) => {
+                              setMegaMenuSettings({
+                                ...megaMenuSettings,
+                                [selectedMegaKey]: {
+                                  ...megaMenuSettings[selectedMegaKey],
+                                  featured: {
+                                    ...megaMenuSettings[selectedMegaKey].featured,
+                                    image: e.target.value
+                                  }
+                                }
+                              });
+                            }}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                          />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setMegaMenuSettings(prev => ({
+                                    ...prev,
+                                    [selectedMegaKey]: {
+                                      ...prev[selectedMegaKey],
+                                      featured: {
+                                        ...prev[selectedMegaKey].featured,
+                                        image: reader.result
+                                      }
+                                    }
+                                  }));
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            style={{ fontSize: '0.75rem', marginTop: '6px', width: '100%' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                      <button type="submit" className="btn-primary">
+                        <Save size={16} /> Save Mega Menu Config
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                    Select a tab key to begin editing.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* 6. CMS POLICIES & FAQS */}
           {activeTab === 'policies' && (
             <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -2740,99 +3528,132 @@ export default function AdminDashboard({ currentUser, onClose }) {
 
           {/* 8. COUPONS BUILDER */}
           {activeTab === 'coupons' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px', alignItems: 'start' }}>
-              {/* Coupons List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+              {/* Global Promotional Discount Builder */}
               <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
-                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>ACTIVE CAMPAIGN PROMOTIONS</h3>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.06)', textAlign: 'left', color: 'var(--text-muted)' }}>
-                      <th style={{ padding: '12px' }}>Promo Code</th>
-                      <th style={{ padding: '12px' }}>Discount Value</th>
-                      <th style={{ padding: '12px' }}>Type</th>
-                      <th style={{ padding: '12px' }}>Status</th>
-                      <th style={{ padding: '12px', textAlign: 'right' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {coupons.map((c, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid rgba(0,0,0,0.02)' }}>
-                        <td className="mono" style={{ padding: '12px', fontWeight: 600 }}>{c.code}</td>
-                        <td className="mono" style={{ padding: '12px' }}>{c.discount}{c.type === 'percent' ? '%' : ' INR'}</td>
-                        <td style={{ padding: '12px', textTransform: 'capitalize' }}>{c.type}</td>
-                        <td style={{ padding: '12px' }}>
-                          <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '2px', backgroundColor: c.status === 'active' ? '#dcfce7' : '#fee2e2', color: c.status === 'active' ? '#166534' : '#991b1b', fontWeight: 600 }}>
-                            {c.status}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px', textAlign: 'right' }}>
-                          <button onClick={() => handleDeleteCoupon(c.code)} style={{ color: '#ef4444' }} title="Delete Code">
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Add Coupon Form */}
-              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
-                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>CREATE NEW COUPON</h3>
-                <form onSubmit={handleAddCoupon} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Coupon Code</label>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px', color: 'var(--accent-raw)' }}>GLOBAL PROMOTIONAL TAG EDITORIAL</h3>
+                <form onSubmit={handlePromoDiscountSave} style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '240px' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Promo Banner Tagline (shown globally on storefront & products)</label>
                     <input 
                       type="text" 
-                      value={newCoupon.code} 
-                      onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value })} 
-                      placeholder="e.g. MONSOON25"
-                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', textTransform: 'uppercase' }}
+                      value={promoText}
+                      onChange={(e) => setPromoText(e.target.value)}
+                      placeholder="e.g. Extra 20% off $100+"
+                      style={{ width: '100%', padding: '10px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
                       required
                     />
                   </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', height: '40px', marginBottom: '2px' }}>
+                    <input 
+                      type="checkbox" 
+                      id="showPromoCheck"
+                      checked={showPromo}
+                      onChange={(e) => setShowPromo(e.target.checked)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <label htmlFor="showPromoCheck" style={{ fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>Enable Promo Tag Globally</label>
+                  </div>
+                  <button type="submit" className="btn-primary" style={{ height: '40px', padding: '0 20px', fontSize: '0.8rem' }}>
+                    <Save size={14} /> Save Promo Tag Settings
+                  </button>
+                </form>
+              </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px', alignItems: 'start' }}>
+                {/* Coupons List */}
+                <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                  <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>ACTIVE CAMPAIGN PROMOTIONS</h3>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.06)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                        <th style={{ padding: '12px' }}>Promo Code</th>
+                        <th style={{ padding: '12px' }}>Discount Value</th>
+                        <th style={{ padding: '12px' }}>Type</th>
+                        <th style={{ padding: '12px' }}>Status</th>
+                        <th style={{ padding: '12px', textAlign: 'right' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coupons.map((c, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid rgba(0,0,0,0.02)' }}>
+                          <td className="mono" style={{ padding: '12px', fontWeight: 600 }}>{c.code}</td>
+                          <td className="mono" style={{ padding: '12px' }}>{c.discount}{c.type === 'percent' ? '%' : ' INR'}</td>
+                          <td style={{ padding: '12px', textTransform: 'capitalize' }}>{c.type}</td>
+                          <td style={{ padding: '12px' }}>
+                            <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '2px', backgroundColor: c.status === 'active' ? '#dcfce7' : '#fee2e2', color: c.status === 'active' ? '#166534' : '#991b1b', fontWeight: 600 }}>
+                              {c.status}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'right' }}>
+                            <button onClick={() => handleDeleteCoupon(c.code)} style={{ color: '#ef4444' }} title="Delete Code">
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Add Coupon Form */}
+                <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                  <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>CREATE NEW COUPON</h3>
+                  <form onSubmit={handleAddCoupon} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Discount Value</label>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Coupon Code</label>
                       <input 
-                        type="number" 
-                        value={newCoupon.discount} 
-                        onChange={(e) => setNewCoupon({ ...newCoupon, discount: e.target.value })} 
-                        placeholder="e.g. 20"
-                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                        type="text" 
+                        value={newCoupon.code} 
+                        onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value })} 
+                        placeholder="e.g. MONSOON25"
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', textTransform: 'uppercase' }}
                         required
                       />
                     </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Discount Value</label>
+                        <input 
+                          type="number" 
+                          value={newCoupon.discount} 
+                          onChange={(e) => setNewCoupon({ ...newCoupon, discount: e.target.value })} 
+                          placeholder="e.g. 20"
+                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Reduction Type</label>
+                        <select 
+                          value={newCoupon.type} 
+                          onChange={(e) => setNewCoupon({ ...newCoupon, type: e.target.value })}
+                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#ffffff' }}
+                        >
+                          <option value="percent">Percent Discount (%)</option>
+                          <option value="flat">Flat Cash Deduct (INR)</option>
+                        </select>
+                      </div>
+                    </div>
+
                     <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Reduction Type</label>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Initial Status</label>
                       <select 
-                        value={newCoupon.type} 
-                        onChange={(e) => setNewCoupon({ ...newCoupon, type: e.target.value })}
+                        value={newCoupon.status} 
+                        onChange={(e) => setNewCoupon({ ...newCoupon, status: e.target.value })}
                         style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#ffffff' }}
                       >
-                        <option value="percent">Percent Discount (%)</option>
-                        <option value="flat">Flat Cash Deduct (INR)</option>
+                        <option value="active">Active &amp; Redeemable</option>
+                        <option value="inactive">Disabled / Expired</option>
                       </select>
                     </div>
-                  </div>
 
-                  <div>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Initial Status</label>
-                    <select 
-                      value={newCoupon.status} 
-                      onChange={(e) => setNewCoupon({ ...newCoupon, status: e.target.value })}
-                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#ffffff' }}
-                    >
-                      <option value="active">Active &amp; Redeemable</option>
-                      <option value="inactive">Disabled / Expired</option>
-                    </select>
-                  </div>
-
-                  <button type="submit" className="btn-primary" style={{ justifyContent: 'center' }}>
-                    <Plus size={16} /> Add Promo Code
-                  </button>
-                </form>
+                    <button type="submit" className="btn-primary" style={{ justifyContent: 'center' }}>
+                      <Plus size={16} /> Add Promo Code
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
           )}
@@ -2840,7 +3661,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
           {/* 9. CUSTOMERS DATABASE */}
           {activeTab === 'customers' && (
             <div>
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', alignItems: 'center' }}>
                 <div style={{ flex: 1, position: 'relative' }}>
                   <input
                     type="text"
@@ -2851,155 +3672,350 @@ export default function AdminDashboard({ currentUser, onClose }) {
                   />
                   <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 </div>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                  {customers.length} USERS
+                </span>
               </div>
 
               <div style={{ backgroundColor: '#ffffff', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#fcfcf9', borderBottom: '1px solid rgba(0,0,0,0.06)', textAlign: 'left', color: 'var(--text-muted)' }}>
-                      <th style={{ padding: '14px' }}>Name / User ID</th>
-                      <th style={{ padding: '14px' }}>Email Address</th>
-                      <th style={{ padding: '14px' }}>Mobile Phone</th>
-                      <th style={{ padding: '14px' }}>Shipping Address</th>
-                      <th style={{ padding: '14px', textAlign: 'right' }}>Wishlist Activity</th>
+                      <th style={{ padding: '14px' }}>Name</th>
+                      <th style={{ padding: '14px' }}>Email</th>
+                      <th style={{ padding: '14px' }}>Phone</th>
+                      <th style={{ padding: '14px', textAlign: 'center' }}>Role</th>
+                      <th style={{ padding: '14px', textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {customers
-                      .filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()) || c.email.toLowerCase().includes(customerSearch.toLowerCase()))
+                      .filter(c => (c.name || '').toLowerCase().includes(customerSearch.toLowerCase()) || (c.email || '').toLowerCase().includes(customerSearch.toLowerCase()))
                       .map(c => (
-                        <tr key={c.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.02)' }}>
+                        <tr key={c.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
                           <td style={{ padding: '12px' }}>
                             <div style={{ fontWeight: 600 }}>{c.name}</div>
-                            <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>#USER00{c.id}</span>
+                            <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>#{c.id}</span>
                           </td>
-                          <td style={{ padding: '12px' }}>{c.email}</td>
-                          <td style={{ padding: '12px' }}>{c.phone || '+91 - N/A'}</td>
-                          <td style={{ padding: '12px', fontSize: '0.75rem', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.address || 'N/A'}</td>
-                          <td className="mono" style={{ padding: '12px', textAlign: 'right', fontWeight: 'bold', color: 'var(--accent-raw)' }}>
-                            {c.wishlistCount || 0} items
+                          <td style={{ padding: '12px', fontSize: '0.78rem' }}>{c.email}</td>
+                          <td style={{ padding: '12px', fontSize: '0.78rem' }}>{c.phone || 'N/A'}</td>
+                          <td style={{ padding: '12px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                              <span style={{
+                                padding: '3px 10px',
+                                borderRadius: '2px',
+                                fontSize: '0.65rem',
+                                fontFamily: 'var(--font-mono)',
+                                fontWeight: 700,
+                                background: c.is_admin ? 'rgba(220,38,38,0.08)' : 'rgba(0,0,0,0.04)',
+                                color: c.is_admin ? '#dc2626' : 'var(--text-muted)'
+                              }}>
+                                {c.is_admin ? 'ADMIN' : 'USER'}
+                              </span>
+                              {c.is_blocked && (
+                                <span style={{
+                                  padding: '2px 8px',
+                                  borderRadius: '2px',
+                                  fontSize: '0.6rem',
+                                  fontFamily: 'var(--font-mono)',
+                                  fontWeight: 700,
+                                  background: 'rgba(234,88,12,0.1)',
+                                  color: '#ea580c',
+                                  border: '1px solid rgba(234,88,12,0.2)'
+                                }}>
+                                  BLOCKED
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                              {/* Edit name/email for admins or self */}
+                              {(c.is_admin || c.email === currentUser?.email) && (
+                                <button
+                                  onClick={() => {
+                                    const newName = window.prompt('Update display name:', c.name);
+                                    if (newName === null) return;
+                                    const newEmail = window.prompt('Update email address:', c.email);
+                                    if (newEmail === null) return;
+                                    const updated = customers.map(u =>
+                                      u.id === c.id ? { ...u, name: newName.trim() || u.name, email: newEmail.trim() || u.email } : u
+                                    );
+                                    setCustomers(updated);
+                                    localStorage.setItem('offkilt_users', JSON.stringify(updated));
+                                    triggerSync('offkilt_settings_updated');
+                                    alert('Profile updated.');
+                                  }}
+                                  style={{
+                                    padding: '5px 10px',
+                                    fontSize: '0.65rem',
+                                    fontFamily: 'var(--font-mono)',
+                                    border: '1px solid rgba(0,0,0,0.12)',
+                                    borderRadius: '2px',
+                                    background: '#f9f9f7',
+                                    color: 'var(--text-light)',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Edit Profile
+                                </button>
+                              )}
+                              {/* Block/Unblock toggle button — only for regular users (non-admins) */}
+                              {!c.is_admin && c.email !== currentUser?.email && (
+                                <button
+                                  onClick={() => {
+                                    const actionText = c.is_blocked ? 'unblock' : 'block';
+                                    if (!window.confirm(`Are you sure you want to ${actionText} ${c.name}?`)) return;
+                                    const updated = customers.map(u =>
+                                      u.id === c.id ? { ...u, is_blocked: !c.is_blocked } : u
+                                    );
+                                    setCustomers(updated);
+                                    localStorage.setItem('offkilt_users', JSON.stringify(updated));
+                                    triggerSync('offkilt_settings_updated');
+                                    alert(`User has been ${c.is_blocked ? 'unblocked' : 'blocked'}.`);
+                                  }}
+                                  style={{
+                                    padding: '5px 10px',
+                                    fontSize: '0.65rem',
+                                    fontFamily: 'var(--font-mono)',
+                                    border: c.is_blocked ? '1px solid rgba(22,163,74,0.3)' : '1px solid rgba(234,88,12,0.3)',
+                                    borderRadius: '2px',
+                                    background: c.is_blocked ? '#f0fdf4' : '#fff7ed',
+                                    color: c.is_blocked ? '#16a34a' : '#ea580c',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  {c.is_blocked ? 'Unblock' : 'Block User'}
+                                </button>
+                              )}
+                              {/* Revoke admin access — only if OTHER admin, not yourself */}
+                              {c.is_admin && c.email !== currentUser?.email && (
+                                <button
+                                  onClick={() => {
+                                    if (!window.confirm(`Revoke admin access from ${c.name}? They will become a regular user.`)) return;
+                                    const updated = customers.map(u =>
+                                      u.id === c.id ? { ...u, is_admin: false } : u
+                                    );
+                                    setCustomers(updated);
+                                    localStorage.setItem('offkilt_users', JSON.stringify(updated));
+                                    triggerSync('offkilt_settings_updated');
+                                    alert(`Admin access revoked from ${c.name}.`);
+                                  }}
+                                  style={{
+                                    padding: '5px 10px',
+                                    fontSize: '0.65rem',
+                                    fontFamily: 'var(--font-mono)',
+                                    border: '1px solid rgba(220,38,38,0.3)',
+                                    borderRadius: '2px',
+                                    background: '#fff5f5',
+                                    color: '#dc2626',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Revoke Admin
+                                </button>
+                              )}
+                              {/* You badge for current user */}
+                              {c.email === currentUser?.email && (
+                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>You</span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
                   </tbody>
                 </table>
+                {customers.filter(c => (c.name || '').toLowerCase().includes(customerSearch.toLowerCase()) || (c.email || '').toLowerCase().includes(customerSearch.toLowerCase())).length === 0 && (
+                  <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                    No users found.
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           {/* 10. SEO META TAGS */}
           {activeTab === 'seo' && (
-            <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <div>
-                <h3 style={{ fontSize: '0.85rem', marginBottom: '14px', letterSpacing: '1px', color: 'var(--accent-raw)' }}>HOMEPAGE SEO CONFIG</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <input 
-                    type="text" 
-                    value={seo.home.title} 
-                    onChange={(e) => setSeo({ ...seo, home: { ...seo.home, title: e.target.value } })} 
-                    style={{ padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                    placeholder="Meta Title"
-                  />
-                  <textarea 
-                    value={seo.home.desc} 
-                    onChange={(e) => setSeo({ ...seo, home: { ...seo.home, desc: e.target.value } })} 
-                    rows="2"
-                    style={{ padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                    placeholder="Meta Description"
-                  ></textarea>
-                  <input 
-                    type="text" 
-                    value={seo.home.keywords} 
-                    onChange={(e) => setSeo({ ...seo, home: { ...seo.home, keywords: e.target.value } })} 
-                    style={{ padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                    placeholder="Keywords (comma separated)"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <h3 style={{ fontSize: '0.85rem', marginBottom: '14px', letterSpacing: '1px', color: 'var(--accent-raw)' }}>COLLECTIONS CATALOG SEO CONFIG</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <input 
-                    type="text" 
-                    value={seo.catalog.title} 
-                    onChange={(e) => setSeo({ ...seo, catalog: { ...seo.catalog, title: e.target.value } })} 
-                    style={{ padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                    placeholder="Meta Title"
-                  />
-                  <textarea 
-                    value={seo.catalog.desc} 
-                    onChange={(e) => setSeo({ ...seo, catalog: { ...seo.catalog, desc: e.target.value } })} 
-                    rows="2"
-                    style={{ padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                    placeholder="Meta Description"
-                  ></textarea>
-                  <input 
-                    type="text" 
-                    value={seo.catalog.keywords} 
-                    onChange={(e) => setSeo({ ...seo, catalog: { ...seo.catalog, keywords: e.target.value } })} 
-                    style={{ padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                    placeholder="Keywords (comma separated)"
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button onClick={handleSeoSave} className="btn-primary">
-                  <Save size={16} /> Save SEO Tag settings
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* 11. MARKETPLACE SYNC */}
-          {activeTab === 'marketplace' && (
-            <div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
-                {marketplaces.map((m, i) => (
-                  <div key={i} style={{ backgroundColor: '#ffffff', padding: '24px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                      <h4 style={{ fontSize: '0.85rem' }}>{m.name}</h4>
-                      <RefreshCw size={16} style={{ color: 'var(--text-muted)' }} />
-                    </div>
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', marginBottom: '4px' }}>
-                        <span>Status:</span>
-                        <span style={{ 
-                          fontWeight: 'bold', 
-                          color: m.status === 'Synced' ? '#166534' : (m.status === 'Pending Sync' ? '#854d0e' : '#991b1b') 
-                        }}>
-                          {m.status}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                        Last Updated: {m.lastSync}
-                      </div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-grey)', marginTop: '4px' }}>
-                        Active Listings: {m.listings} products
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => handleMarketplaceSync(m.id)}
-                      disabled={m.loading}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        fontSize: '0.75rem',
-                        backgroundColor: 'var(--accent)',
-                        color: '#ffffff',
-                        fontFamily: 'var(--font-mono)',
-                        textTransform: 'uppercase',
-                        borderRadius: '2px',
-                        cursor: m.loading ? 'default' : 'pointer',
-                        opacity: m.loading ? 0.6 : 1
-                      }}
-                    >
-                      {m.loading ? 'Syncing Catalog...' : 'Sync Catalog Now'}
-                    </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div>
+                  <h3 style={{ fontSize: '0.85rem', marginBottom: '14px', letterSpacing: '1px', color: 'var(--accent-raw)' }}>HOMEPAGE SEO CONFIG</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <input 
+                      type="text" 
+                      value={seo.home.title} 
+                      onChange={(e) => setSeo({ ...seo, home: { ...seo.home, title: e.target.value } })} 
+                      style={{ padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      placeholder="Meta Title"
+                    />
+                    <textarea 
+                      value={seo.home.desc} 
+                      onChange={(e) => setSeo({ ...seo, home: { ...seo.home, desc: e.target.value } })} 
+                      rows="2"
+                      style={{ padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      placeholder="Meta Description"
+                    ></textarea>
+                    <input 
+                      type="text" 
+                      value={seo.home.keywords} 
+                      onChange={(e) => setSeo({ ...seo, home: { ...seo.home, keywords: e.target.value } })} 
+                      style={{ padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      placeholder="Keywords (comma separated)"
+                    />
                   </div>
-                ))}
+                </div>
+
+                <div>
+                  <h3 style={{ fontSize: '0.85rem', marginBottom: '14px', letterSpacing: '1px', color: 'var(--accent-raw)' }}>COLLECTIONS CATALOG SEO CONFIG</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <input 
+                      type="text" 
+                      value={seo.catalog.title} 
+                      onChange={(e) => setSeo({ ...seo, catalog: { ...seo.catalog, title: e.target.value } })} 
+                      style={{ padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      placeholder="Meta Title"
+                    />
+                    <textarea 
+                      value={seo.catalog.desc} 
+                      onChange={(e) => setSeo({ ...seo, catalog: { ...seo.catalog, desc: e.target.value } })} 
+                      rows="2"
+                      style={{ padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      placeholder="Meta Description"
+                    ></textarea>
+                    <input 
+                      type="text" 
+                      value={seo.catalog.keywords} 
+                      onChange={(e) => setSeo({ ...seo, catalog: { ...seo.catalog, keywords: e.target.value } })} 
+                      style={{ padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      placeholder="Keywords (comma separated)"
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                  <button onClick={handleSeoSave} className="btn-primary">
+                    <Save size={16} /> Save Global SEO Tag settings
+                  </button>
+                </div>
+              </div>
+
+              {/* Product SEO Manager Card */}
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px', color: 'var(--accent-gold)' }}>PRODUCT SEO MANAGER</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px', alignItems: 'start' }}>
+                  {/* Product SEO Search & List */}
+                  <div>
+                    <input 
+                      type="text" 
+                      placeholder="Search products for SEO..."
+                      value={seoProductSearch}
+                      onChange={(e) => setSeoProductSearch(e.target.value)}
+                      style={{ width: '100%', padding: '10px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.08)', borderRadius: '2px', outline: 'none', marginBottom: '14px' }}
+                    />
+                    <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '2px' }} className="admin-sidebar-scroll">
+                      {products && products.length > 0 ? (
+                        products
+                          .filter(p => p && ((p.name || '').toLowerCase().includes(seoProductSearch.toLowerCase()) || (p.id || '').toLowerCase().includes(seoProductSearch.toLowerCase())))
+                          .map(p => {
+                            const hasSeo = p.id && !!productSeoList[p.id];
+                            const isSelected = p.id && selectedSeoProductId === p.id;
+                            return (
+                              <div 
+                                key={p.id}
+                                onClick={() => {
+                                  setSelectedSeoProductId(p.id);
+                                  setSeoProductForm(productSeoList[p.id] || { title: '', desc: '', keywords: '' });
+                                }}
+                                style={{ 
+                                  padding: '10px 12px', 
+                                  borderBottom: '1px solid rgba(0,0,0,0.02)', 
+                                  cursor: 'pointer', 
+                                  backgroundColor: isSelected ? 'rgba(249, 115, 22, 0.05)' : '#ffffff',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  transition: 'var(--transition-quick)'
+                                }}
+                              >
+                                <div>
+                                  <div style={{ fontWeight: 600, fontSize: '0.78rem' }}>{p.name || 'Unnamed Product'}</div>
+                                  <span className="mono" style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{p.id}</span>
+                                </div>
+                                <span style={{ fontSize: '0.65rem', color: hasSeo ? '#16a34a' : 'var(--text-muted)', fontWeight: 600 }}>
+                                  {hasSeo ? '✓ Customized' : 'Default'}
+                                </span>
+                              </div>
+                            );
+                          })
+                      ) : (
+                        <div style={{ padding: '20px', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>
+                          No products found in database.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Product SEO Form */}
+                  <div>
+                    {selectedSeoProductId ? (
+                      <form onSubmit={handleSaveProductSeo} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', borderBottom: '1px solid rgba(0,0,0,0.04)', paddingBottom: '6px' }}>
+                          EDITING SEO: {products.find(p => p.id === selectedSeoProductId)?.name}
+                        </h4>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '4px' }}>Meta Title</label>
+                          <input 
+                            type="text" 
+                            value={seoProductForm.title}
+                            onChange={(e) => setSeoProductForm({ ...seoProductForm, title: e.target.value })}
+                            placeholder="Custom title tag"
+                            style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '4px' }}>Meta Description</label>
+                          <textarea 
+                            value={seoProductForm.desc}
+                            onChange={(e) => setSeoProductForm({ ...seoProductForm, desc: e.target.value })}
+                            placeholder="Custom description tag"
+                            rows="3"
+                            style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', resize: 'vertical' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '4px' }}>Keywords</label>
+                          <input 
+                            type="text" 
+                            value={seoProductForm.keywords}
+                            onChange={(e) => setSeoProductForm({ ...seoProductForm, keywords: e.target.value })}
+                            placeholder="e.g. customized, carpenter, jeans"
+                            style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button type="submit" className="btn-primary" style={{ flex: 1, padding: '8px 12px', fontSize: '0.75rem' }}>
+                            Save Product SEO
+                          </button>
+                          <button 
+                            type="button" 
+                            className="btn-secondary"
+                            onClick={() => {
+                              setSelectedSeoProductId(null);
+                              setSeoProductForm({ title: '', desc: '', keywords: '' });
+                            }}
+                            style={{ padding: '8px 12px', fontSize: '0.75rem' }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.75rem', border: '1px dashed rgba(0,0,0,0.1)', borderRadius: '4px' }}>
+                        Select a product from the list to manage its custom SEO metadata tags.
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -3092,6 +4108,13 @@ export default function AdminDashboard({ currentUser, onClose }) {
                   <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '16px' }}>Upload a valid off-kilt JSON database to restore states.</p>
                   <input type="file" accept=".json" onChange={handleImportBackup} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
                   <button className="btn-secondary" style={{ width: '100%', justifyContent: 'center', padding: '8px 12px' }}>Upload File</button>
+                </div>
+
+                 <div style={{ padding: '20px', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '4px', textAlign: 'center' }}>
+                  <ShoppingBag size={28} style={{ color: 'var(--accent-raw)', marginBottom: '12px' }} />
+                  <h4 style={{ fontSize: '0.85rem', marginBottom: '8px' }}>Clean Production Start</h4>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '16px' }}>Wipe all order history and analytics data before launch.</p>
+                  <button onClick={handleClearOrdersAndAnalytics} className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '8px 12px', backgroundColor: 'var(--accent-raw)', color: '#ffffff' }}>Clear Orders & Analytics</button>
                 </div>
 
                 <div style={{ padding: '20px', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '4px', textAlign: 'center' }}>
@@ -3229,15 +4252,25 @@ export default function AdminDashboard({ currentUser, onClose }) {
 
                   {/* Trending Collection */}
                   <div style={{ border: '1px solid rgba(0,0,0,0.04)', padding: '16px', borderRadius: '2px' }}>
-                    <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '12px' }}>TRENDING GRID</h4>
+                    <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '12px' }}>TRENDING COLLECTION SECTION</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <div>
-                        <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Collection Title</label>
+                        <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Section Title</label>
                         <input 
                           type="text" 
                           value={homepageCollections.trendingTitle} 
                           onChange={(e) => setHomepageCollections({ ...homepageCollections, trendingTitle: e.target.value })}
                           style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Cover Banner Eyebrow / Tagline</label>
+                        <input 
+                          type="text" 
+                          value={homepageCollections.trendingTagline || 'TRENDING LOOKBOOK'} 
+                          onChange={(e) => setHomepageCollections({ ...homepageCollections, trendingTagline: e.target.value })}
+                          style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)' }}
+                          placeholder="e.g. TRENDING LOOKBOOK"
                         />
                       </div>
                       <div>
@@ -3269,7 +4302,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
 
                   {/* Shop by Style */}
                   <div style={{ border: '1px solid rgba(0,0,0,0.04)', padding: '16px', borderRadius: '2px', gridColumn: 'span 2' }}>
-                    <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '12px' }}>SHOP BY STYLE</h4>
+                    <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '12px' }}>SHOP BY STYLE SECTION</h4>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                       <div>
                         <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Section Title</label>
@@ -3278,6 +4311,14 @@ export default function AdminDashboard({ currentUser, onClose }) {
                           value={homepageCollections.styleTitle} 
                           onChange={(e) => setHomepageCollections({ ...homepageCollections, styleTitle: e.target.value })}
                           style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)' }}
+                        />
+                        <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '10px', display: 'block' }}>Cover Banner Eyebrow / Tagline</label>
+                        <input 
+                          type="text" 
+                          value={homepageCollections.styleTagline || 'STYLE MANUAL'} 
+                          onChange={(e) => setHomepageCollections({ ...homepageCollections, styleTagline: e.target.value })}
+                          style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)' }}
+                          placeholder="e.g. STYLE MANUAL"
                         />
                       </div>
                       <div>
@@ -3323,12 +4364,9 @@ export default function AdminDashboard({ currentUser, onClose }) {
                     <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Active Categories (Comma-separated)</label>
                     <input 
                       type="text" 
-                      value={categoryList.join(', ')} 
-                      onChange={(e) => {
-                        const arr = e.target.value.split(',').map(x => x.trim()).filter(Boolean);
-                        setCategoryList(arr);
-                      }} 
-                      placeholder="e.g. all, jeans, skirts, cargos, shirts"
+                      value={categoriesInput} 
+                      onChange={(e) => setCategoriesInput(e.target.value)} 
+                      placeholder="e.g. all, jeans, skirts, cargos, shirts, footwear"
                       style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
                     />
                   </div>
@@ -3339,6 +4377,285 @@ export default function AdminDashboard({ currentUser, onClose }) {
                   </div>
                 </div>
               </div>
+
+              {/* Category Banners & Tagline CMS Card */}
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)', marginTop: '30px' }}>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px', color: 'var(--accent-gold)' }}>CATEGORY HERO BANNERS CMS</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Select Category</label>
+                    <select
+                      value={selectedMetaCategory}
+                      onChange={(e) => handleSelectMetaCategory(e.target.value)}
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#ffffff' }}
+                    >
+                      {categoryList.map(cat => (
+                        <option key={cat} value={cat}>{cat.toUpperCase()}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Category Tagline / Description</label>
+                    <input 
+                      type="text" 
+                      value={categoryMetaForm.tagline}
+                      onChange={(e) => setCategoryMetaForm(prev => ({ ...prev, tagline: e.target.value }))}
+                      placeholder="e.g. Modern silhouettes, raw edges, deconstructed fits"
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Category Cover Image</label>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                      <input 
+                        type="text" 
+                        value={categoryMetaForm.coverImage}
+                        onChange={(e) => setCategoryMetaForm(prev => ({ ...prev, coverImage: e.target.value }))}
+                        placeholder="Image URL or upload file below..."
+                        style={{ flex: 1, padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      />
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <label style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#f3f4f6',
+                        border: '1px solid rgba(0,0,0,0.15)',
+                        borderRadius: '2px',
+                        cursor: 'pointer',
+                        fontSize: '0.7rem',
+                        fontFamily: 'var(--font-mono)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <UploadCloud size={14} /> Upload Banner Image
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setCategoryMetaForm(prev => ({ ...prev, coverImage: reader.result }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      {categoryMetaForm.coverImage && (
+                        <button 
+                          type="button" 
+                          onClick={() => setCategoryMetaForm(prev => ({ ...prev, coverImage: '' }))}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.7rem', textDecoration: 'underline', cursor: 'pointer' }}
+                        >
+                          Remove Image
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {categoryMetaForm.coverImage && (
+                    <div style={{ marginTop: '10px' }}>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Banner Preview</label>
+                      <div style={{ 
+                        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.15), rgba(0,0,0,0.85)), url(${categoryMetaForm.coverImage})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        height: '140px',
+                        borderRadius: '4px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'flex-end',
+                        padding: '16px',
+                        color: '#ffffff',
+                        border: '1px solid rgba(0,0,0,0.05)'
+                      }}>
+                        <h4 style={{ margin: 0, textTransform: 'uppercase', fontSize: '1.2rem', fontWeight: 800 }}>{selectedMetaCategory}</h4>
+                        <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: '#dddddd' }}>{categoryMetaForm.tagline || 'No tagline set'}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const updated = {
+                          ...categoryMetadata,
+                          [selectedMetaCategory.toLowerCase()]: categoryMetaForm
+                        };
+                        setCategoryMetadata(updated);
+                        localStorage.setItem('offkilt_category_metadata', JSON.stringify(updated));
+                        triggerSync('offkilt_settings_updated');
+                        alert(`Cover and tagline settings saved for category "${selectedMetaCategory}"!`);
+                      }}
+                      className="btn-primary"
+                    >
+                      <Save size={16} /> Save Category Banner
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Homepage Grid Cards CMS Card */}
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)', marginTop: '30px' }}>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px', color: 'var(--accent-gold)' }}>HOMEPAGE GRID CARDS CMS</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Select Grid Section Card</label>
+                    <select
+                      value={selectedGridCardId}
+                      onChange={(e) => handleSelectGridCard(e.target.value)}
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#ffffff' }}
+                    >
+                      <optgroup label="Trending Lookbook Grid">
+                        <option value="summer">Summer Breeze (Collection)</option>
+                        <option value="party">Party Glam (Occasion Wear)</option>
+                        <option value="office">Office Chic (Work Edit)</option>
+                        <option value="ethnic">Ethnic Fusion (Heritage)</option>
+                        <option value="street">Street Style (Urban)</option>
+                      </optgroup>
+                      <optgroup label="Shop By Style Grid">
+                        <option value="casual">Casual (Effortlessly cool)</option>
+                        <option value="minimal">Minimal (Less is more)</option>
+                        <option value="korean">Korean Fashion (K-style vibes)</option>
+                        <option value="western">Western (Modern west edit)</option>
+                        <option value="traditional">Traditional (Heritage meets now)</option>
+                        <option value="evening">Luxury Evening (Night of elegance)</option>
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Card Title / Name</label>
+                    <input 
+                      type="text" 
+                      value={gridCardForm.title}
+                      onChange={(e) => setGridCardForm(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="e.g. Summer Breeze"
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Card Subtext / Tagline</label>
+                    <input 
+                      type="text" 
+                      value={gridCardForm.tag}
+                      onChange={(e) => setGridCardForm(prev => ({ ...prev, tag: e.target.value }))}
+                      placeholder="e.g. Effortlessly cool, K-style vibes, Collection"
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Card Background Cover Image</label>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                      <input 
+                        type="text" 
+                        value={gridCardForm.bg}
+                        onChange={(e) => setGridCardForm(prev => ({ ...prev, bg: e.target.value }))}
+                        placeholder="Image URL or upload file below..."
+                        style={{ flex: 1, padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      />
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <label style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#f3f4f6',
+                        border: '1px solid rgba(0,0,0,0.15)',
+                        borderRadius: '2px',
+                        cursor: 'pointer',
+                        fontSize: '0.7rem',
+                        fontFamily: 'var(--font-mono)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <UploadCloud size={14} /> Upload Card Image
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setGridCardForm(prev => ({ ...prev, bg: reader.result }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      {gridCardForm.bg && (
+                        <button 
+                          type="button" 
+                          onClick={() => setGridCardForm(prev => ({ ...prev, bg: '' }))}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.7rem', textDecoration: 'underline', cursor: 'pointer' }}
+                        >
+                          Remove Image
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {gridCardForm.bg && (
+                    <div style={{ marginTop: '10px' }}>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Card Preview</label>
+                      <div style={{ 
+                        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.15), rgba(0,0,0,0.85)), url(${gridCardForm.bg})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        height: '180px',
+                        width: '180px',
+                        borderRadius: '4px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'flex-end',
+                        padding: '16px',
+                        color: '#ffffff',
+                        border: '1px solid rgba(0,0,0,0.05)'
+                      }}>
+                        <span style={{ fontSize: '0.55rem', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--accent-raw)', fontWeight: 600 }}>{gridCardForm.tag || 'SUBTEXT'}</span>
+                        <h4 style={{ margin: 0, textTransform: 'uppercase', fontSize: '0.95rem', fontWeight: 800 }}>{gridCardForm.title || 'TITLE'}</h4>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const updated = {
+                          ...gridCardsMetadata,
+                          [selectedGridCardId]: gridCardForm
+                        };
+                        setGridCardsMetadata(updated);
+                        localStorage.setItem('offkilt_homepage_grid_cards', JSON.stringify(updated));
+                        triggerSync('offkilt_settings_updated');
+                        alert(`Homepage card settings saved for "${GRID_CARD_DEFAULTS[selectedGridCardId]?.title || selectedGridCardId}"!`);
+                      }}
+                      className="btn-primary"
+                    >
+                      <Save size={16} /> Save Card Settings
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+
             </div>
           )}
 
@@ -3394,6 +4711,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       <th style={{ padding: '12px' }}>Name</th>
                       <th style={{ padding: '12px' }}>Role</th>
                       <th style={{ padding: '12px' }}>System Permissions</th>
+                      {currentUser?.role === 'Super Admin' && <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -3407,15 +4725,40 @@ export default function AdminDashboard({ currentUser, onClose }) {
                           <span className="mono" style={{ fontSize: '0.7rem', color: r.role === 'Super Admin' ? 'var(--accent-raw)' : 'var(--text-light)' }}>{r.role}</span>
                         </td>
                         <td style={{ padding: '12px', fontSize: '0.75rem', color: 'var(--text-grey)' }}>{r.permissions}</td>
+                        {currentUser?.role === 'Super Admin' && (
+                          <td style={{ padding: '12px', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                              <button 
+                                onClick={() => {
+                                  setEditingAdminEmail(r.email);
+                                  setNewAdmin({ name: r.name, email: r.email, role: r.role });
+                                }}
+                                style={{ color: 'var(--accent-raw)', background: 'none', border: 'none', cursor: 'pointer' }}
+                                title="Edit Role"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteAdmin(r.email)}
+                                style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                                title="Delete Admin"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* Add admin form */}
+              {/* Add/Edit admin form */}
               <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
-                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>ADD ACCESS OPERATOR</h3>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>
+                  {editingAdminEmail ? 'EDIT ACCESS OPERATOR' : 'ADD ACCESS OPERATOR'}
+                </h3>
                 <form onSubmit={handleAddAdmin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div>
                     <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Full Name</label>
@@ -3436,6 +4779,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })} 
                       style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
                       required
+                      disabled={!!editingAdminEmail}
                     />
                   </div>
 
@@ -3452,9 +4796,25 @@ export default function AdminDashboard({ currentUser, onClose }) {
                     </select>
                   </div>
 
-                  <button type="submit" className="btn-primary" style={{ justifyContent: 'center' }}>
-                    <Plus size={16} /> Register Admin User
-                  </button>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
+                      {editingAdminEmail ? <Save size={16} /> : <Plus size={16} />}
+                      {editingAdminEmail ? ' Save Operator' : ' Register Admin'}
+                    </button>
+                    {editingAdminEmail && (
+                      <button 
+                        type="button" 
+                        className="btn-secondary" 
+                        onClick={() => {
+                          setEditingAdminEmail(null);
+                          setNewAdmin({ name: '', email: '', role: 'Catalog Manager' });
+                        }}
+                        style={{ padding: '8px 16px', fontSize: '0.75rem' }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                 </form>
               </div>
             </div>
@@ -3520,8 +4880,8 @@ export default function AdminDashboard({ currentUser, onClose }) {
                 </div>
                 <div style={{ textAlign: 'right', fontSize: '0.75rem' }}>
                   <h3 style={{ margin: 0, fontSize: '0.9rem' }}>TAX INVOICE</h3>
-                  <p>Order ID: {selectedOrder.id}</p>
-                  <p>Date: {selectedOrder.date}</p>
+                  <p>Order ID: {selectedOrder.id || selectedOrder.orderId}</p>
+                  <p>Date: {invoiceDetails.date}</p>
                 </div>
               </div>
 
@@ -3537,7 +4897,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                   <h4 style={{ textTransform: 'uppercase', marginBottom: '8px', borderBottom: '1px solid #ddd', paddingBottom: '4px' }}>Billing / Shipping Address:</h4>
                   <p>{selectedOrder.email}</p>
                   <p>Phone: {selectedOrder.phone}</p>
-                  <p style={{ whiteSpace: 'pre-line' }}>{selectedOrder.shipping_address}</p>
+                  <p style={{ whiteSpace: 'pre-line' }}>{invoiceDetails.address}</p>
                 </div>
               </div>
 
@@ -3583,17 +4943,17 @@ export default function AdminDashboard({ currentUser, onClose }) {
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
                     <span>Shipping Charges:</span>
-                    <span>{selectedOrder.shipping_fee === 0 ? 'FREE' : `₹${selectedOrder.shipping_fee}`}</span>
+                    <span>{invoiceDetails.shipping === 0 ? 'FREE' : `₹${invoiceDetails.shipping.toLocaleString('en-IN')}`}</span>
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#555555', fontSize: '0.7rem' }}>
                     <span>Included IGST (12%):</span>
-                    <span>₹{Math.round((selectedOrder.total || selectedOrder.subtotal) - ((selectedOrder.total || selectedOrder.subtotal) / 1.12)).toLocaleString('en-IN')}</span>
+                    <span>₹{Math.round((invoiceDetails.total) - ((invoiceDetails.total) / 1.12)).toLocaleString('en-IN')}</span>
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '2px double #111111', fontWeight: 'bold', fontSize: '0.85rem', marginTop: '10px' }}>
                     <span>Grand Total:</span>
-                    <span>₹{selectedOrder.total?.toLocaleString('en-IN')}</span>
+                    <span>₹{invoiceDetails.total?.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               </div>

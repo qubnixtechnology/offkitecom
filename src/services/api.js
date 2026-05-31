@@ -18,6 +18,12 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+const isBackendUnavailable = (err) => {
+  if (!err || !err.response) return true;
+  const status = err.response.status;
+  return status === 502 || status === 503 || status === 504 || status === 404;
+};
+
 // Fallback wrappers for testing without Laravel backend
 export const auth = {
   register: async (data) => {
@@ -26,7 +32,7 @@ export const auth = {
       if (res.data?.user) localStorage.setItem('offkilt_current_user', JSON.stringify(res.data.user));
       return res;
     } catch (err) {
-      if (err.response) throw err;
+      if (err.response && !isBackendUnavailable(err)) throw err;
       const users = JSON.parse(localStorage.getItem('offkilt_users') || '[]');
       if (users.find(u => u.email === data.email)) throw { response: { data: { message: 'Email already exists.' } } };
       const user = { ...data, id: Date.now() };
@@ -50,18 +56,26 @@ export const auth = {
       if (res.data?.access_token) {
         localStorage.setItem('offkilt_auth_token', res.data.access_token);
       }
-      if (res.data?.user) localStorage.setItem('offkilt_current_user', JSON.stringify(res.data.user));
+      if (res.data?.user) {
+        if (res.data.user.is_blocked) {
+          throw { response: { data: { message: 'This account has been suspended/blocked. Please contact support.' } } };
+        }
+        localStorage.setItem('offkilt_current_user', JSON.stringify(res.data.user));
+      }
       return res;
     } catch (err) {
       // Fallback to localStorage registered accounts when backend is offline
       const users = JSON.parse(localStorage.getItem('offkilt_users') || '[]');
       const user = users.find(u => u.email === credentials.email && u.password === credentials.password);
       if (user) {
+        if (user.is_blocked) {
+          throw { response: { data: { message: 'This account has been suspended/blocked. Please contact support.' } } };
+        }
         localStorage.setItem('offkilt_current_user', JSON.stringify(user));
         return { data: { user, access_token: 'mock-token' } };
       }
       
-      if (err.response) throw err;
+      if (err.response && !isBackendUnavailable(err)) throw err;
       throw { response: { data: { message: 'Invalid credentials' } } };
     }
   },
@@ -112,9 +126,19 @@ export const products = {
   getAll: async (category = 'all') => {
     try {
       const res = await api.get(`/products${category !== 'all' ? `?category=${category}` : ''}`);
-      return { data: res.data.map(mapProductImagePaths) };
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        return { data: res.data.map(mapProductImagePaths) };
+      }
+      throw new Error('No products in database');
     } catch (err) {
-      const stored = JSON.parse(localStorage.getItem('offkilt_products') || JSON.stringify(localProducts));
+      // If localStorage is empty array [] (user deleted all) fall back to bundled localProducts
+      let stored;
+      try {
+        const raw = JSON.parse(localStorage.getItem('offkilt_products'));
+        stored = (Array.isArray(raw) && raw.length > 0) ? raw : localProducts;
+      } catch (e) {
+        stored = localProducts;
+      }
       const filtered = category === 'all' ? stored : stored.filter(p => p.category === category);
       return { data: filtered.map(mapProductImagePaths) };
     }
@@ -124,7 +148,13 @@ export const products = {
       const res = await api.get(`/products/${id}`);
       return { data: mapProductImagePaths(res.data) };
     } catch (err) {
-      const stored = JSON.parse(localStorage.getItem('offkilt_products') || JSON.stringify(localProducts));
+      let stored;
+      try {
+        const raw = JSON.parse(localStorage.getItem('offkilt_products'));
+        stored = (Array.isArray(raw) && raw.length > 0) ? raw : localProducts;
+      } catch (e) {
+        stored = localProducts;
+      }
       return { data: mapProductImagePaths(stored.find(p => p.id === id)) };
     }
   },
@@ -135,10 +165,20 @@ export const admin = {
   getAllProducts: async () => {
     try {
       const res = await api.get('/admin/products');
-      return { data: res.data.map(mapProductImagePaths) };
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        return { data: res.data.map(mapProductImagePaths) };
+      }
+      throw new Error('No products in database');
     } catch (err) {
-      if (err.response) throw err;
-      const stored = JSON.parse(localStorage.getItem('offkilt_products') || JSON.stringify(localProducts));
+      if (err.response && !isBackendUnavailable(err) && err.message !== 'No products in database') throw err;
+      // Fall back to localStorage; if empty array [], use bundled localProducts
+      let stored;
+      try {
+        const raw = JSON.parse(localStorage.getItem('offkilt_products'));
+        stored = (Array.isArray(raw) && raw.length > 0) ? raw : localProducts;
+      } catch (e) {
+        stored = localProducts;
+      }
       return { data: stored.map(mapProductImagePaths) };
     }
   },
@@ -147,8 +187,14 @@ export const admin = {
       const res = await api.post('/admin/products', data);
       return { data: mapProductImagePaths(res.data) };
     } catch (err) {
-      if (err.response) throw err;
-      const productsList = JSON.parse(localStorage.getItem('offkilt_products') || JSON.stringify(localProducts));
+      if (err.response && !isBackendUnavailable(err)) throw err;
+      let productsList;
+      try {
+        const raw = JSON.parse(localStorage.getItem('offkilt_products'));
+        productsList = (Array.isArray(raw) && raw.length > 0) ? raw : [...localProducts];
+      } catch (e) {
+        productsList = [...localProducts];
+      }
       const newProduct = { ...data, id: data.id || `OK-${Date.now()}` };
       productsList.unshift(newProduct);
       localStorage.setItem('offkilt_products', JSON.stringify(productsList));
@@ -160,7 +206,7 @@ export const admin = {
       const res = await api.put(`/admin/products/${id}`, data);
       return { data: mapProductImagePaths(res.data) };
     } catch (err) {
-      if (err.response) throw err;
+      if (err.response && !isBackendUnavailable(err)) throw err;
       const productsList = JSON.parse(localStorage.getItem('offkilt_products') || JSON.stringify(localProducts));
       const index = productsList.findIndex(p => p.id === id);
       if (index > -1) {
@@ -175,13 +221,13 @@ export const admin = {
     try {
       return await api.patch(`/admin/products/${id}/toggle`);
     } catch (err) {
-      if (err.response) throw err;
+      if (err.response && !isBackendUnavailable(err)) throw err;
       return { data: { message: 'toggled' } };
     }
   },
   deleteProduct: async (id) => {
     try { return await api.delete(`/admin/products/${id}`); } catch (err) {
-      if (err.response) throw err;
+      if (err.response && !isBackendUnavailable(err)) throw err;
       const productsList = JSON.parse(localStorage.getItem('offkilt_products') || JSON.stringify(localProducts));
       const filtered = productsList.filter(p => p.id !== id);
       localStorage.setItem('offkilt_products', JSON.stringify(filtered));
@@ -195,7 +241,7 @@ export const admin = {
       const res = await api.get(`/admin/orders${query ? '?' + query : ''}`);
       return { data: res.data };
     } catch (err) {
-      if (err.response) throw err;
+      if (err.response && !isBackendUnavailable(err)) throw err;
       return { data: JSON.parse(localStorage.getItem('offkilt_orders') || '[]') };
     }
   },

@@ -7,7 +7,7 @@ import { products as productsApi } from '../services/api';
 export default function ProductDetailModal({ product, isOpen, onClose, onAddToCart, wishlist = [], onWishlistToggle, onProductClick }) {
   const [selectedSize, setSelectedSize] = useState(() => {
     const sizes = Array.isArray(product?.sizes) ? product.sizes
-      : (typeof product?.sizes === 'string' ? JSON.parse(product.sizes) : []);
+      : (typeof product?.sizes === 'string' ? (() => { try { return JSON.parse(product.sizes); } catch(e) { return []; } })() : []);
     return sizes.length === 1 ? sizes[0] : '';
   });
   const [activeAccordion, setActiveAccordion] = useState('specs');
@@ -16,6 +16,10 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
   const [loadedImages, setLoadedImages] = useState({});
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [shakeButton, setShakeButton] = useState(false);
+
+  const [selectedColor, setSelectedColor] = useState('');
+  const [promoText, setPromoText] = useState('Extra 20% off $100+');
+  const [showPromo, setShowPromo] = useState(false);
 
   const parseSwatches = () => {
     let swatchesList = [];
@@ -88,6 +92,89 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
     const allQna = JSON.parse(localStorage.getItem('offkilt_product_qna') || '{}');
     setQnas(allQna[product.id] || []);
   }, [product?.id]);
+
+  useEffect(() => {
+    if (swatches && swatches.length > 0) {
+      setSelectedColor(swatches[0].name);
+    } else {
+      setSelectedColor('');
+    }
+  }, [product, swatches]);
+
+  useEffect(() => {
+    const text = localStorage.getItem('offkilt_promo_discount_text') || 'Extra 20% off $100+';
+    const show = localStorage.getItem('offkilt_promo_discount_show') !== 'false';
+    setPromoText(text);
+    setShowPromo(show);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !product?.id) return;
+    
+    // Save original tags
+    const originalTitle = document.title;
+    
+    let originalDesc = '';
+    const descMeta = document.querySelector('meta[name="description"]');
+    if (descMeta) originalDesc = descMeta.getAttribute('content') || '';
+    
+    let originalKeywords = '';
+    const keywordsMeta = document.querySelector('meta[name="keywords"]');
+    if (keywordsMeta) originalKeywords = keywordsMeta.getAttribute('content') || '';
+    
+    // Fetch custom product SEO tags
+    try {
+      const productSeoList = JSON.parse(localStorage.getItem('offkilt_seo_products') || '{}');
+      const customSeo = productSeoList[product.id];
+      
+      if (customSeo) {
+        if (customSeo.title) document.title = customSeo.title;
+        
+        if (customSeo.desc) {
+          let dMeta = document.querySelector('meta[name="description"]');
+          if (!dMeta) {
+            dMeta = document.createElement('meta');
+            dMeta.setAttribute('name', 'description');
+            document.head.appendChild(dMeta);
+          }
+          dMeta.setAttribute('content', customSeo.desc);
+        }
+        
+        if (customSeo.keywords) {
+          let kMeta = document.querySelector('meta[name="keywords"]');
+          if (!kMeta) {
+            kMeta = document.createElement('meta');
+            kMeta.setAttribute('name', 'keywords');
+            document.head.appendChild(kMeta);
+          }
+          kMeta.setAttribute('content', customSeo.keywords);
+        }
+      } else {
+        // Fallback to standard product-level tags
+        document.title = `${product.name} | off-kilt Premium Denim`;
+        
+        let dMeta = document.querySelector('meta[name="description"]');
+        if (dMeta) dMeta.setAttribute('content', product.description || '');
+      }
+    } catch (e) {
+      console.error('Error injecting product SEO tags', e);
+    }
+    
+    return () => {
+      // Restore original tags
+      document.title = originalTitle;
+      const dMeta = document.querySelector('meta[name="description"]');
+      if (dMeta) {
+        if (originalDesc) dMeta.setAttribute('content', originalDesc);
+        else dMeta.remove();
+      }
+      const kMeta = document.querySelector('meta[name="keywords"]');
+      if (kMeta) {
+        if (originalKeywords) kMeta.setAttribute('content', originalKeywords);
+        else kMeta.remove();
+      }
+    };
+  }, [isOpen, product?.id]);
 
   useEffect(() => {
     const handleQnaUpdate = () => {
@@ -539,19 +626,18 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                   <span className="discount-editorial" style={{ fontSize: '0.95rem' }}>50% off</span>
                 </div>
                 
-                <div className="extra-discount-editorial" style={{ fontSize: '0.85rem', marginBottom: '6px' }}>
-                  Extra 20% off $100+
-                </div>
 
                 {/* Color Swatches */}
                 {swatches.length > 1 ? (
                   <div className="color-swatches-area">
                     <span className="color-swatches-title">COLOR</span>
                     <div className="color-swatches">
-                      {swatches.map((color, i) => (
+                      {swatches.map((color) => (
                         <button
                           key={color.name}
-                          className={`color-swatch ${i === 0 ? 'active' : ''}`}
+                          type="button"
+                          className={`color-swatch ${selectedColor === color.name ? 'active' : ''}`}
+                          onClick={() => setSelectedColor(color.name)}
                           title={color.name}
                         >
                           <div
@@ -561,7 +647,7 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                         </button>
                       ))}
                     </div>
-                    <span className="color-swatch-label">{swatches[0]?.name}</span>
+                    <span className="color-swatch-label">{selectedColor}</span>
                   </div>
                 ) : swatches.length === 1 ? (
                   <div style={{ marginTop: '15px', marginBottom: '15px' }}>

@@ -32,14 +32,27 @@ export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onW
   const [reviewTrigger, setReviewTrigger] = useState(0);
   const [productTrigger, setProductTrigger] = useState(0);
 
+  const [promoText, setPromoText] = useState('Extra 20% off $100+');
+  const [showPromo, setShowPromo] = useState(false);
+
+  const loadPromoSettings = () => {
+    const text = localStorage.getItem('offkilt_promo_discount_text') || 'Extra 20% off $100+';
+    const show = localStorage.getItem('offkilt_promo_discount_show') !== 'false';
+    setPromoText(text);
+    setShowPromo(show);
+  };
+
   useEffect(() => {
+    loadPromoSettings();
     const handleReviews = () => setReviewTrigger(prev => prev + 1);
     const handleProducts = () => setProductTrigger(prev => prev + 1);
     window.addEventListener('offkilt_reviews_updated', handleReviews);
     window.addEventListener('offkilt_products_updated', handleProducts);
+    window.addEventListener('offkilt_settings_updated', loadPromoSettings);
     return () => {
       window.removeEventListener('offkilt_reviews_updated', handleReviews);
       window.removeEventListener('offkilt_products_updated', handleProducts);
+      window.removeEventListener('offkilt_settings_updated', loadPromoSettings);
     };
   }, []);
 
@@ -189,9 +202,6 @@ export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onW
                         <span className="discount-editorial">50% off</span>
                       </div>
                       
-                      <div className="extra-discount-editorial" style={{ marginBottom: '6px' }}>
-                        Extra 20% off $100+
-                      </div>
 
                       <div className="arrival-meta-row">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
