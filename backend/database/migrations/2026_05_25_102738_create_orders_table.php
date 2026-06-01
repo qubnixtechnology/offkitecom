@@ -24,6 +24,8 @@ return new class extends Migration
             $table->enum('status', ['confirmed', 'production', 'dispatched', 'transit', 'delivered'])->default('confirmed');
             $table->boolean('payment_verified')->default(false);
             $table->timestamp('placed_at')->nullable();
+            $table->string('awb_number')->nullable();
+            $table->string('tracking_number')->nullable();
             $table->timestamps();
         });
     }

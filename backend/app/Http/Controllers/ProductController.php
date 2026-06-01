@@ -73,6 +73,7 @@ class ProductController extends Controller
             'meta_title'       => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:1000',
             'meta_keywords'    => 'nullable|string|max:500',
+            'size_guide'       => 'nullable|string',
         ]);
 
         // Auto-generate a unique product ID like OKJ-001234
@@ -146,6 +147,7 @@ class ProductController extends Controller
             'meta_title'       => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:1000',
             'meta_keywords'    => 'nullable|string|max:500',
+            'size_guide'       => 'nullable|string',
         ]);
 
         // Encode arrays for JSON columns

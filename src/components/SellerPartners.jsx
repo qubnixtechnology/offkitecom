@@ -78,27 +78,31 @@ export default function SellerPartners() {
               style={{ 
                 '--partner-hover-color': partner.color,
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                gap: '6px'
               }}
               title={`Shop on ${partner.name}`}
             >
-              {partner.imageUrl ? (
+              {partner.imageUrl && (
                 <img 
                   src={partner.imageUrl} 
-                  alt={partner.name} 
+                  alt={`${partner.name} logo`} 
                   style={{ 
                     maxHeight: '26px', 
                     maxWidth: '120px', 
                     objectFit: 'contain', 
-                    filter: 'brightness(0) invert(0)', 
+                    filter: 'none', 
                     transition: 'opacity 0.3s ease' 
                   }} 
                   className="partner-logo-img"
+                  onError={(e) => { e.target.style.display = 'none'; }}
                 />
-              ) : (
-                <span className="partner-strip-name">{partner.logoText || partner.name}</span>
               )}
+              <span className="partner-strip-name" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-light)', marginTop: '2px' }}>
+                {partner.logoText || partner.name}
+              </span>
             </a>
           ))}
         </div>

@@ -27,4 +27,67 @@ class AdminController extends Controller
             'total_users'           => User::count(),
         ]);
     }
+
+    public function getEmailSettings()
+    {
+        $path = storage_path('app/email_settings.json');
+        if (file_exists($path)) {
+            $data = json_decode(file_get_contents($path), true);
+            if ($data) {
+                return response()->json($data);
+            }
+        }
+
+        // Default settings
+        return response()->json([
+            'emailProvider' => [
+                'provider' => 'Brevo',
+                'senderName' => 'Off-Kilt Production',
+                'senderEmail' => 'Info@off-kilt.com',
+                'apiKey' => env('BREVO_API_KEY')
+            ],
+            'emailToggles' => [
+                'welcome' => true,
+                'forgot_password' => true,
+                'order_confirm' => true,
+                'order_shipped' => true,
+                'order_delivered' => true,
+                'contact_form' => true,
+                'newsletter' => true
+            ],
+            'templates' => [
+                'forgot_password' => [
+                    'subject' => 'Reset Your Password - Off-Kilt',
+                    'body' => "Hello {{customer_name}},\n\nClick the button below to reset your password.\n\n[ Reset Password ]\n\nThis link expires in 15 minutes.\n\n— Off-Kilt Team"
+                ],
+                'welcome' => [
+                    'subject' => 'Welcome to Off-Kilt!',
+                    'body' => "Hello {{customer_name}},\n\nWelcome to the rebellion. Your account is now active.\n\n— Off-Kilt Team"
+                ],
+                'order_confirm' => [
+                    'subject' => 'Order Confirmed - Off-Kilt',
+                    'body' => "Hello {{customer_name}},\n\nYour order {{order_id}} has been confirmed for ₹{{total_amount}}.\n\nThank you for shopping with us!\n\n— Off-Kilt Team"
+                ],
+                'order_shipped' => [
+                    'subject' => 'Order Shipped - Off-Kilt',
+                    'body' => "Hello {{customer_name}},\n\nYour order {{order_id}} has been shipped via courier.\n\nTracking AWB: {{awb_number}}\n\n— Off-Kilt Team"
+                ],
+                'order_delivered' => [
+                    'subject' => 'Order Delivered - Off-Kilt',
+                    'body' => "Hello {{customer_name}},\n\nYour order {{order_id}} has been successfully delivered.\n\nEnjoy your new style!\n\n— Off-Kilt Team"
+                ],
+                'newsletter' => [
+                    'subject' => 'Subscribed to Off-Kilt Newsletter!',
+                    'body' => "Hello,\n\nYou have successfully joined our newsletter. Use code WELCOME20 for 20% off your first order.\n\n— Off-Kilt Team"
+                ]
+            ]
+        ]);
+    }
+
+    public function saveEmailSettings(Request $request)
+    {
+        $path = storage_path('app/email_settings.json');
+        file_put_contents($path, json_encode($request->all(), JSON_PRETTY_PRINT));
+        return response()->json(['message' => 'Settings saved successfully.']);
+    }
 }

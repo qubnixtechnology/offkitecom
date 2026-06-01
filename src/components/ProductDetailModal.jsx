@@ -18,6 +18,7 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
   const [shakeButton, setShakeButton] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareUrlCopied, setShareUrlCopied] = useState(false);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
   // Touch swipe state
   const touchStartX = useRef(null);
@@ -350,8 +351,24 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
 
   const handleShareProduct = useCallback((e) => {
     if (e) e.stopPropagation();
-    setShareModalOpen(true);
-  }, []);
+    const shareUrl = `${window.location.origin}${window.location.pathname}?product=${product.id}`;
+    const productPrice = product.discountPrice || product.price;
+    const text = `Check out ${product.name} — ₹${Number(productPrice).toLocaleString('en-IN')} on Off-Kilt!`;
+
+    const isMobile = window.innerWidth <= 768 || /Mobi|Android|iPhone/i.test(navigator.userAgent);
+    if (isMobile && navigator.share) {
+      navigator.share({
+        title: product.name,
+        text: text,
+        url: shareUrl,
+      }).catch((err) => {
+        console.log('Native share failed or cancelled, falling back to modal', err);
+        setShareModalOpen(true);
+      });
+    } else {
+      setShareModalOpen(true);
+    }
+  }, [product]);
 
   const handleSharePlatform = (platform) => {
     const shareUrl = `${window.location.origin}${window.location.pathname}?product=${product.id}`;
@@ -921,7 +938,7 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                 <div className="size-selection-area">
                   <div className="size-selector-title">
                     <span className="mono" style={{ fontSize: '0.8rem' }}>SELECT SIZE</span>
-                    <button className="size-guide-link">Size Guide</button>
+                    <button className="size-guide-link" onClick={() => setSizeGuideOpen(true)}>Size Guide</button>
                   </div>
                   
                   <div className="size-options">
@@ -1650,6 +1667,50 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                       {shareUrlCopied ? '✓ Copied!' : 'Copy Link'}
                     </button>
                   </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── SIZE GUIDE MODAL ── */}
+          <AnimatePresence>
+            {sizeGuideOpen && (
+              <motion.div
+                className="share-modal-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setSizeGuideOpen(false)}
+                style={{ zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <motion.div
+                  className="share-modal-card"
+                  initial={{ y: 60, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 40, opacity: 0 }}
+                  transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ maxWidth: '600px', width: '100%' }}
+                >
+                  <div className="share-modal-handle" />
+                  <button className="share-modal-close" onClick={() => setSizeGuideOpen(false)} aria-label="Close size guide">
+                    <X size={14} />
+                  </button>
+                  <p className="share-modal-title" style={{ textTransform: 'uppercase', letterSpacing: '1px' }}>Size Guide</p>
+                  <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: '4px', padding: '10px', marginTop: '15px' }}>
+                    <img 
+                      src={product?.size_guide || '/images/size_guide.png'} 
+                      alt="Size Guide" 
+                      style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain' }} 
+                      onError={(e) => {
+                        e.target.src = 'https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=600';
+                      }}
+                    />
+                  </div>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-grey)', marginTop: '15px', textAlign: 'center', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    All measurements are in inches. Fits may vary by style and construction.
+                  </p>
                 </motion.div>
               </motion.div>
             )}

@@ -1,22 +1,27 @@
 import { useRef, useState } from 'react';
 import { Mail, Gift, Truck, Tag, CheckCircle } from 'lucide-react';
+import { newsletter as newsletterApi } from '../services/api';
 
 export default function NewsletterSection() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !email.includes('@')) {
       setError('Please enter a valid email address.');
       return;
     }
-    // Simulate subscription
-    setSubmitted(true);
-    setError('');
-    setEmail('');
-    setTimeout(() => setSubmitted(false), 5000);
+    try {
+      await newsletterApi.subscribe(email);
+      setSubmitted(true);
+      setError('');
+      setEmail('');
+      setTimeout(() => setSubmitted(false), 5000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to subscribe. Please try again.');
+    }
   };
 
   return (

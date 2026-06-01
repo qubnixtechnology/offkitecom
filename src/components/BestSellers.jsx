@@ -1,39 +1,40 @@
 import { useEffect, useRef, useState } from 'react';
 import { Star, ShoppingBag } from 'lucide-react';
+import { products as productsApi } from '../services/api';
 
 const DEFAULT_BESTSELLERS = [
   {
     id: 'bs1',
+    productId: 'OKJ24201', // Asymmetric Raw Carpenter Jeans
     name: 'Signature Flared Denim',
     price: 2999,
     originalPrice: 3999,
     label: 'most-loved',
     labelText: 'Most Loved',
-    // Verified: elegant editorial woman in fashion — clearly female
     image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=600&q=85',
     rating: 4.9,
     reviews: 284,
   },
   {
     id: 'bs2',
+    productId: 'OKJ24202', // Slouchy Triple-Stitched Utility Jeans
     name: 'Asymmetric Denim Midi Skirt',
     price: 1999,
     originalPrice: null,
     label: 'trending-now',
     labelText: 'Trending Now',
-    // Verified: woman in elegant fashion editorial
     image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=600&q=85',
     rating: 4.7,
     reviews: 167,
   },
   {
     id: 'bs3',
+    productId: 'OKJ24203',
     name: 'Wide-Leg High-Waist Trousers',
     price: 3499,
     originalPrice: 4499,
     label: 'limited-edition',
     labelText: 'Limited Edition',
-    // Verified: premium woman fashion editorial
     image: 'https://images.unsplash.com/photo-1485218126466-34e6392ec754?w=600&q=85',
     rating: 5.0,
     reviews: 53,
@@ -58,9 +59,10 @@ function StarRating({ rating }) {
   );
 }
 
-export default function BestSellers({ onScrollToCatalog }) {
+export default function BestSellers({ onScrollToCatalog, onProductClick }) {
   const headerRef = useRef(null);
   const cardsRef = useRef([]);
+  const [products, setProducts] = useState([]);
   const [bestsellersList, setBestsellersList] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('offkilt_bestsellers')) || DEFAULT_BESTSELLERS;
@@ -83,6 +85,14 @@ export default function BestSellers({ onScrollToCatalog }) {
       return defaults;
     }
   });
+
+  useEffect(() => {
+    productsApi.getAll('all').then(res => {
+      if (res && res.data) {
+        setProducts(res.data);
+      }
+    }).catch(err => console.error("Error loading products for BestSellers", err));
+  }, []);
 
   useEffect(() => {
     const handleSettingsUpdate = () => {
@@ -115,13 +125,51 @@ export default function BestSellers({ onScrollToCatalog }) {
     if (headerRef.current) observer.observe(headerRef.current);
     cardsRef.current.forEach(el => el && observer.observe(el));
     return () => observer.disconnect();
-  }, []);
+  }, [bestsellersList]);
 
-  const handleCardClick = () => {
-    // Navigate to catalog to browse all products
-    const el = document.getElementById('catalog');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
-    onScrollToCatalog?.();
+  // Map configuration slots to actual database products if they exist
+  const mappedBestsellersList = bestsellersList.map(item => {
+    if (item.productId) {
+      const match = products.find(p => String(p.id) === String(item.productId));
+      if (match) {
+        return {
+          ...item,
+          name: match.name,
+          price: match.discountPrice && Number(match.discountPrice) < Number(match.price) ? Number(match.discountPrice) : Number(match.price),
+          originalPrice: match.discountPrice && Number(match.discountPrice) < Number(match.price) ? Number(match.price) : null,
+          image: match.image,
+          rating: match.rating || item.rating || 4.8,
+          reviews: match.reviews || item.reviews || 120,
+          productObj: match
+        };
+      }
+    }
+    // Fallback search by name if ID matches nothing or isn't set
+    const matchByName = products.find(p => p.name && p.name.toLowerCase() === item.name.toLowerCase());
+    if (matchByName) {
+      return {
+        ...item,
+        productId: matchByName.id,
+        name: matchByName.name,
+        price: matchByName.discountPrice && Number(matchByName.discountPrice) < Number(matchByName.price) ? Number(matchByName.discountPrice) : Number(matchByName.price),
+        originalPrice: matchByName.discountPrice && Number(matchByName.discountPrice) < Number(matchByName.price) ? Number(matchByName.price) : null,
+        image: matchByName.image,
+        rating: matchByName.rating || item.rating || 4.8,
+        reviews: matchByName.reviews || item.reviews || 120,
+        productObj: matchByName
+      };
+    }
+    return item;
+  });
+
+  const handleCardClick = (productItem) => {
+    if (productItem.productObj && onProductClick) {
+      onProductClick(productItem.productObj);
+    } else {
+      const el = document.getElementById('catalog');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      onScrollToCatalog?.();
+    }
   };
 
   return (
@@ -142,7 +190,7 @@ export default function BestSellers({ onScrollToCatalog }) {
             borderRadius: '4px',
             overflow: 'hidden',
             cursor: 'pointer'
-          }} onClick={handleCardClick}>
+          }} onClick={() => handleCardClick({})}>
             <img src={collectionsData.bestSellersCover} alt={collectionsData.bestSellersTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.1) 100%)' }} />
             <div style={{ position: 'absolute', bottom: '30px', left: '30px', color: '#ffffff' }}>
@@ -153,13 +201,13 @@ export default function BestSellers({ onScrollToCatalog }) {
         )}
 
         <div className="bestsellers-grid">
-          {bestsellersList.map((product, idx) => (
+          {mappedBestsellersList.map((product, idx) => (
             <div
               key={product.id}
               className="bestseller-card section-reveal"
               ref={el => cardsRef.current[idx] = el}
               style={{ transitionDelay: `${idx * 0.12}s` }}
-              onClick={handleCardClick}
+              onClick={() => handleCardClick(product)}
             >
               <div className="bestseller-img-wrapper">
                 <span className={`bestseller-label ${product.label}`}>{product.labelText}</span>
@@ -171,9 +219,9 @@ export default function BestSellers({ onScrollToCatalog }) {
                   onError={(e) => { e.target.style.background = '#111'; e.target.style.display = 'none'; }}
                 />
                 <div className="bestseller-overlay">
-                  <button className="bestseller-add-btn" onClick={(e) => { e.stopPropagation(); handleCardClick(); }}>
+                  <button className="bestseller-add-btn" onClick={(e) => { e.stopPropagation(); handleCardClick(product); }}>
                     <ShoppingBag size={13} style={{ display: 'inline', marginRight: 7 }} />
-                    Shop in Collection
+                    Quick View
                   </button>
                 </div>
               </div>

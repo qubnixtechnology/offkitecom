@@ -25,6 +25,8 @@ class Order extends Model
         'status',
         'payment_verified',
         'placed_at',
+        'awb_number',
+        'tracking_number',
     ];
 
     protected $casts = [

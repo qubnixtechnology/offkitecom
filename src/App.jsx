@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ShoppingBag, Menu, X, Phone, User, Search, Check, AlertCircle, Info, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lenis from 'lenis';
-import { auth, profile, orders as ordersApi, products as productsApi } from './services/api';
+import { auth, profile, orders as ordersApi, products as productsApi, newsletter as newsletterApi } from './services/api';
 import Preloader from './components/Preloader';
 import Hero from './components/Hero';
 import NewArrivals from './components/NewArrivals';
@@ -60,15 +60,142 @@ export default function App() {
   // Mega menu hover state
   const [activeMegaMenu, setActiveMegaMenu] = useState(null);
   const megaMenuTimeoutRef = useRef(null);
-  const [megaMenuKeys, setMegaMenuKeys] = useState(() => {
+  const [megaMenuSettings, setMegaMenuSettings] = useState(() => {
+    const defaultMega = {
+      men: {
+        label: 'Men',
+        sections: [
+          {
+            title: 'DENIM FIT',
+            links: [
+              { name: 'Baggy', filter: 'baggy' },
+              { name: 'Relaxed', filter: 'relaxed' },
+              { name: 'Boot Cut', filter: 'boot cut' },
+              { name: 'Slim', filter: 'slim' },
+              { name: 'Skinny', filter: 'skinny' },
+            ]
+          },
+          {
+            title: 'CATEGORIES',
+            links: [
+              { name: 'All Jeans', filter: 'jeans' },
+              { name: 'New Arrivals', filter: 'all' },
+              { name: 'Cargo & Utility', filter: 'jeans' },
+              { name: 'Carpenter', filter: 'jeans' },
+            ]
+          }
+        ]
+      },
+      women: {
+        label: 'Women',
+        sections: [
+          {
+            title: 'DENIM FIT',
+            links: [
+              { name: 'Baggy', filter: 'baggy' },
+              { name: 'Relaxed', filter: 'relaxed' },
+              { name: 'Boot Cut', filter: 'boot cut' },
+              { name: 'Slim', filter: 'slim' },
+              { name: 'Skinny', filter: 'skinny' },
+            ]
+          },
+          {
+            title: 'CATEGORIES',
+            links: [
+              { name: 'All Products', filter: 'all' },
+              { name: 'Denim Skirts', filter: 'skirts' },
+              { name: 'Kilt Skirts', filter: 'skirts' },
+              { name: 'New Arrivals', filter: 'all' },
+            ]
+          }
+        ]
+      },
+      'after-dusk': {
+        label: 'After Dusk',
+        sections: [
+          {
+            title: 'MEN',
+            links: [
+              { name: 'Fits', filter: 'all' },
+            ]
+          },
+          {
+            title: 'WOMEN',
+            links: [
+              { name: 'Fits', filter: 'all' },
+              { name: 'Skirts', filter: 'skirts' }
+            ]
+          }
+        ]
+      }
+    };
     try {
       const stored = localStorage.getItem('offkilt_mega_menu');
       if (stored) {
-        return Object.keys(JSON.parse(stored));
+        return JSON.parse(stored);
       }
     } catch (e) {}
-    return ['men', 'women'];
+    return defaultMega;
   });
+
+  const [megaMenuKeys, setMegaMenuKeys] = useState(() => Object.keys(megaMenuSettings));
+
+  // Newsletter Promo Popup State
+  const [promoPopupSettings, setPromoPopupSettings] = useState(() => {
+    const defaults = {
+      enabled: true,
+      title: 'JOIN & RECEIVE UP TO 20% OFF YOUR FIRST ORDER',
+      subtitle: 'FREE SHIPPING IN INDIA',
+      discountCode: 'WELCOME20',
+      coverImage: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&q=85',
+    };
+    try {
+      const stored = localStorage.getItem('offkilt_promo_popup_settings');
+      if (stored) return JSON.parse(stored);
+    } catch(e) {}
+    return defaults;
+  });
+
+  const [showPromoPopup, setShowPromoPopup] = useState(false);
+  const [promoEmail, setPromoEmail] = useState('');
+  const [promoStatus, setPromoStatus] = useState('');
+  const [promoMsg, setPromoMsg] = useState('');
+  const [promoLoading, setPromoLoading] = useState(false);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem('offkilt_promo_popup_dismissed') === 'true';
+    if (promoPopupSettings.enabled && !dismissed) {
+      const timer = setTimeout(() => {
+        setShowPromoPopup(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [promoPopupSettings]);
+
+  const handlePromoSubmit = async (e) => {
+    e.preventDefault();
+    if (!promoEmail || !promoEmail.includes('@')) {
+      setPromoStatus('error');
+      setPromoMsg('Please enter a valid email address.');
+      return;
+    }
+    setPromoLoading(true);
+    try {
+      await newsletterApi.subscribe(promoEmail);
+      setPromoStatus('success');
+      setPromoMsg(`Success! Your discount code is: ${promoPopupSettings.discountCode}`);
+      setPromoEmail('');
+      setTimeout(() => {
+        setShowPromoPopup(false);
+        localStorage.setItem('offkilt_promo_popup_dismissed', 'true');
+      }, 6000);
+    } catch (err) {
+      setPromoStatus('error');
+      setPromoMsg(err.response?.data?.message || 'Failed to subscribe.');
+    } finally {
+      setPromoLoading(false);
+    }
+  };
 
   // Toast Notification State
   const [toast, setToast] = useState(null);
@@ -152,8 +279,8 @@ export default function App() {
       { label: 'New', link: '#new-arrivals', visible: true },
       { label: 'Men', link: '#campaign-men', category: 'jeans', visible: true },
       { label: 'Women', link: '#campaign-women', category: 'skirts', visible: true },
-      { label: 'Collection', link: '#catalog', visible: true },
-      { label: 'After Dark', link: '#catalog', category: 'all', visible: true },
+      { label: 'Collection', link: '#catalog', category: 'all', visible: true },
+      { label: 'After Dusk', link: '#catalog', category: 'all', visible: true },
       { label: 'Sale', link: '#catalog', category: 'all', visible: true }
     ];
     try {
@@ -259,7 +386,11 @@ export default function App() {
       } catch {}
       try {
         const storedMega = localStorage.getItem('offkilt_mega_menu');
-        if (storedMega) setMegaMenuKeys(Object.keys(JSON.parse(storedMega)));
+        if (storedMega) {
+          const parsed = JSON.parse(storedMega);
+          setMegaMenuSettings(parsed);
+          setMegaMenuKeys(Object.keys(parsed));
+        }
       } catch (e) {}
       try {
         const storedBrands = localStorage.getItem('offkilt_press_brands');
@@ -268,6 +399,10 @@ export default function App() {
       try {
         const storedPages = localStorage.getItem('offkilt_company_pages');
         if (storedPages) setCompanyPagesData(JSON.parse(storedPages));
+      } catch (e) {}
+      try {
+        const storedPromo = localStorage.getItem('offkilt_promo_popup_settings');
+        if (storedPromo) setPromoPopupSettings(JSON.parse(storedPromo));
       } catch (e) {}
     };
     window.addEventListener('offkilt_settings_updated', handleSettingsUpdate);
@@ -875,8 +1010,8 @@ export default function App() {
                 </a>
 
                 {menuItems.filter(item => item.visible !== false).map((item, idx) => {
-                  const labelLower = item.label.toLowerCase().trim();
-                  const hasSub = labelLower === 'men' || labelLower === 'women';
+                  const labelSlug = item.label.toLowerCase().trim().replace(/\s+/g, '-');
+                  const hasSub = megaMenuKeys.includes(labelSlug);
                   
                   return (
                     <div key={idx} className="nav-item-wrapper" style={{ width: '100%' }}>
@@ -888,7 +1023,7 @@ export default function App() {
                             const isMobile = window.innerWidth <= 768;
                             if (isMobile && hasSub) {
                               e.preventDefault();
-                              setExpandedMobileMenu(prev => ({ ...prev, [labelLower]: !prev[labelLower] }));
+                              setExpandedMobileMenu(prev => ({ ...prev, [labelSlug]: !prev[labelSlug] }));
                             } else {
                               e.preventDefault();
                               if (item.category) {
@@ -899,7 +1034,6 @@ export default function App() {
                             }
                           }}
                           onMouseEnter={() => {
-                            const labelSlug = item.label.toLowerCase().trim().replace(/\s+/g, '-');
                             if (megaMenuKeys.includes(labelSlug)) {
                               handleNavMouseEnter(labelSlug);
                             } else {
@@ -913,13 +1047,13 @@ export default function App() {
                         {hasSub && (
                           <button
                             className="mobile-submenu-toggle"
-                            onClick={() => setExpandedMobileMenu(prev => ({ ...prev, [labelLower]: !prev[labelLower] }))}
+                            onClick={() => setExpandedMobileMenu(prev => ({ ...prev, [labelSlug]: !prev[labelSlug] }))}
                             style={{ padding: '16px' }}
                           >
                             <ChevronDown
                               size={16}
                               style={{
-                                transform: expandedMobileMenu[labelLower] ? 'rotate(180deg)' : 'none',
+                                transform: expandedMobileMenu[labelSlug] ? 'rotate(180deg)' : 'none',
                                 transition: 'transform 0.3s'
                               }}
                             />
@@ -929,9 +1063,9 @@ export default function App() {
 
                       {hasSub && (
                         <div
-                          className={`mobile-submenu ${expandedMobileMenu[labelLower] ? 'open' : ''}`}
+                          className={`mobile-submenu ${expandedMobileMenu[labelSlug] ? 'open' : ''}`}
                           style={{
-                            maxHeight: expandedMobileMenu[labelLower] ? '450px' : '0px',
+                            maxHeight: expandedMobileMenu[labelSlug] ? '450px' : '0px',
                             overflow: 'hidden',
                             transition: 'max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
                             paddingLeft: '20px',
@@ -941,54 +1075,21 @@ export default function App() {
                             marginBottom: '4px'
                           }}
                         >
-                          {labelLower === 'men' ? (
+                          {megaMenuSettings[labelSlug] && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '8px 0 16px 0' }}>
-                              <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--accent-gold)', letterSpacing: '1px', fontWeight: 'bold' }}>FIT</span>
-                              {['Baggy', 'Relaxed', 'Boot Cut', 'Slim', 'Skinny'].map(fit => (
-                                <button
-                                  key={fit}
-                                  onClick={() => { setActiveCategory(fit.toLowerCase()); scrollToSection('catalog'); setIsMobileMenuOpen(false); }}
-                                  style={{ textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-grey)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}
-                                >
-                                  {fit}
-                                </button>
-                              ))}
-                              <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--accent-gold)', letterSpacing: '1px', marginTop: '8px', fontWeight: 'bold' }}>CATEGORIES</span>
-                              {['All Jeans', 'Cargo & Utility', 'Carpenter'].map(cat => (
-                                <button
-                                  key={cat}
-                                  onClick={() => { setActiveCategory('jeans'); scrollToSection('catalog'); setIsMobileMenuOpen(false); }}
-                                  style={{ textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-grey)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}
-                                >
-                                  {cat}
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '8px 0 16px 0' }}>
-                              <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--accent-gold)', letterSpacing: '1px', fontWeight: 'bold' }}>FIT</span>
-                              {['Baggy', 'Relaxed', 'Boot Cut', 'Slim', 'Skinny'].map(fit => (
-                                <button
-                                  key={fit}
-                                  onClick={() => { setActiveCategory(fit.toLowerCase()); scrollToSection('catalog'); setIsMobileMenuOpen(false); }}
-                                  style={{ textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-grey)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}
-                                >
-                                  {fit}
-                                </button>
-                              ))}
-                              <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--accent-gold)', letterSpacing: '1px', marginTop: '8px', fontWeight: 'bold' }}>CATEGORIES</span>
-                              {['All Products', 'Denim Skirts', 'Kilt Skirts'].map(cat => (
-                                <button
-                                  key={cat}
-                                  onClick={() => {
-                                    setActiveCategory(cat.toLowerCase().includes('skirt') ? 'skirts' : 'all');
-                                    scrollToSection('catalog');
-                                    setIsMobileMenuOpen(false);
-                                  }}
-                                  style={{ textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-grey)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}
-                                >
-                                  {cat}
-                                </button>
+                              {(megaMenuSettings[labelSlug].sections || []).map((sec, secIdx) => (
+                                <div key={secIdx} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--accent-gold)', letterSpacing: '1px', fontWeight: 'bold', textTransform: 'uppercase' }}>{sec.title}</span>
+                                  {(sec.links || []).map(link => (
+                                    <button
+                                      key={link.name}
+                                      onClick={() => { setActiveCategory(link.filter || 'all'); scrollToSection('catalog'); setIsMobileMenuOpen(false); }}
+                                      style={{ textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-grey)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}
+                                    >
+                                      {link.name}
+                                    </button>
+                                  ))}
+                                </div>
                               ))}
                             </div>
                           )}
@@ -1191,6 +1292,7 @@ export default function App() {
 
                 <BestSellers
                   onScrollToCatalog={() => scrollToSection('catalog')}
+                  onProductClick={handleQuickView}
                 />
 
                 <FashionVideo />
@@ -1341,7 +1443,173 @@ export default function App() {
             <div className="whatsapp-tooltip">
               WHATSAPP SUPPORT
             </div>
-          </a>
+                  </a>
+
+          {/* Newsletter Promo Popup */}
+          <AnimatePresence>
+            {showPromoPopup && (
+              <div className="modal-overlay" style={{ zIndex: 11000, backgroundColor: 'rgba(0, 0, 0, 0.85)' }}>
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  className="newsletter-popup-card"
+                  style={{
+                    position: 'relative',
+                    display: 'grid',
+                    gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : '1fr 1.2fr',
+                    width: '90%',
+                    maxWidth: '850px',
+                    height: window.innerWidth <= 768 ? 'auto' : '500px',
+                    backgroundColor: 'var(--bg-dark)',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    overflow: 'hidden',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                  }}
+                >
+                  {/* Left Column: Image */}
+                  <div style={{
+                    position: 'relative',
+                    height: window.innerWidth <= 768 ? '200px' : '100%',
+                    backgroundImage: `url(${promoPopupSettings.coverImage})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.6) 100%)'
+                    }} />
+                  </div>
+
+                  {/* Right Column: Content Form */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    padding: '40px',
+                    position: 'relative',
+                    textAlign: 'left'
+                  }}>
+                    {/* Close Button */}
+                    <button 
+                      onClick={() => {
+                        setShowPromoPopup(false);
+                        localStorage.setItem('offkilt_promo_popup_dismissed', 'true');
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: '20px',
+                        right: '20px',
+                        background: 'none',
+                        border: 'none',
+                        color: '#ffffff',
+                        cursor: 'pointer',
+                        opacity: 0.7,
+                        transition: 'opacity 0.2s'
+                      }}
+                    >
+                      <X size={20} />
+                    </button>
+
+                    <span className="mono" style={{ color: 'var(--accent-gold)', fontSize: '0.75rem', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '12px', display: 'block' }}>
+                      WELCOME OFFER
+                    </span>
+
+                    <h3 style={{
+                      fontFamily: 'var(--font-heading)',
+                      fontSize: '1.7rem',
+                      fontWeight: 'bold',
+                      lineHeight: '1.2',
+                      letterSpacing: '1px',
+                      color: '#ffffff',
+                      marginBottom: '10px',
+                      textTransform: 'uppercase'
+                    }}>
+                      {promoPopupSettings.title}
+                    </h3>
+
+                    <p style={{
+                      fontSize: '0.85rem',
+                      color: 'var(--text-grey)',
+                      marginBottom: '24px',
+                      lineHeight: '1.5'
+                    }}>
+                      {promoPopupSettings.subtitle}
+                    </p>
+
+                    {promoStatus === 'success' ? (
+                      <div style={{
+                        padding: '20px',
+                        backgroundColor: 'rgba(212, 175, 55, 0.05)',
+                        border: '1px solid var(--accent-gold)',
+                        borderRadius: '4px',
+                        animation: 'fadeIn 0.5s'
+                      }}>
+                        <p style={{ color: 'var(--accent-gold)', fontSize: '0.9rem', fontWeight: 'bold', margin: '0 0 4px 0' }}>
+                          You're on the list!
+                        </p>
+                        <p style={{ color: '#ffffff', fontSize: '0.85rem', margin: 0 }}>
+                          Use code <strong style={{ color: '#ffffff', backgroundColor: '#222', padding: '2px 6px', borderRadius: '2px', fontFamily: 'var(--font-mono)' }}>{promoPopupSettings.discountCode}</strong> at checkout.
+                        </p>
+                      </div>
+                    ) : (
+                      <form onSubmit={handlePromoSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <input 
+                          type="email"
+                          placeholder="Enter your email address"
+                          value={promoEmail}
+                          onChange={(e) => { setPromoEmail(e.target.value); setPromoStatus(''); }}
+                          style={{
+                            width: '100%',
+                            padding: '12px',
+                            fontSize: '0.85rem',
+                            backgroundColor: '#111',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            color: '#ffffff',
+                            borderRadius: '4px',
+                            outline: 'none'
+                          }}
+                        />
+                        <button 
+                          type="submit"
+                          disabled={promoLoading}
+                          className="btn-primary"
+                          style={{
+                            padding: '12px',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            textAlign: 'center',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {promoLoading ? 'Subscribing...' : 'SUBSCRIBE & SAVE'}
+                        </button>
+                        {promoMsg && (
+                          <p style={{
+                            fontSize: '0.75rem',
+                            color: promoStatus === 'error' ? '#ef4444' : 'var(--accent-gold)',
+                            margin: '4px 0 0 0'
+                          }}>{promoMsg}</p>
+                        )}
+                      </form>
+                    )}
+
+                    <p style={{
+                      fontSize: '0.65rem',
+                      color: 'var(--text-muted)',
+                      marginTop: '20px',
+                      textAlign: 'center'
+                    }}>
+                      * Discount valid for new customers only. Free shipping automatically applied.
+                    </p>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
 
           {/* Toast Notification popup */}
           <AnimatePresence>

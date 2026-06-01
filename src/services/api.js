@@ -43,21 +43,6 @@ export const auth = {
     }
   },
   login: async (credentials) => {
-    // Offline demo accounts — only used if backend is unreachable
-    const demoOverride = localStorage.getItem('offkilt_demo_password') || 'rebel';
-    const adminOverride = localStorage.getItem('offkilt_admin_password') || 'Admin123@offkilt';
-
-    if (credentials.email === 'demo@off-kilt.com' && credentials.password === demoOverride) {
-      const user = { name: 'Demo User', email: 'demo@off-kilt.com', phone: '9999999999', address: 'Off-Kilt HQ, Cyber City', pincode: '100001', id: 1, is_admin: false };
-      localStorage.setItem('offkilt_current_user', JSON.stringify(user));
-      return { data: { user, access_token: 'mock-token' } };
-    }
-    if (credentials.email === 'admin@offkilt.com' && credentials.password === adminOverride) {
-      const user = { name: 'Rebel Admin', email: 'admin@offkilt.com', phone: '9999999999', address: 'Off-Kilt HQ, Cyber City', pincode: '100001', id: 999, is_admin: true };
-      localStorage.setItem('offkilt_current_user', JSON.stringify(user));
-      return { data: { user, access_token: 'mock-token' } };
-    }
-
     try { 
       const res = await api.post('/login', credentials);
       // Store token in localStorage so future requests are authenticated
@@ -72,6 +57,27 @@ export const auth = {
       }
       return res;
     } catch (err) {
+      if (!isBackendUnavailable(err)) {
+        throw err;
+      }
+
+      // Offline demo accounts — only used if backend is unreachable
+      const demoOverride = localStorage.getItem('offkilt_demo_password') || 'rebel';
+      const adminOverride = localStorage.getItem('offkilt_admin_password') || 'Admin123@offkilt';
+
+      if (credentials.email === 'demo@off-kilt.com' && credentials.password === demoOverride) {
+        const user = { name: 'Demo User', email: 'demo@off-kilt.com', phone: '9999999999', address: 'Off-Kilt HQ, Cyber City', pincode: '100001', id: 1, is_admin: false };
+        localStorage.setItem('offkilt_current_user', JSON.stringify(user));
+        localStorage.setItem('offkilt_auth_token', 'mock-token');
+        return { data: { user, access_token: 'mock-token' } };
+      }
+      if (credentials.email === 'admin@offkilt.com' && credentials.password === adminOverride) {
+        const user = { name: 'Rebel Admin', email: 'admin@offkilt.com', phone: '9999999999', address: 'Off-Kilt HQ, Cyber City', pincode: '100001', id: 999, is_admin: true };
+        localStorage.setItem('offkilt_current_user', JSON.stringify(user));
+        localStorage.setItem('offkilt_auth_token', 'mock-token');
+        return { data: { user, access_token: 'mock-token' } };
+      }
+
       // Fallback to localStorage registered accounts when backend is offline
       const users = JSON.parse(localStorage.getItem('offkilt_users') || '[]');
       const user = users.find(u => u.email === credentials.email && u.password === credentials.password);
@@ -80,10 +86,10 @@ export const auth = {
           throw { response: { data: { message: 'This account has been suspended/blocked. Please contact support.' } } };
         }
         localStorage.setItem('offkilt_current_user', JSON.stringify(user));
+        localStorage.setItem('offkilt_auth_token', 'mock-token');
         return { data: { user, access_token: 'mock-token' } };
       }
       
-      if (err.response && !isBackendUnavailable(err)) throw err;
       throw { response: { data: { message: 'Invalid credentials' } } };
     }
   },
@@ -425,6 +431,22 @@ export const profile = {
       return { data: data };
     }
   },
+};
+
+export const newsletter = {
+  subscribe: async (email) => {
+    try {
+      return await api.post('/newsletter', { email });
+    } catch (err) {
+      if (err && err.response && !isBackendUnavailable(err)) throw err;
+      const subs = JSON.parse(localStorage.getItem('offkilt_newsletter_subscribers') || '[]');
+      if (!subs.includes(email)) {
+        subs.push(email);
+        localStorage.setItem('offkilt_newsletter_subscribers', JSON.stringify(subs));
+      }
+      return { data: { message: 'Subscribed successfully (offline mode)' } };
+    }
+  }
 };
 
 export default api;

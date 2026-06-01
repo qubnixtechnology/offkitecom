@@ -127,8 +127,25 @@ def main():
     run(ssh, f'mkdir -p {LARAVEL}/public/build/videos && cp -r {ROOT}/tmp_build_videos/videos/* {LARAVEL}/public/build/videos/ 2>/dev/null || true', 'Restore public build videos')
     run(ssh, f'rm -rf {ROOT}/tmp_videos {ROOT}/tmp_build_videos', 'Cleanup remote video backups')
     
+    # Load secrets from local backend/.env
+    brevo_key = ""
+    shiprocket_email = ""
+    shiprocket_pass = ""
+    
+    local_env_path = os.path.join(os.path.dirname(__file__), 'backend', '.env')
+    if os.path.exists(local_env_path):
+        with open(local_env_path, 'r', encoding='utf-8') as lf:
+            for line in lf:
+                line = line.strip()
+                if line.startswith('BREVO_API_KEY='):
+                    brevo_key = line.split('=', 1)[1]
+                elif line.startswith('SHIPROCKET_EMAIL='):
+                    shiprocket_email = line.split('=', 1)[1]
+                elif line.startswith('SHIPROCKET_PASSWORD='):
+                    shiprocket_pass = line.split('=', 1)[1]
+
     # Create .env
-    env_content = """APP_NAME=Offkilt
+    env_content = f"""APP_NAME=Offkilt
 APP_ENV=production
 APP_KEY=
 APP_DEBUG=false
@@ -151,12 +168,16 @@ FILESYSTEM_DISK=local
 QUEUE_CONNECTION=sync
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
+
+BREVO_API_KEY={brevo_key}
+SHIPROCKET_EMAIL={shiprocket_email}
+SHIPROCKET_PASSWORD={shiprocket_pass}
 """
     
     # Write .env remotely
     print("Writing remote .env file...")
     sftp_ssh = ssh.open_sftp()
-    with sftp_ssh.file(f'{LARAVEL}/.env', 'w') as f:
+    with sftp_ssh.file(f"{LARAVEL}/.env", "w") as f:
         f.write(env_content)
     sftp_ssh.close()
     

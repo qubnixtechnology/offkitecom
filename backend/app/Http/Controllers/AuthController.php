@@ -32,6 +32,12 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        try {
+            \App\Helpers\MailHelper::sendEmail('welcome', $user->email, $user->name);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to send welcome email: " . $e->getMessage());
+        }
+
         return response()->json([
             'access_token' => $token,
             'token_type'   => 'Bearer',
@@ -154,5 +160,20 @@ class AuthController extends Controller
         $user->tokens()->delete();
 
         return response()->json(['message' => 'Password changed successfully. Please log in again.']);
+    }
+
+    public function subscribeNewsletter(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email'
+        ]);
+
+        try {
+            \App\Helpers\MailHelper::sendEmail('newsletter', $request->email, 'Subscriber');
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to send newsletter email: " . $e->getMessage());
+        }
+
+        return response()->json(['message' => 'Subscribed successfully.']);
     }
 }

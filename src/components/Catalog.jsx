@@ -74,7 +74,8 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
   }, []);
 
   useEffect(() => {
-    if (categoriesList.length > 0 && !categoriesList.includes(activeTab)) {
+    const fits = ['baggy', 'relaxed', 'boot cut', 'slim', 'skinny'];
+    if (categoriesList.length > 0 && !categoriesList.includes(activeTab) && activeTab.toLowerCase() !== 'sale' && !fits.includes(activeTab.toLowerCase())) {
       setActiveTab(categoriesList[0]);
     }
   }, [categoriesList, activeTab, setActiveTab]);
@@ -213,7 +214,10 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
         });
 
         let filtered = mapped;
-        if (isFit) {
+        if (activeTab.toLowerCase() === 'sale') {
+          // Show only products with active discount
+          filtered = mapped.filter(p => p.discountPrice && Number(p.discountPrice) > 0 && Number(p.discountPrice) < Number(p.price));
+        } else if (isFit) {
           const fitKeyword = activeTab.toLowerCase();
           const byFit = mapped.filter(p => {
             const name = (p.name || '').toLowerCase();

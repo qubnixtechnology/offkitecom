@@ -67,7 +67,7 @@ export default function TrendingCollection({ onCategoryClick }) {
       const stored = JSON.parse(localStorage.getItem('offkilt_homepage_grid_cards')) || {};
       return COLLECTIONS.map(c => {
         const custom = stored[c.id];
-        return custom ? { ...c, title: custom.title || c.title, tag: custom.tag || c.tag, bg: custom.bg || c.bg } : c;
+        return custom ? { ...c, title: custom.title || c.title, tag: custom.tag || c.tag, bg: custom.bg || c.bg, category: custom.category || c.category } : c;
       });
     } catch(e) {
       return COLLECTIONS;
@@ -95,7 +95,7 @@ export default function TrendingCollection({ onCategoryClick }) {
         const storedGrid = JSON.parse(localStorage.getItem('offkilt_homepage_grid_cards')) || {};
         setCollectionsList(COLLECTIONS.map(c => {
           const custom = storedGrid[c.id];
-          return custom ? { ...c, title: custom.title || c.title, tag: custom.tag || c.tag, bg: custom.bg || c.bg } : c;
+          return custom ? { ...c, title: custom.title || c.title, tag: custom.tag || c.tag, bg: custom.bg || c.bg, category: custom.category || c.category } : c;
         }));
       } catch(e) {}
     };

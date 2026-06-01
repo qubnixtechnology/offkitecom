@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Plus, Edit2, Trash2, Save, Image as ImageIcon, UploadCloud, 
@@ -354,7 +354,8 @@ export default function AdminDashboard({ currentUser, onClose }) {
     slug: '',
     meta_title: '',
     meta_description: '',
-    meta_keywords: ''
+    meta_keywords: '',
+    size_guide: ''
   });
   const [editingProductId, setEditingProductId] = useState(null);
   const [productSearch, setProductSearch] = useState('');
@@ -408,6 +409,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
       discountPrice: productForm.discountPrice ? Number(productForm.discountPrice) : undefined,
       stock: Number(productForm.stock),
       sizes: productForm.sizes,
+      size_guide: productForm.size_guide || '',
       // Parse swatches comma separated list to structured details
       details: [
         `SKU: ${productForm.sku || 'OK-' + Math.floor(Math.random() * 10000)}`,
@@ -434,7 +436,8 @@ export default function AdminDashboard({ currentUser, onClose }) {
         slug: '',
         meta_title: '',
         meta_description: '',
-        meta_keywords: ''
+        meta_keywords: '',
+        size_guide: ''
       });
       setEditingProductId(null);
       fetchProducts();
@@ -498,7 +501,8 @@ export default function AdminDashboard({ currentUser, onClose }) {
       slug: p.slug || '',
       meta_title: p.meta_title || '',
       meta_description: p.meta_description || '',
-      meta_keywords: p.meta_keywords || ''
+      meta_keywords: p.meta_keywords || '',
+      size_guide: p.size_guide || ''
     });
     setEditingProductId(p.id);
   };
@@ -1049,6 +1053,28 @@ export default function AdminDashboard({ currentUser, onClose }) {
     alert('Narrative settings saved!');
   };
 
+  // --- Newsletter Promo Popup CMS ---
+  const [promoPopupSettings, setPromoPopupSettings] = useState(() => {
+    const defaults = {
+      enabled: true,
+      title: 'JOIN & RECEIVE UP TO 20% OFF YOUR FIRST ORDER',
+      subtitle: 'FREE SHIPPING IN INDIA',
+      discountCode: 'WELCOME20',
+      coverImage: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&q=85',
+    };
+    try {
+      const stored = localStorage.getItem('offkilt_promo_popup_settings');
+      if (stored) return JSON.parse(stored);
+    } catch(e) {}
+    return defaults;
+  });
+
+  const handleSavePromoPopup = () => {
+    localStorage.setItem('offkilt_promo_popup_settings', JSON.stringify(promoPopupSettings));
+    triggerSync('offkilt_settings_updated');
+    alert('Newsletter Promo Popup settings saved successfully!');
+  };
+
   // --- Collections CMS ---
   const [homepageCollections, setHomepageCollections] = useState(() => {
     const defaults = {
@@ -1099,6 +1125,25 @@ export default function AdminDashboard({ currentUser, onClose }) {
     alert('Category list saved!');
   };
 
+  const [newCustomCategoryInput, setNewCustomCategoryInput] = useState('');
+  const handleAddNewCategory = () => {
+    const trimmed = newCustomCategoryInput.trim().toLowerCase();
+    if (!trimmed) return;
+    if (categoryList.includes(trimmed)) {
+      alert('Category already exists!');
+      return;
+    }
+    const updatedList = [...categoryList, trimmed];
+    setCategoryList(updatedList);
+    setCategoriesInput(updatedList.join(', '));
+    localStorage.setItem('offkilt_categories_list', JSON.stringify(updatedList));
+    setSelectedMetaCategory(trimmed);
+    setCategoryMetaForm({ tagline: '', coverImage: '' });
+    setNewCustomCategoryInput('');
+    triggerSync('offkilt_settings_updated');
+    alert(`Category "${trimmed}" added! You can now set its tagline and banner.`);
+  };
+
   // --- Category Banner Metadata CMS ---
   const [categoryMetadata, setCategoryMetadata] = useState(() => {
     try {
@@ -1140,31 +1185,32 @@ export default function AdminDashboard({ currentUser, onClose }) {
 
   const GRID_CARD_DEFAULTS = {
     // Trending Lookbook (TrendingCollection)
-    'summer': { title: 'Summer Breeze', tag: 'Collection', bg: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=600&q=85' },
-    'party': { title: 'Party Glam', tag: 'Occasion Wear', bg: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=600&q=85' },
-    'office': { title: 'Office Chic', tag: 'Work Edit', bg: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&q=85' },
-    'ethnic': { title: 'Ethnic Fusion', tag: 'Heritage', bg: 'https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=600&q=85' },
-    'street': { title: 'Street Style', tag: 'Urban', bg: 'https://images.unsplash.com/photo-1485218126466-34e6392ec754?w=600&q=85' },
+    'summer': { title: 'Summer Breeze', tag: 'Collection', bg: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=600&q=85', category: 'all' },
+    'party': { title: 'Party Glam', tag: 'Occasion Wear', bg: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=600&q=85', category: 'all' },
+    'office': { title: 'Office Chic', tag: 'Work Edit', bg: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&q=85', category: 'all' },
+    'ethnic': { title: 'Ethnic Fusion', tag: 'Heritage', bg: 'https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=600&q=85', category: 'all' },
+    'street': { title: 'Street Style', tag: 'Urban', bg: 'https://images.unsplash.com/photo-1485218126466-34e6392ec754?w=600&q=85', category: 'all' },
     // Shop By Style (ShopByStyle)
-    'casual': { title: 'Casual', tag: 'Effortlessly cool', bg: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&q=85' },
-    'minimal': { title: 'Minimal', tag: 'Less is more', bg: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=400&q=85' },
-    'korean': { title: 'Korean Fashion', tag: 'K-style vibes', bg: 'https://images.unsplash.com/photo-1485218126466-34e6392ec754?w=400&q=85' },
-    'western': { title: 'Western', tag: 'Modern west edit', bg: 'https://images.unsplash.com/photo-1584370848010-d7fe6bc767ec?w=400&q=85' },
-    'traditional': { title: 'Traditional', tag: 'Heritage meets now', bg: 'https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=400&q=85' },
-    'evening': { title: 'Luxury Evening', tag: 'Night of elegance', bg: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=400&q=85' }
+    'casual': { title: 'Casual', tag: 'Effortlessly cool', bg: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&q=85', category: 'all' },
+    'minimal': { title: 'Minimal', tag: 'Less is more', bg: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=400&q=85', category: 'all' },
+    'korean': { title: 'Korean Fashion', tag: 'K-style vibes', bg: 'https://images.unsplash.com/photo-1485218126466-34e6392ec754?w=400&q=85', category: 'all' },
+    'western': { title: 'Western', tag: 'Modern west edit', bg: 'https://images.unsplash.com/photo-1584370848010-d7fe6bc767ec?w=400&q=85', category: 'jeans' },
+    'traditional': { title: 'Traditional', tag: 'Heritage meets now', bg: 'https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=400&q=85', category: 'all' },
+    'evening': { title: 'Luxury Evening', tag: 'Night of elegance', bg: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=400&q=85', category: 'skirts' }
   };
 
   const [selectedGridCardId, setSelectedGridCardId] = useState('summer');
-  const [gridCardForm, setGridCardForm] = useState({ title: '', tag: '', bg: '' });
+  const [gridCardForm, setGridCardForm] = useState({ title: '', tag: '', bg: '', category: 'all' });
 
   const handleSelectGridCard = (cardId) => {
     setSelectedGridCardId(cardId);
     const custom = gridCardsMetadata[cardId] || {};
-    const fallback = GRID_CARD_DEFAULTS[cardId] || { title: '', tag: '', bg: '' };
+    const fallback = GRID_CARD_DEFAULTS[cardId] || { title: '', tag: '', bg: '', category: 'all' };
     setGridCardForm({
       title: custom.title || fallback.title || '',
       tag: custom.tag || fallback.tag || '',
-      bg: custom.bg || fallback.bg || ''
+      bg: custom.bg || fallback.bg || '',
+      category: custom.category || fallback.category || 'all'
     });
   };
 
@@ -1178,8 +1224,8 @@ export default function AdminDashboard({ currentUser, onClose }) {
       { label: 'New', link: '#new-arrivals', visible: true },
       { label: 'Men', link: '#campaign-men', category: 'jeans', visible: true },
       { label: 'Women', link: '#campaign-women', category: 'skirts', visible: true },
-      { label: 'Collection', link: '#catalog', visible: true },
-      { label: 'After Dark', link: '#catalog', category: 'all', visible: true },
+      { label: 'Collection', link: '#catalog', category: 'all', visible: true },
+      { label: 'After Dusk', link: '#catalog', category: 'all', visible: true },
       { label: 'Sale', link: '#catalog', category: 'all', visible: true }
     ];
     return JSON.parse(localStorage.getItem('offkilt_menus') || JSON.stringify(defaults));
@@ -1312,6 +1358,30 @@ export default function AdminDashboard({ currentUser, onClose }) {
           title: 'Women\'s SS26 Campaign',
           cta: 'Explore Women\'s',
           filter: 'skirts'
+        }
+      },
+      'after-dusk': {
+        label: 'After Dusk',
+        sections: [
+          {
+            title: 'MEN',
+            links: [
+              { name: 'Fits', filter: 'all' },
+            ]
+          },
+          {
+            title: 'WOMEN',
+            links: [
+              { name: 'Fits', filter: 'all' },
+              { name: 'Skirts', filter: 'skirts' }
+            ]
+          }
+        ],
+        featured: {
+          image: '/images/narrative_cover.png',
+          title: 'After Dusk Campaign',
+          cta: 'Explore Collection',
+          filter: 'all'
         }
       }
     };
@@ -2737,6 +2807,70 @@ export default function AdminDashboard({ currentUser, onClose }) {
                     ></textarea>
                   </div>
 
+                  {/* Size Guide Image URL / Upload */}
+                  <div style={{ borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '16px', marginTop: '16px' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Product Specific Size Guide Image</label>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                      <input 
+                        type="text" 
+                        value={productForm.size_guide || ''} 
+                        onChange={(e) => setProductForm({...productForm, size_guide: e.target.value})} 
+                        placeholder="Size guide image URL or upload below..."
+                        style={{ flex: 1, padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                      />
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <label style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#f3f4f6',
+                        border: '1px solid rgba(0,0,0,0.15)',
+                        borderRadius: '2px',
+                        cursor: 'pointer',
+                        fontSize: '0.7rem',
+                        fontFamily: 'var(--font-mono)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <UploadCloud size={14} /> Upload Size Guide Image
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setProductForm(prev => ({ ...prev, size_guide: reader.result }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      {productForm.size_guide && (
+                        <button 
+                          type="button" 
+                          onClick={() => setProductForm(prev => ({ ...prev, size_guide: '' }))}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.7rem', textDecoration: 'underline', cursor: 'pointer' }}
+                        >
+                          Remove Size Guide
+                        </button>
+                      )}
+                    </div>
+                    {productForm.size_guide && (
+                      <div style={{ marginTop: '10px' }}>
+                        <img 
+                          src={productForm.size_guide} 
+                          alt="Size Guide Preview" 
+                          style={{ maxHeight: '100px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }} 
+                        />
+                      </div>
+                    )}
+                  </div>
+
                   {/* SEO & Meta Details */}
                   <div style={{ borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '16px', marginTop: '16px' }}>
                     <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: '12px' }}>SEO & META DATA</h4>
@@ -3419,6 +3553,110 @@ export default function AdminDashboard({ currentUser, onClose }) {
                     </button>
                   </div>
                 </form>
+              </div>
+
+              {/* Newsletter Promo Popup CMS Card */}
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Newsletter Promo Popup CMS</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <input 
+                      type="checkbox" 
+                      id="promo_enabled"
+                      checked={promoPopupSettings.enabled === true} 
+                      onChange={(e) => setPromoPopupSettings({ ...promoPopupSettings, enabled: e.target.checked })}
+                    />
+                    <label htmlFor="promo_enabled" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-grey)', cursor: 'pointer' }}>
+                      Enable Newsletter Promo Popup on Storefront
+                    </label>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Popup Title / Offer Heading</label>
+                    <input 
+                      type="text" 
+                      value={promoPopupSettings.title}
+                      onChange={(e) => setPromoPopupSettings({ ...promoPopupSettings, title: e.target.value })}
+                      placeholder="e.g. JOIN & RECEIVE UP TO 20% OFF YOUR FIRST ORDER"
+                      style={{ width: '100%', padding: '10px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', marginTop: '6px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Popup Subtitle / Tagline</label>
+                    <input 
+                      type="text" 
+                      value={promoPopupSettings.subtitle}
+                      onChange={(e) => setPromoPopupSettings({ ...promoPopupSettings, subtitle: e.target.value })}
+                      placeholder="e.g. FREE SHIPPING IN INDIA"
+                      style={{ width: '100%', padding: '10px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', marginTop: '6px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Discount Code (Welcome Offer)</label>
+                    <input 
+                      type="text" 
+                      value={promoPopupSettings.discountCode}
+                      onChange={(e) => setPromoPopupSettings({ ...promoPopupSettings, discountCode: e.target.value })}
+                      placeholder="e.g. WELCOME20"
+                      style={{ width: '100%', padding: '10px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', marginTop: '6px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cover Image URL</label>
+                    <input 
+                      type="text" 
+                      value={promoPopupSettings.coverImage}
+                      onChange={(e) => setPromoPopupSettings({ ...promoPopupSettings, coverImage: e.target.value })}
+                      placeholder="Cover Image URL or upload file below..."
+                      style={{ width: '100%', padding: '10px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', marginTop: '6px' }}
+                    />
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+                      <label style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#f3f4f6',
+                        border: '1px solid rgba(0,0,0,0.15)',
+                        borderRadius: '2px',
+                        cursor: 'pointer',
+                        fontSize: '0.7rem',
+                        fontFamily: 'var(--font-mono)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <UploadCloud size={14} /> Upload Popup Image
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setPromoPopupSettings(prev => ({ ...prev, coverImage: reader.result }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <button 
+                    type="button" 
+                    onClick={handleSavePromoPopup}
+                    className="btn-primary" 
+                    style={{ width: 'auto', alignSelf: 'flex-start', padding: '10px 24px', fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}
+                  >
+                    Save Promo Popup
+                  </button>
+                </div>
               </div>
 
               <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
@@ -5305,8 +5543,41 @@ export default function AdminDashboard({ currentUser, onClose }) {
                         <span>BEST SELLER CARD #{idx + 1} ({card.labelText})</span>
                       </h4>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div style={{ gridColumn: 'span 2' }}>
+                          <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Select Inventory Product</label>
+                          <select
+                            value={card.productId || ''}
+                            onChange={(e) => {
+                              const selectedId = e.target.value;
+                              const matchedProd = products.find(p => String(p.id) === String(selectedId));
+                              if (matchedProd) {
+                                const updated = { 
+                                  ...card, 
+                                  productId: matchedProd.id, 
+                                  name: matchedProd.name,
+                                  price: matchedProd.discountPrice && Number(matchedProd.discountPrice) < Number(matchedProd.price) ? Number(matchedProd.discountPrice) : Number(matchedProd.price),
+                                  originalPrice: matchedProd.discountPrice && Number(matchedProd.discountPrice) < Number(matchedProd.price) ? Number(matchedProd.price) : null,
+                                  image: matchedProd.image
+                                };
+                                handleSaveBestseller(idx, updated);
+                              } else {
+                                const updated = {
+                                  ...card,
+                                  productId: '',
+                                };
+                                handleSaveBestseller(idx, updated);
+                              }
+                            }}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px', backgroundColor: '#ffffff' }}
+                          >
+                            <option value="">-- Choose inventory product --</option>
+                            {products.map(p => (
+                              <option key={p.id} value={p.id}>{p.name} (ID: {p.id} - ₹{p.price})</option>
+                            ))}
+                          </select>
+                        </div>
                         <div>
-                          <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Product Name</label>
+                          <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Product Name Override</label>
                           <input 
                             type="text" 
                             value={card.name} 
@@ -5440,6 +5711,27 @@ export default function AdminDashboard({ currentUser, onClose }) {
                 <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px', color: 'var(--accent-gold)' }}>CATEGORY HERO BANNERS CMS</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', borderBottom: '1px dashed rgba(0,0,0,0.08)', paddingBottom: '14px', marginBottom: '4px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Add New Custom Category</label>
+                      <input 
+                        type="text"
+                        placeholder="e.g. coordinates"
+                        value={newCustomCategoryInput}
+                        onChange={(e) => setNewCustomCategoryInput(e.target.value)}
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
+                      />
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={handleAddNewCategory}
+                      className="btn-primary"
+                      style={{ padding: '9px 16px', fontSize: '0.75rem', height: 'fit-content' }}
+                    >
+                      Add Category
+                    </button>
+                  </div>
+
                   <div>
                     <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Select Category</label>
                     <select
@@ -5589,6 +5881,19 @@ export default function AdminDashboard({ currentUser, onClose }) {
                         <option value="traditional">Traditional (Heritage meets now)</option>
                         <option value="evening">Luxury Evening (Night of elegance)</option>
                       </optgroup>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Target Category (Catalog Redirect on Click)</label>
+                    <select
+                      value={gridCardForm.category || 'all'}
+                      onChange={(e) => setGridCardForm(prev => ({ ...prev, category: e.target.value }))}
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#ffffff' }}
+                    >
+                      {categoryList.map(cat => (
+                        <option key={cat} value={cat}>{cat.toUpperCase()}</option>
+                      ))}
                     </select>
                   </div>
 

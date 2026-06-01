@@ -74,7 +74,7 @@ export default function ShopByStyle({ onCategoryClick }) {
       const stored = JSON.parse(localStorage.getItem('offkilt_homepage_grid_cards')) || {};
       return STYLES.map(s => {
         const custom = stored[s.id];
-        return custom ? { ...s, name: custom.title || s.name, count: custom.tag || s.count, bg: custom.bg || s.bg } : s;
+        return custom ? { ...s, name: custom.title || s.name, count: custom.tag || s.count, bg: custom.bg || s.bg, category: custom.category || s.category } : s;
       });
     } catch (e) {
       return STYLES;
@@ -102,7 +102,7 @@ export default function ShopByStyle({ onCategoryClick }) {
         const storedGrid = JSON.parse(localStorage.getItem('offkilt_homepage_grid_cards')) || {};
         setStylesList(STYLES.map(s => {
           const custom = storedGrid[s.id];
-          return custom ? { ...s, name: custom.title || s.name, count: custom.tag || s.count, bg: custom.bg || s.bg } : s;
+          return custom ? { ...s, name: custom.title || s.name, count: custom.tag || s.count, bg: custom.bg || s.bg, category: custom.category || s.category } : s;
         }));
       } catch (e) {}
     };

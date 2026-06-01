@@ -61,6 +61,30 @@ const DENIM_CATEGORIES = {
       cta: 'Explore Women\'s',
       filter: 'skirts'
     }
+  },
+  'after-dusk': {
+    label: 'After Dusk',
+    sections: [
+      {
+        title: 'MEN',
+        links: [
+          { name: 'Fits', filter: 'all' },
+        ]
+      },
+      {
+        title: 'WOMEN',
+        links: [
+          { name: 'Fits', filter: 'all' },
+          { name: 'Skirts', filter: 'skirts' }
+        ]
+      }
+    ],
+    featured: {
+      image: '/images/narrative_cover.png',
+      title: 'After Dusk Campaign',
+      cta: 'Explore Collection',
+      filter: 'all'
+    }
   }
 };
 

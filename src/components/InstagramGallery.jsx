@@ -118,8 +118,9 @@ export default function InstagramGallery() {
     return () => observer.disconnect();
   }, []);
 
-  const openInstagram = () => {
-    window.open(igSettings.url, '_blank', 'noopener,noreferrer');
+  const openInstagram = (postUrl) => {
+    const targetUrl = postUrl || igSettings.url;
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -131,7 +132,7 @@ export default function InstagramGallery() {
           <p className="luxury-section-subtitle">Real looks, real women, real confidence. Tag us and get featured.</p>
         </div>
 
-        <div className="instagram-handle" onClick={openInstagram}>
+        <div className="instagram-handle" onClick={() => openInstagram(null)}>
           <div className="instagram-handle-icon">
             <InstagramIcon size={18} />
           </div>
@@ -143,7 +144,7 @@ export default function InstagramGallery() {
             <div
               key={item.id}
               className={`instagram-item${item.featured ? ' ig-featured' : ''}`}
-              onClick={openInstagram}
+              onClick={() => openInstagram(item.postUrl)}
             >
               <img
                 src={item.src}
@@ -164,7 +165,7 @@ export default function InstagramGallery() {
         </div>
 
         <div className="instagram-follow-cta">
-          <button className="instagram-follow-btn" onClick={openInstagram}>
+          <button className="instagram-follow-btn" onClick={() => openInstagram(null)}>
             <InstagramIcon size={16} />
             Follow {igSettings.handle}
           </button>

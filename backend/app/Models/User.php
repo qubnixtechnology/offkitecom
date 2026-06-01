@@ -38,4 +38,16 @@ class User extends Authenticatable
     {
         return $this->hasMany(Order::class);
     }
+
+    public function sendPasswordResetNotification($token)
+    {
+        $resetLink = url('/?reset-email=' . urlencode($this->email) . '&token=' . $token);
+        try {
+            \App\Helpers\MailHelper::sendEmail('forgot_password', $this->email, $this->name, [
+                'reset_link' => $resetLink
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to send password reset email: " . $e->getMessage());
+        }
+    }
 }

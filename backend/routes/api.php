@@ -20,6 +20,7 @@ Route::post('/register',       [AuthController::class, 'register']);
 Route::post('/login',          [AuthController::class, 'login']);
 Route::post('/forgot-password',[AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+Route::post('/newsletter',     [AuthController::class, 'subscribeNewsletter']);
 
 // ─── Public Product Routes ───────────────────────────────────────────────────
 Route::get('/products',       [ProductController::class, 'index']);
@@ -61,5 +62,10 @@ Route::middleware(['auth:sanctum', 'is_admin'])->prefix('admin')->group(function
     // Orders
     Route::get('/orders',                    [OrderController::class, 'adminIndex']);
     Route::patch('/orders/{id}/status',      [OrderController::class, 'updateStatus']);
+    Route::patch('/orders/{id}/tracking',    [OrderController::class, 'updateTracking']);
     Route::delete('/orders/{id}',            [OrderController::class, 'destroy']);
+
+    // Email Settings
+    Route::get('/email-settings',            [AdminController::class, 'getEmailSettings']);
+    Route::post('/email-settings',           [AdminController::class, 'saveEmailSettings']);
 });

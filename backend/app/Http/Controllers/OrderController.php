@@ -59,6 +59,16 @@ class OrderController extends Controller
             ]);
         }
 
+        try {
+            $customerName = $request->user()?->name ?? 'Rebel Customer';
+            \App\Helpers\MailHelper::sendEmail('order_confirm', $order->email, $customerName, [
+                'order_id' => $order->id,
+                'total_amount' => $order->total
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to send order confirmation email: " . $e->getMessage());
+        }
+
         return response()->json($order->load('items'), 201);
     }
 
@@ -96,21 +106,56 @@ class OrderController extends Controller
             return response()->json(['message' => 'Order not found.'], 404);
         }
 
-        // Return only safe public fields for tracking
+        $shiprocketData = null;
+        $trackingAwb = $order->awb_number ?? $order->tracking_number;
+        if ($trackingAwb) {
+            $shiprocketData = $this->getShiprocketTracking($trackingAwb);
+        }
+
         return response()->json([
             'id'               => $order->id,
             'status'           => $order->status,
             'placed_at'        => $order->placed_at,
             'total'            => $order->total,
+            'subtotal'         => $order->subtotal,
+            'shipping_fee'     => $order->shipping_fee,
             'shipping_address' => $order->shipping_address,
+            'awb_number'       => $order->awb_number ?? $order->tracking_number,
+            'tracking_number'  => $order->tracking_number ?? $order->awb_number,
+            'shiprocket_data'  => $shiprocketData,
             'items'            => $order->items->map(fn($i) => [
                 'product_name'  => $i->product_name,
                 'selected_size' => $i->selected_size,
                 'quantity'      => $i->quantity,
                 'price'         => $i->price,
-                'image_path'    => $i->image_path,
+                'image'         => $i->image_path,
             ]),
         ]);
+    }
+
+    private function getShiprocketTracking($awb)
+    {
+        try {
+            $token = \Illuminate\Support\Facades\Cache::remember('shiprocket_token', 86000, function () {
+                $response = \Illuminate\Support\Facades\Http::post('https://apiv2.shiprocket.in/v1/external/auth/login', [
+                    'email'    => env('SHIPROCKET_EMAIL', 'Info@off-kilt.com'),
+                    'password' => env('SHIPROCKET_PASSWORD'),
+                ]);
+                return $response->json()['token'] ?? null;
+            });
+
+            if (! $token) {
+                return null;
+            }
+
+            $trackResponse = \Illuminate\Support\Facades\Http::withToken($token)
+                ->get("https://apiv2.shiprocket.in/v1/external/courier/track/awb/{$awb}");
+
+            return $trackResponse->json();
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Shiprocket API error: ' . $e->getMessage());
+            return null;
+        }
     }
 
     // ─── Admin: list ALL orders ───────────────────────────────────────────────
@@ -147,8 +192,55 @@ class OrderController extends Controller
         $order = Order::findOrFail($id);
         $order->update(['status' => $request->status]);
 
+        try {
+            $customerName = $order->user?->name ?? 'Rebel Customer';
+            if ($request->status === 'dispatched' || $request->status === 'transit') {
+                \App\Helpers\MailHelper::sendEmail('order_shipped', $order->email, $customerName, [
+                    'order_id' => $order->id,
+                    'awb_number' => $order->awb_number ?? $order->tracking_number ?? 'In Transit'
+                ]);
+            } else if ($request->status === 'delivered') {
+                \App\Helpers\MailHelper::sendEmail('order_delivered', $order->email, $customerName, [
+                    'order_id' => $order->id
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to send order status email: " . $e->getMessage());
+        }
+
         return response()->json([
             'message' => 'Order status updated.',
+            'order'   => $order->load('items'),
+        ]);
+    }
+
+    public function updateTracking(Request $request, $id)
+    {
+        $request->validate([
+            'awb_number'      => 'nullable|string|max:100',
+            'tracking_number' => 'nullable|string|max:100',
+        ]);
+
+        $order = Order::findOrFail($id);
+        $order->update([
+            'awb_number'      => $request->awb_number ?? $request->tracking_number,
+            'tracking_number' => $request->tracking_number ?? $request->awb_number,
+        ]);
+
+        try {
+            if ($order->awb_number && ($order->status === 'dispatched' || $order->status === 'transit')) {
+                $customerName = $order->user?->name ?? 'Rebel Customer';
+                \App\Helpers\MailHelper::sendEmail('order_shipped', $order->email, $customerName, [
+                    'order_id' => $order->id,
+                    'awb_number' => $order->awb_number
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to send order shipping email: " . $e->getMessage());
+        }
+
+        return response()->json([
+            'message' => 'Order tracking details updated.',
             'order'   => $order->load('items'),
         ]);
     }
