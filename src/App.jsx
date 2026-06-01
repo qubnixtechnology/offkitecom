@@ -13,7 +13,6 @@ import ShopByStyle from './components/ShopByStyle';
 import BrandStory from './components/BrandStory';
 import CustomerReviews from './components/CustomerReviews';
 import InstagramGallery from './components/InstagramGallery';
-import NewsletterSection from './components/NewsletterSection';
 import Catalog from './components/Catalog';
 import ProductDetailModal from './components/ProductDetailModal';
 import CartDrawer from './components/CartDrawer';
@@ -1319,8 +1318,6 @@ export default function App() {
                 <InstagramGallery />
 
                 <SellerPartners />
-
-                <NewsletterSection />
               </>
             )}
           </main>
@@ -1495,26 +1492,36 @@ export default function App() {
                     position: 'relative',
                     textAlign: 'left'
                   }}>
-                    {/* Close Button */}
-                    <button 
-                      onClick={() => {
-                        setShowPromoPopup(false);
-                        localStorage.setItem('offkilt_promo_popup_dismissed', 'true');
-                      }}
-                      style={{
-                        position: 'absolute',
-                        top: '20px',
-                        right: '20px',
-                        background: 'none',
-                        border: 'none',
-                        color: '#ffffff',
-                        cursor: 'pointer',
-                        opacity: 0.7,
-                        transition: 'opacity 0.2s'
-                      }}
-                    >
-                      <X size={20} />
-                    </button>
+                  {/* Close Button — top-right corner of entire card, always visible */}
+                  <button 
+                    onClick={() => {
+                      setShowPromoPopup(false);
+                      localStorage.setItem('offkilt_promo_popup_dismissed', 'true');
+                    }}
+                    title="Close"
+                    style={{
+                      position: 'absolute',
+                      top: '-14px',
+                      right: '-14px',
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '50%',
+                      background: '#111111',
+                      border: '2px solid rgba(255,255,255,0.15)',
+                      color: '#ffffff',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 10,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                      transition: 'background 0.2s, transform 0.2s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#d93838'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#111111'; e.currentTarget.style.transform = 'scale(1)'; }}
+                  >
+                    <X size={16} />
+                  </button>
 
                     <span className="mono" style={{ color: 'var(--accent-gold)', fontSize: '0.75rem', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '12px', display: 'block' }}>
                       WELCOME OFFER

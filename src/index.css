@@ -877,7 +877,7 @@ button {
 .product-image-container {
   position: relative;
   width: 100%;
-  aspect-ratio: 3/4;
+  aspect-ratio: 2/3;
   overflow: hidden;
   background-color: var(--bg-dark);
   border: 1px solid rgba(255,255,255,0.03);
@@ -887,7 +887,7 @@ button {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: top center;
+  object-position: center 85%;
   background-color: var(--bg-dark) !important;
   transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
   filter: contrast(1.02) brightness(0.96);
@@ -900,7 +900,7 @@ button {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: top center;
+  object-position: center 85%;
   background-color: var(--bg-dark) !important;
   opacity: 0;
   transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
@@ -3418,7 +3418,7 @@ button {
 
 .arrival-img-wrapper {
   position: relative;
-  aspect-ratio: 3/4;
+  aspect-ratio: 2/3;
   overflow: hidden;
   background: var(--bg-card);
   border: 1px solid rgba(255,255,255,0.04);
@@ -3428,7 +3428,7 @@ button {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: top center;
+  object-position: center 85%;
   background-color: var(--bg-card) !important;
   transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
   filter: brightness(0.96);
@@ -3440,7 +3440,7 @@ button {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: top center;
+  object-position: center 85%;
   background-color: var(--bg-card) !important;
   opacity: 0;
   transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
@@ -3778,7 +3778,7 @@ button {
 
 .bestseller-img-wrapper {
   position: relative;
-  aspect-ratio: 3/4;
+  aspect-ratio: 2/3;
   overflow: hidden;
   background: var(--bg-card);
 }
@@ -3787,7 +3787,7 @@ button {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: top center;
+  object-position: center 85%;
   background-color: var(--bg-card) !important;
   transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
   filter: brightness(0.96);
@@ -5939,14 +5939,17 @@ button {
   }
 }
 
-/* Fix top-cut images across all screen sizes */
-.modal-gallery-img,
+/* Fix images — show full model (crop from top, not from feet) */
 .product-image,
 .product-image-hover,
 .arrival-img,
 .arrival-img-hover,
 .bestseller-img {
-  object-position: top center !important; /* Show models/garments from top, no head crop */
+  object-position: center 85% !important; /* Anchor to bottom — shows feet, crops top background */
+}
+/* Modal gallery stays center to show garment detail */
+.modal-gallery-img {
+  object-position: center center !important;
 }
 
 /* Custom Editorial Pricing Styles */
