@@ -28,6 +28,10 @@ class Product extends Model
         'images',
         'badge',
         'is_active',
+        'slug',
+        'meta_title',
+        'meta_description',
+        'meta_keywords',
     ];
 
     protected $casts = [
@@ -37,6 +41,13 @@ class Product extends Model
         'is_active' => 'boolean',
         'price'   => 'integer',
     ];
+
+    protected $with = ['variants'];
+
+    public function variants()
+    {
+        return $this->hasMany(ProductVariant::class);
+    }
 
     public function orderItems()
     {

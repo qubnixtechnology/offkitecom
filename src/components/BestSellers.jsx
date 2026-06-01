@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Star, ShoppingBag } from 'lucide-react';
 
-const BESTSELLERS = [
+const DEFAULT_BESTSELLERS = [
   {
     id: 'bs1',
     name: 'Signature Flared Denim',
@@ -53,7 +53,7 @@ function StarRating({ rating }) {
           />
         ))}
       </div>
-      <span className="bestseller-reviews">{rating.toFixed(1)}</span>
+      <span className="bestseller-reviews">{Number(rating).toFixed(1)}</span>
     </div>
   );
 }
@@ -61,6 +61,13 @@ function StarRating({ rating }) {
 export default function BestSellers({ onScrollToCatalog }) {
   const headerRef = useRef(null);
   const cardsRef = useRef([]);
+  const [bestsellersList, setBestsellersList] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_bestsellers')) || DEFAULT_BESTSELLERS;
+    } catch (e) {
+      return DEFAULT_BESTSELLERS;
+    }
+  });
   const [collectionsData, setCollectionsData] = useState(() => {
     const defaults = {
       bestSellersCover: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=800',
@@ -92,6 +99,9 @@ export default function BestSellers({ onScrollToCatalog }) {
       } catch (e) {
         setCollectionsData(defaults);
       }
+      try {
+        setBestsellersList(JSON.parse(localStorage.getItem('offkilt_bestsellers')) || DEFAULT_BESTSELLERS);
+      } catch (e) {}
     };
     window.addEventListener('offkilt_settings_updated', handleSettingsUpdate);
     return () => window.removeEventListener('offkilt_settings_updated', handleSettingsUpdate);
@@ -143,7 +153,7 @@ export default function BestSellers({ onScrollToCatalog }) {
         )}
 
         <div className="bestsellers-grid">
-          {BESTSELLERS.map((product, idx) => (
+          {bestsellersList.map((product, idx) => (
             <div
               key={product.id}
               className="bestseller-card section-reveal"

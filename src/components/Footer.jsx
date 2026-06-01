@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { MessageSquare, Mail, Phone, MapPin } from 'lucide-react';
 
-export default function Footer({ onCategoryClick, onStoryClick, onTrackClick, onOpenAdmin }) {
+export default function Footer({ onCategoryClick, onStoryClick, onTrackClick, onOpenAdmin, onCompanyPageClick }) {
   const [footerData, setFooterData] = useState({
     email1: 'info@off-kilt.com',
     email2: 'offkiltfashion@gmail.com',
@@ -106,12 +106,12 @@ export default function Footer({ onCategoryClick, onStoryClick, onTrackClick, on
           <div>
             <h3 className="footer-column-title">COMPANY</h3>
             <ul className="footer-links">
-              <li><button onClick={onStoryClick} className="footer-link">ABOUT US</button></li>
-              <li><span className="footer-link" style={{ cursor: 'default' }}>REFUND & RETURN POLICY</span></li>
-              <li><span className="footer-link" style={{ cursor: 'default' }}>FAQ</span></li>
-              <li><span className="footer-link" style={{ cursor: 'default' }}>TERMS & CONDITIONS</span></li>
-              <li><span className="footer-link" style={{ cursor: 'default' }}>CAREER</span></li>
-              <li><span className="footer-link" style={{ cursor: 'default' }}>PARTNERSHIP</span></li>
+              <li><button onClick={() => onCompanyPageClick?.('about')} className="footer-link">ABOUT US</button></li>
+              <li><button onClick={() => onCompanyPageClick?.('refund')} className="footer-link">REFUND & RETURN POLICY</button></li>
+              <li><button onClick={() => onCompanyPageClick?.('faq')} className="footer-link">FAQ</button></li>
+              <li><button onClick={() => onCompanyPageClick?.('terms')} className="footer-link">TERMS & CONDITIONS</button></li>
+              <li><button onClick={() => onCompanyPageClick?.('career')} className="footer-link">CAREER</button></li>
+              <li><button onClick={() => onCompanyPageClick?.('partnership')} className="footer-link">PARTNERSHIP</button></li>
             </ul>
           </div>
 

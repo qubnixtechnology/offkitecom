@@ -44,8 +44,16 @@ export const auth = {
   },
   login: async (credentials) => {
     // Offline demo accounts — only used if backend is unreachable
-    if (credentials.email === 'demo@off-kilt.com' && credentials.password === 'rebel') {
+    const demoOverride = localStorage.getItem('offkilt_demo_password') || 'rebel';
+    const adminOverride = localStorage.getItem('offkilt_admin_password') || 'Admin123@offkilt';
+
+    if (credentials.email === 'demo@off-kilt.com' && credentials.password === demoOverride) {
       const user = { name: 'Demo User', email: 'demo@off-kilt.com', phone: '9999999999', address: 'Off-Kilt HQ, Cyber City', pincode: '100001', id: 1, is_admin: false };
+      localStorage.setItem('offkilt_current_user', JSON.stringify(user));
+      return { data: { user, access_token: 'mock-token' } };
+    }
+    if (credentials.email === 'admin@offkilt.com' && credentials.password === adminOverride) {
+      const user = { name: 'Rebel Admin', email: 'admin@offkilt.com', phone: '9999999999', address: 'Off-Kilt HQ, Cyber City', pincode: '100001', id: 999, is_admin: true };
       localStorage.setItem('offkilt_current_user', JSON.stringify(user));
       return { data: { user, access_token: 'mock-token' } };
     }
@@ -83,6 +91,23 @@ export const auth = {
     localStorage.removeItem('offkilt_current_user');
     try { return await api.post('/logout'); } catch (err) { return { data: { message: 'ok' } }; }
   },
+  forgotPassword: async (email) => {
+    try {
+      return await api.post('/forgot-password', { email });
+    } catch (err) {
+      if (err.response && !isBackendUnavailable(err)) throw err;
+      // Offline fallback
+      return { data: { message: 'Password reset link sent to your email.' } };
+    }
+  },
+  resetPassword: async (data) => {
+    try {
+      return await api.post('/reset-password', data);
+    } catch (err) {
+      if (err.response && !isBackendUnavailable(err)) throw err;
+      return { data: { message: 'Password has been reset successfully.' } };
+    }
+  },
 };
 
 const toWebp = (url) => {
@@ -113,12 +138,34 @@ const mapProductImagePaths = (product) => {
     ? parsedImages.map(toWebp)
     : (parsedImages ? [toWebp(parsedImages)] : []);
 
+  const mappedVariants = Array.isArray(product.variants)
+    ? product.variants.map(v => {
+        let varImages = v.images;
+        if (typeof varImages === 'string') {
+          try {
+            varImages = JSON.parse(varImages);
+          } catch (e) {
+            varImages = [];
+          }
+        }
+        return {
+          ...v,
+          images: Array.isArray(varImages) ? varImages.map(toWebp) : [],
+          status: v.status || 'available',
+          display_order: typeof v.display_order !== 'undefined' ? Number(v.display_order) : 0
+        };
+      })
+    : [];
+
+  mappedVariants.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+
   return {
     ...product,
     image: toWebp(product.image),
     hoverImage: toWebp(product.hoverImage || product.hover_image),
     hover_image: toWebp(product.hoverImage || product.hover_image),
-    images: mappedImages
+    images: mappedImages,
+    variants: mappedVariants
   };
 };
 

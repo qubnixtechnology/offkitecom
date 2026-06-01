@@ -33,6 +33,7 @@ export default function UserProfileModal({
 
   // Forgot Password Fields
   const [resetEmail, setResetEmail] = useState('');
+  const [resetToken, setResetToken] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
   const [resetRequested, setResetRequested] = useState(false);
@@ -51,9 +52,11 @@ export default function UserProfileModal({
     if (isOpen) {
       const params = new URLSearchParams(window.location.search);
       const emailParam = params.get('reset-email');
+      const tokenParam = params.get('reset-token');
       if (emailParam) {
         setTimeout(() => {
           setResetEmail(emailParam);
+          setResetToken(tokenParam || '');
           setActiveTab('reset');
           setAuthError('');
         }, 0);
@@ -121,7 +124,7 @@ export default function UserProfileModal({
   };
 
   // Handle Request Forgot Password link
-  const handleForgotSubmit = (e) => {
+  const handleForgotSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
     setResetRequested(false);
@@ -131,19 +134,16 @@ export default function UserProfileModal({
       return;
     }
 
-    const users = JSON.parse(localStorage.getItem('offkilt_users') || '[]');
-    const matchedUser = users.some(u => u.email.toLowerCase() === resetEmail.toLowerCase());
-
-    if (!matchedUser) {
-      setAuthError('No account is registered under this email.');
-      return;
+    try {
+      await authApi.forgotPassword(resetEmail);
+      setResetRequested(true);
+    } catch (err) {
+      setAuthError(err.response?.data?.message || 'Failed to request password reset link.');
     }
-
-    setResetRequested(true);
   };
 
   // Handle Reset password form submission
-  const handleResetPasswordSubmit = (e) => {
+  const handleResetPasswordSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
 
@@ -157,25 +157,45 @@ export default function UserProfileModal({
       return;
     }
 
-    const users = JSON.parse(localStorage.getItem('offkilt_users') || '[]');
-    const updatedUsers = users.map(u => {
-      if (u.email.toLowerCase() === resetEmail.toLowerCase()) {
-        return { ...u, password: resetNewPassword };
-      }
-      return u;
-    });
+    try {
+      await authApi.resetPassword({
+        email: resetEmail,
+        token: resetToken || 'mock-token',
+        password: resetNewPassword,
+        password_confirmation: resetConfirmPassword
+      });
 
-    localStorage.setItem('offkilt_users', JSON.stringify(updatedUsers));
-    
-    // Clear reset inputs
-    setResetNewPassword('');
-    setResetConfirmPassword('');
-    setResetEmail('');
-    setResetRequested(false);
-    
-    // Redirect to login with success message
-    setActiveTab('login');
-    setAuthSuccessMsg('Password successfully reset! Log in below.');
+      // Keep offline fallback synced
+      const users = JSON.parse(localStorage.getItem('offkilt_users') || '[]');
+      const updatedUsers = users.map(u => {
+        if (u.email.toLowerCase() === resetEmail.toLowerCase()) {
+          return { ...u, password: resetNewPassword };
+        }
+        return u;
+      });
+
+      localStorage.setItem('offkilt_users', JSON.stringify(updatedUsers));
+
+      // Save defaults overrides
+      if (resetEmail.toLowerCase() === 'demo@off-kilt.com') {
+        localStorage.setItem('offkilt_demo_password', resetNewPassword);
+      } else if (resetEmail.toLowerCase() === 'admin@offkilt.com') {
+        localStorage.setItem('offkilt_admin_password', resetNewPassword);
+      }
+      
+      // Clear reset inputs
+      setResetNewPassword('');
+      setResetConfirmPassword('');
+      setResetEmail('');
+      setResetToken('');
+      setResetRequested(false);
+      
+      // Redirect to login with success message
+      setActiveTab('login');
+      setAuthSuccessMsg('Password successfully reset! Log in below.');
+    } catch (err) {
+      setAuthError(err.response?.data?.message || 'Password reset failed.');
+    }
   };
 
   const resetAuthForm = () => {

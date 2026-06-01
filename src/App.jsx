@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ShoppingBag, Menu, X, Phone, User, Search, Check, AlertCircle, Info } from 'lucide-react';
+import { ShoppingBag, Menu, X, Phone, User, Search, Check, AlertCircle, Info, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lenis from 'lenis';
 import { auth, profile, orders as ordersApi, products as productsApi } from './services/api';
@@ -25,6 +25,7 @@ import AdminDashboard from './components/AdminDashboard';
 import MegaMenu from './components/MegaMenu';
 import CampaignSection from './components/CampaignSection';
 import SellerPartners from './components/SellerPartners';
+import CompanyPageViewer from './components/CompanyPageViewer';
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -98,6 +99,50 @@ export default function App() {
   const [announcementColor, setAnnouncementColor] = useState(() => 
     localStorage.getItem('offkilt_announcement_color') || '#ffffff'
   );
+
+  const [currentCompanyPage, setCurrentCompanyPage] = useState(null);
+  const [expandedMobileMenu, setExpandedMobileMenu] = useState({ men: false, women: false });
+  const [pressBrands, setPressBrands] = useState(() => {
+    const defaults = ['Vogue India', 'Grazia', 'Elle', 'Femina', 'Harper\'s Bazaar'];
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_press_brands')) || defaults;
+    } catch (e) {
+      return defaults;
+    }
+  });
+  const [companyPagesData, setCompanyPagesData] = useState(() => {
+    const defaults = {
+      about: {
+        title: "About Us",
+        content: `Off-Kilt is not just a brand—it's an attitude. Born from the spirit of rebellion and self-expression, Off-Kilt challenges the ordinary and redefines modern denim.\n\nOur philosophy is simple: fashion should have an edge. We merge heavy-weight selvedge denim fabrics, utility silhouettes, and premium hardware to create garments that feel like armor for the street. Every raw edge, offset pocket, and asymmetric stitch is a deliberate choice.\n\nStay raw, stay rebellious.`
+      },
+      refund: {
+        title: "Refund & Return Policy",
+        content: `We offer a 7-day hassle-free return and exchange policy. Items must be unworn, unwashed, and in their original packaging with tags intact.\n\nTo initiate a return or exchange, contact support via our WhatsApp widget or email. Refunds are processed back to your original payment method (or store credit for COD) within 5-7 business days of our warehouse receiving the return.`
+      },
+      faq: {
+        title: "Frequently Asked Questions",
+        content: `Q: How do I track my order?\nA: You can track your order using the 'Track Order' option in the menu by entering your Order ID.\n\nQ: Do you offer free shipping?\nA: Yes! We offer free shipping on all orders above ₹5,000 across India.\n\nQ: What payment methods do you support?\nA: We accept all major credit/debit cards, net banking, UPI, and wallets via Razorpay Checkout. Cash on Delivery (COD) is also available.`
+      },
+      terms: {
+        title: "Terms & Conditions",
+        content: `Welcome to Off-Kilt. By accessing or using our website, you agree to comply with and be bound by these terms and conditions. All content, designs, and brand elements are copyrighted.\n\nPrices are subject to change without notice. We reserve the right to cancel or refuse any orders at our discretion. STAY RAW.`
+      },
+      career: {
+        title: "Careers",
+        content: `We are always looking for creative rebels to join our design, marketing, and operations teams.\n\nIf you have a passion for heavy-weight streetwear and selvedge denim, send your CV and portfolio to careers@off-kilt.com. Join the rebellion.`
+      },
+      partnership: {
+        title: "Partnership & Collaborations",
+        content: `Are you an influencer, designer, or boutique looking to collaborate with us? We'd love to chat!\n\nDrop us an email at collab@off-kilt.com with your proposal, social handles, and ideas. Let's create something extraordinary.`
+      }
+    };
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_company_pages')) || defaults;
+    } catch (e) {
+      return defaults;
+    }
+  });
 
   // Custom Font & Navigation Menu states
   const [fontHeading, setFontHeading] = useState(() => localStorage.getItem('offkilt_font_heading') || 'Outfit');
@@ -215,6 +260,14 @@ export default function App() {
       try {
         const storedMega = localStorage.getItem('offkilt_mega_menu');
         if (storedMega) setMegaMenuKeys(Object.keys(JSON.parse(storedMega)));
+      } catch (e) {}
+      try {
+        const storedBrands = localStorage.getItem('offkilt_press_brands');
+        if (storedBrands) setPressBrands(JSON.parse(storedBrands));
+      } catch (e) {}
+      try {
+        const storedPages = localStorage.getItem('offkilt_company_pages');
+        if (storedPages) setCompanyPagesData(JSON.parse(storedPages));
       } catch (e) {}
     };
     window.addEventListener('offkilt_settings_updated', handleSettingsUpdate);
@@ -376,15 +429,66 @@ export default function App() {
   }, []);
 
   // Cart operations
-  const handleAddToCart = (product, size) => {
+  const handleAddToCart = (product, size, selectedVariantId) => {
     if (!currentUser) {
       setIsProfileOpen(true);
       return;
     }
 
+    let variant = Array.isArray(product.variants)
+      ? product.variants.find(v => v.id === selectedVariantId)
+      : null;
+
+    if (!variant && selectedVariantId === 'default') {
+      let defaultColorName = 'Original';
+      let defaultHex = '#111111';
+      
+      let swatchesList = [];
+      if (product.swatches) {
+        if (Array.isArray(product.swatches)) {
+          swatchesList = product.swatches;
+        } else if (typeof product.swatches === 'string') {
+          swatchesList = product.swatches.split(',').map(s => {
+            const parts = s.split(':');
+            return { name: parts[0]?.trim(), hex: parts[1]?.trim() || '#111111' };
+          });
+        }
+      } else if (Array.isArray(product.details)) {
+        const swatchLine = product.details.find(d => d.includes('Fabric Swatches:'));
+        if (swatchLine) {
+          const swatchStr = swatchLine.replace('Fabric Swatches:', '').trim();
+          swatchesList = swatchStr.split(',').map(s => {
+            const parts = s.split(':');
+            return { name: parts[0]?.trim(), hex: parts[1]?.trim() || '#111111' };
+          });
+        }
+      }
+      if (swatchesList.length > 0) {
+        defaultColorName = swatchesList[0].name;
+        defaultHex = swatchesList[0].hex;
+      }
+      
+      variant = {
+        id: 'default',
+        color: defaultColorName,
+        hex: defaultHex,
+        price: product.price,
+        discountPrice: product.discountPrice,
+        stock: product.stock,
+        sku: product.sku || product.id,
+        images: Array.isArray(product.images) && product.images.length > 0 
+          ? product.images 
+          : [product.image, product.hoverImage || product.hover_image].filter(Boolean),
+        status: 'available',
+        display_order: -1
+      };
+    }
+
     setCartItems(prevItems => {
       const existingItemIndex = prevItems.findIndex(
-        item => item.id === product.id && item.selectedSize === size
+        item => item.id === product.id && 
+                item.selectedSize === size && 
+                (item.selectedVariantId || '') === (selectedVariantId || '')
       );
 
       if (existingItemIndex > -1) {
@@ -392,30 +496,42 @@ export default function App() {
         newItems[existingItemIndex].quantity += 1;
         return newItems;
       } else {
-        return [...prevItems, { ...product, selectedSize: size, quantity: 1 }];
+        return [...prevItems, { 
+          ...product, 
+          selectedSize: size, 
+          selectedVariantId: selectedVariantId || '',
+          variant: variant,
+          quantity: 1 
+        }];
       }
     });
     // Automatically open the cart drawer after adding an item
     setIsCartOpen(true);
   };
 
-  const handleUpdateQty = (productId, size, newQty) => {
+  const handleUpdateQty = (productId, size, selectedVariantId, newQty) => {
     if (newQty <= 0) {
-      handleRemoveItem(productId, size);
+      handleRemoveItem(productId, size, selectedVariantId);
       return;
     }
     setCartItems(prevItems => 
       prevItems.map(item => 
-        (item.id === productId && item.selectedSize === size) 
+        (item.id === productId && 
+         item.selectedSize === size && 
+         (item.selectedVariantId || '') === (selectedVariantId || '')) 
           ? { ...item, quantity: newQty } 
           : item
       )
     );
   };
 
-  const handleRemoveItem = (productId, size) => {
+  const handleRemoveItem = (productId, size, selectedVariantId) => {
     setCartItems(prevItems => 
-      prevItems.filter(item => !(item.id === productId && item.selectedSize === size))
+      prevItems.filter(item => 
+        !(item.id === productId && 
+          item.selectedSize === size && 
+          (item.selectedVariantId || '') === (selectedVariantId || ''))
+      )
     );
   };
 
@@ -426,9 +542,9 @@ export default function App() {
     window.history.pushState({ path: cleanUrl }, '', cleanUrl);
   };
 
-  const handleQuickView = (product) => {
+  const handleQuickView = (product, selectedVariantId) => {
     if (!product) return;
-    const newUrl = `${window.location.origin}${window.location.pathname}?product=${product.id}`;
+    const newUrl = `${window.location.origin}${window.location.pathname}?product=${product.id}${selectedVariantId ? `&variant=${selectedVariantId}` : ''}`;
     window.history.pushState({ path: newUrl }, '', newUrl);
 
     // Sanitize array fields — they may be JSON strings when coming from localStorage wishlist
@@ -462,7 +578,7 @@ export default function App() {
   const handlePaymentSuccess = async (paymentDetails) => {
     setIsRazorpayOpen(false);
     
-    const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const subtotal = cartItems.reduce((acc, item) => acc + ((item.variant ? item.variant.price : item.price) * item.quantity), 0);
     const coupon = JSON.parse(localStorage.getItem('offkilt_applied_coupon') || 'null');
     const discount = coupon 
       ? (coupon.discount <= 100 ? Math.round(subtotal * (coupon.discount / 100)) : coupon.discount)
@@ -660,7 +776,7 @@ export default function App() {
   return (
     <div className="app-container" style={{ paddingTop: showAnnouncement ? '36px' : '0px' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=${fontHeading.replace(/ /g, '+')}:wght@300;400;500;700;800&family=${fontBody.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=${fontHeading.replace(/ /g, '+')}:wght@300;400;500;700;800&family=${fontBody.replace(/ /g, '+')}:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700;800&display=swap');
         :root {
           --font-heading: '${fontHeading}', sans-serif;
           --font-body: '${fontBody}', sans-serif;
@@ -746,31 +862,141 @@ export default function App() {
 
               {/* Navigation Links — Calvin Klein Style */}
               <nav className={`nav-links ${isMobileMenuOpen ? 'open' : ''}`} data-lenis-prevent="true" onMouseLeave={handleNavMouseLeave}>
-                {menuItems.filter(item => item.visible !== false).map((item, idx) => (
-                  <a
-                    key={idx}
-                    href={item.link}
-                    className={`nav-link ${(item.link === '#catalog' && activeSection === 'catalog') ? 'active' : ''}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (item.category) {
-                        setActiveCategory(item.category);
-                      }
-                      const sectionId = item.link.replace('#', '');
-                      scrollToSection(sectionId || 'hero');
-                    }}
-                    onMouseEnter={() => {
-                      const labelSlug = item.label.toLowerCase().trim().replace(/\s+/g, '-');
-                      if (megaMenuKeys.includes(labelSlug)) {
-                        handleNavMouseEnter(labelSlug);
-                      } else {
-                        handleNavMouseEnter(null);
-                      }
-                    }}
-                  >
-                    {item.label}
-                  </a>
-                ))}
+                {/* Mobile-only Home Link */}
+                <a
+                  href="#hero"
+                  className="nav-link mobile-home-link"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToSection('hero');
+                  }}
+                >
+                  Home
+                </a>
+
+                {menuItems.filter(item => item.visible !== false).map((item, idx) => {
+                  const labelLower = item.label.toLowerCase().trim();
+                  const hasSub = labelLower === 'men' || labelLower === 'women';
+                  
+                  return (
+                    <div key={idx} className="nav-item-wrapper" style={{ width: '100%' }}>
+                      <div className="nav-item-main-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                        <a
+                          href={item.link}
+                          className={`nav-link ${(item.link === '#catalog' && activeSection === 'catalog') ? 'active' : ''}`}
+                          onClick={(e) => {
+                            const isMobile = window.innerWidth <= 768;
+                            if (isMobile && hasSub) {
+                              e.preventDefault();
+                              setExpandedMobileMenu(prev => ({ ...prev, [labelLower]: !prev[labelLower] }));
+                            } else {
+                              e.preventDefault();
+                              if (item.category) {
+                                setActiveCategory(item.category);
+                              }
+                              const sectionId = item.link.replace('#', '');
+                              scrollToSection(sectionId || 'hero');
+                            }
+                          }}
+                          onMouseEnter={() => {
+                            const labelSlug = item.label.toLowerCase().trim().replace(/\s+/g, '-');
+                            if (megaMenuKeys.includes(labelSlug)) {
+                              handleNavMouseEnter(labelSlug);
+                            } else {
+                              handleNavMouseEnter(null);
+                            }
+                          }}
+                        >
+                          {item.label}
+                        </a>
+
+                        {hasSub && (
+                          <button
+                            className="mobile-submenu-toggle"
+                            onClick={() => setExpandedMobileMenu(prev => ({ ...prev, [labelLower]: !prev[labelLower] }))}
+                            style={{ padding: '16px' }}
+                          >
+                            <ChevronDown
+                              size={16}
+                              style={{
+                                transform: expandedMobileMenu[labelLower] ? 'rotate(180deg)' : 'none',
+                                transition: 'transform 0.3s'
+                              }}
+                            />
+                          </button>
+                        )}
+                      </div>
+
+                      {hasSub && (
+                        <div
+                          className={`mobile-submenu ${expandedMobileMenu[labelLower] ? 'open' : ''}`}
+                          style={{
+                            maxHeight: expandedMobileMenu[labelLower] ? '450px' : '0px',
+                            overflow: 'hidden',
+                            transition: 'max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                            paddingLeft: '20px',
+                            flexDirection: 'column',
+                            borderLeft: '1px solid rgba(0,0,0,0.06)',
+                            marginTop: '4px',
+                            marginBottom: '4px'
+                          }}
+                        >
+                          {labelLower === 'men' ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '8px 0 16px 0' }}>
+                              <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--accent-gold)', letterSpacing: '1px', fontWeight: 'bold' }}>FIT</span>
+                              {['Baggy', 'Relaxed', 'Boot Cut', 'Slim', 'Skinny'].map(fit => (
+                                <button
+                                  key={fit}
+                                  onClick={() => { setActiveCategory(fit.toLowerCase()); scrollToSection('catalog'); setIsMobileMenuOpen(false); }}
+                                  style={{ textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-grey)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}
+                                >
+                                  {fit}
+                                </button>
+                              ))}
+                              <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--accent-gold)', letterSpacing: '1px', marginTop: '8px', fontWeight: 'bold' }}>CATEGORIES</span>
+                              {['All Jeans', 'Cargo & Utility', 'Carpenter'].map(cat => (
+                                <button
+                                  key={cat}
+                                  onClick={() => { setActiveCategory('jeans'); scrollToSection('catalog'); setIsMobileMenuOpen(false); }}
+                                  style={{ textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-grey)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}
+                                >
+                                  {cat}
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '8px 0 16px 0' }}>
+                              <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--accent-gold)', letterSpacing: '1px', fontWeight: 'bold' }}>FIT</span>
+                              {['Baggy', 'Relaxed', 'Boot Cut', 'Slim', 'Skinny'].map(fit => (
+                                <button
+                                  key={fit}
+                                  onClick={() => { setActiveCategory(fit.toLowerCase()); scrollToSection('catalog'); setIsMobileMenuOpen(false); }}
+                                  style={{ textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-grey)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}
+                                >
+                                  {fit}
+                                </button>
+                              ))}
+                              <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--accent-gold)', letterSpacing: '1px', marginTop: '8px', fontWeight: 'bold' }}>CATEGORIES</span>
+                              {['All Products', 'Denim Skirts', 'Kilt Skirts'].map(cat => (
+                                <button
+                                  key={cat}
+                                  onClick={() => {
+                                    setActiveCategory(cat.toLowerCase().includes('skirt') ? 'skirts' : 'all');
+                                    scrollToSection('catalog');
+                                    setIsMobileMenuOpen(false);
+                                  }}
+                                  style={{ textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-grey)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}
+                                >
+                                  {cat}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
 
                 {/* Mobile Menu Spacer/Divider & Extras (Hidden on Desktop) */}
                 <div className="mobile-menu-divider" />
@@ -902,84 +1128,97 @@ export default function App() {
 
            {/* Main sections — Full Homepage Flow */}
           <main>
-            <Hero
-              onExploreClick={() => scrollToSection('catalog')}
-              onShopNewArrivals={scrollToNewArrivals}
-              isAppLoading={loading}
-            />
+            {currentCompanyPage ? (
+              <CompanyPageViewer
+                pageKey={currentCompanyPage}
+                pagesData={companyPagesData}
+                onClose={() => {
+                  setCurrentCompanyPage(null);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              />
+            ) : (
+              <>
+                <Hero
+                  onExploreClick={() => scrollToSection('catalog')}
+                  onShopNewArrivals={scrollToNewArrivals}
+                  isAppLoading={loading}
+                />
 
-            {/* Press / As Seen On Strip */}
-            <div className="press-strip">
-              <div className="container">
-                <div className="press-strip-inner">
-                  <span className="press-label">As Seen On</span>
-                  {['Vogue India', 'Grazia', 'Elle', 'Femina', 'Harper\'s Bazaar'].map(name => (
-                    <span key={name} className="press-name">{name}</span>
-                  ))}
+                {/* Press / As Seen On Strip */}
+                <div className="press-strip">
+                  <div className="container">
+                    <div className="press-strip-inner">
+                      <span className="press-label">As Seen On</span>
+                      {pressBrands.map(name => (
+                        <span key={name} className="press-name">{name}</span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Men's Campaign Section */}
-            <CampaignSection
-              gender="men"
-              title={campaignMen.title}
-              subtitle={campaignMen.subtitle}
-              ctaText={campaignMen.ctaText}
-              image={campaignMen.image}
-              onExplore={() => { setActiveCategory('jeans'); scrollToSection('catalog'); }}
-            />
+                {/* Men's Campaign Section */}
+                <CampaignSection
+                  gender="men"
+                  title={campaignMen.title}
+                  subtitle={campaignMen.subtitle}
+                  ctaText={campaignMen.ctaText}
+                  image={campaignMen.image}
+                  onExplore={() => { setActiveCategory('jeans'); scrollToSection('catalog'); }}
+                />
 
-            <TrendingCollection
-              onCategoryClick={(cat) => { setActiveCategory(cat); scrollToSection('catalog'); }}
-            />
+                <TrendingCollection
+                  onCategoryClick={(cat) => { setActiveCategory(cat); scrollToSection('catalog'); }}
+                />
 
-            {/* Women's Campaign Section */}
-            <CampaignSection
-              gender="women"
-              title={campaignWomen.title}
-              subtitle={campaignWomen.subtitle}
-              ctaText={campaignWomen.ctaText}
-              image={campaignWomen.image}
-              onExplore={() => { setActiveCategory('skirts'); scrollToSection('catalog'); }}
-            />
+                {/* Women's Campaign Section */}
+                <CampaignSection
+                  gender="women"
+                  title={campaignWomen.title}
+                  subtitle={campaignWomen.subtitle}
+                  ctaText={campaignWomen.ctaText}
+                  image={campaignWomen.image}
+                  onExplore={() => { setActiveCategory('skirts'); scrollToSection('catalog'); }}
+                />
 
-            <NewArrivals
-              onProductClick={handleQuickView}
-              onAddToCart={(p) => handleAddToCart(p, p.sizes?.[0] || 'Free Size')}
-              wishlist={wishlist}
-              onWishlistToggle={handleWishlistToggle}
-              onViewAll={() => scrollToSection('catalog')}
-            />
+                <NewArrivals
+                  onProductClick={handleQuickView}
+                  onAddToCart={(p) => handleAddToCart(p, p.sizes?.[0] || 'Free Size')}
+                  wishlist={wishlist}
+                  onWishlistToggle={handleWishlistToggle}
+                  onViewAll={() => scrollToSection('catalog')}
+                />
 
-            <BestSellers
-              onScrollToCatalog={() => scrollToSection('catalog')}
-            />
+                <BestSellers
+                  onScrollToCatalog={() => scrollToSection('catalog')}
+                />
 
-            <FashionVideo />
+                <FashionVideo />
 
-            <ShopByStyle
-              onCategoryClick={(cat) => { setActiveCategory(cat); scrollToSection('catalog'); }}
-            />
+                <ShopByStyle
+                  onCategoryClick={(cat) => { setActiveCategory(cat); scrollToSection('catalog'); }}
+                />
 
-            <BrandStory />
+                <BrandStory />
 
-            <CustomerReviews />
+                <CustomerReviews />
 
-            <Catalog
-              onProductClick={handleQuickView}
-              activeTab={activeCategory}
-              setActiveTab={setActiveCategory}
-              wishlist={wishlist}
-              onWishlistToggle={handleWishlistToggle}
-              onAddToCart={handleAddToCart}
-            />
+                <Catalog
+                  onProductClick={handleQuickView}
+                  activeTab={activeCategory}
+                  setActiveTab={setActiveCategory}
+                  wishlist={wishlist}
+                  onWishlistToggle={handleWishlistToggle}
+                  onAddToCart={handleAddToCart}
+                />
 
-            <InstagramGallery />
+                <InstagramGallery />
 
-            <SellerPartners />
+                <SellerPartners />
 
-            <NewsletterSection />
+                <NewsletterSection />
+              </>
+            )}
           </main>
 
           {/* Footer */}
@@ -988,7 +1227,10 @@ export default function App() {
               setActiveCategory(cat);
               scrollToSection('catalog');
             }} 
-            onStoryClick={() => scrollToSection('story')} 
+            onStoryClick={() => {
+              setCurrentCompanyPage(null);
+              scrollToSection('story');
+            }} 
             onTrackClick={() => setIsTrackingOpen(true)}
             onOpenAdmin={() => {
               if (currentUser?.is_admin) {
@@ -996,6 +1238,10 @@ export default function App() {
               } else {
                 setIsProfileOpen(true); // prompt them to log in
               }
+            }}
+            onCompanyPageClick={(pageKey) => {
+              setCurrentCompanyPage(pageKey);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           />
 
@@ -1062,7 +1308,7 @@ export default function App() {
               onClose={() => setIsRazorpayOpen(false)}
               totalAmount={
                 (() => {
-                  const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+                  const subtotal = cartItems.reduce((acc, item) => acc + ((item.variant ? item.variant.price : item.price) * item.quantity), 0);
                   const coupon = JSON.parse(localStorage.getItem('offkilt_applied_coupon') || 'null');
                   const discount = coupon 
                     ? (coupon.discount <= 100 ? Math.round(subtotal * (coupon.discount / 100)) : coupon.discount)

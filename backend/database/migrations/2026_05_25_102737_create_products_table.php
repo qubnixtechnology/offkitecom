@@ -27,6 +27,10 @@ return new class extends Migration
             $table->json('images')->nullable();
             $table->string('badge')->nullable();
             $table->boolean('is_active')->default(true);
+            $table->string('slug')->nullable();
+            $table->string('meta_title')->nullable();
+            $table->text('meta_description')->nullable();
+            $table->string('meta_keywords')->nullable();
             $table->timestamps();
         });
     }

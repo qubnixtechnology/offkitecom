@@ -27,6 +27,7 @@ function StarRating({ rating }) {
 export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onWishlistToggle, onViewAll }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCardVariants, setSelectedCardVariants] = useState({});
   const sectionRef = useRef(null);
   const headerRef = useRef(null);
   const [reviewTrigger, setReviewTrigger] = useState(0);
@@ -34,12 +35,26 @@ export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onW
 
   const [promoText, setPromoText] = useState('Extra 20% off $100+');
   const [showPromo, setShowPromo] = useState(false);
+  const [tickerItems, setTickerItems] = useState(() => {
+    const defaults = ['NEW ARRIVALS', '✦', 'JUST LANDED', '✦', 'FRESH DROPS', '✦', 'NEW SEASON', '✦', 'SHOP NOW', '✦'];
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_ticker_items')) || defaults;
+    } catch (e) {
+      return defaults;
+    }
+  });
 
   const loadPromoSettings = () => {
     const text = localStorage.getItem('offkilt_promo_discount_text') || 'Extra 20% off $100+';
     const show = localStorage.getItem('offkilt_promo_discount_show') !== 'false';
     setPromoText(text);
     setShowPromo(show);
+    try {
+      const storedTicker = localStorage.getItem('offkilt_ticker_items');
+      if (storedTicker) {
+        setTickerItems(JSON.parse(storedTicker));
+      }
+    } catch (e) {}
   };
 
   useEffect(() => {
@@ -69,6 +84,64 @@ export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onW
     return { rating: mockRating, count: mockCount };
   };
 
+  const parseSwatches = (product) => {
+    let swatchesList = [];
+    if (!product) return swatchesList;
+    if (product.swatches) {
+      if (Array.isArray(product.swatches)) {
+        swatchesList = product.swatches;
+      } else if (typeof product.swatches === 'string') {
+        swatchesList = product.swatches.split(',').map(s => {
+          const parts = s.split(':');
+          return { name: parts[0]?.trim(), hex: parts[1]?.trim() || '#111111' };
+        });
+      }
+    } else if (Array.isArray(product.details)) {
+      const swatchLine = product.details.find(d => d.includes('Fabric Swatches:'));
+      if (swatchLine) {
+        const swatchStr = swatchLine.replace('Fabric Swatches:', '').trim();
+        swatchesList = swatchStr.split(',').map(s => {
+          const parts = s.split(':');
+          return { name: parts[0]?.trim(), hex: parts[1]?.trim() || '#111111' };
+        });
+      }
+    }
+    return swatchesList;
+  };
+
+  const getProductVariantsAndDefault = (product) => {
+    if (!product) return [];
+    const visibleVariants = (product.variants || []).filter(v => v.status !== 'hidden');
+    if (visibleVariants.length > 0) {
+      let defaultColorName = 'Original';
+      let defaultHex = '#111111';
+      
+      const sw = parseSwatches(product);
+      if (sw && sw.length > 0) {
+        defaultColorName = sw[0].name;
+        defaultHex = sw[0].hex;
+      }
+      
+      const defaultVariant = {
+        id: 'default',
+        color: defaultColorName,
+        hex: defaultHex,
+        price: product.price,
+        discountPrice: product.discountPrice,
+        stock: product.stock,
+        sku: product.sku || product.id,
+        images: Array.isArray(product.images) && product.images.length > 0 
+          ? product.images 
+          : [product.image, product.hoverImage || product.hover_image].filter(Boolean),
+        status: 'available',
+        display_order: -1
+      };
+      
+      return [defaultVariant, ...visibleVariants];
+    }
+    return [];
+  };
+
   useEffect(() => {
     productsApi.getAll('all').then(res => {
       setProducts(res.data.slice(0, 8));
@@ -94,10 +167,10 @@ export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onW
       <div className="marquee-strip" style={{ marginBottom: '0', position: 'relative', zIndex: 1 }}>
         <div className="marquee-inner">
           {[...Array(2)].map((_, gi) => (
-            ['NEW ARRIVALS', '✦', 'JUST LANDED', '✦', 'FRESH DROPS', '✦', 'NEW SEASON', '✦', 'SHOP NOW', '✦'].map((item, i) => (
+            tickerItems.map((item, i) => (
               <div key={`${gi}-${i}`} className="marquee-item">
                 {item}
-                {i % 2 === 0 && <span className="marquee-dot"></span>}
+                {item !== '✦' && <span className="marquee-dot"></span>}
               </div>
             ))
           ))}
@@ -136,7 +209,10 @@ export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onW
                   >
                     <div 
                       className="arrival-img-wrapper"
-                      onClick={() => onProductClick?.(product)}
+                      onClick={() => {
+                        const activeVariant = selectedCardVariants[product.id];
+                        onProductClick?.(product, activeVariant?.id);
+                      }}
                       style={{ cursor: 'pointer' }}
                     >
                       {/* Badge */}
@@ -158,50 +234,171 @@ export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onW
                       </button>
 
                       {/* Images */}
-                      <img 
-                        src={product.image} 
-                        alt={product.name} 
-                        className="arrival-img" 
-                        loading="lazy" 
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => onProductClick?.(product)}
-                      />
-                      {product.hoverImage && (
-                        <img 
-                          src={product.hoverImage} 
-                          alt={product.name} 
-                          className="arrival-img-hover" 
-                          loading="lazy" 
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => onProductClick?.(product)}
-                        />
-                      )}
+                      {(() => {
+                        const visibleVariants = getProductVariantsAndDefault(product);
+                        const activeVariant = selectedCardVariants[product.id] || visibleVariants[0];
+                        const displayImg = activeVariant && Array.isArray(activeVariant.images) && activeVariant.images.length > 0
+                          ? activeVariant.images[0]
+                          : product.image;
+                        
+                        const displayHoverImg = activeVariant && Array.isArray(activeVariant.images) && activeVariant.images.length > 1
+                          ? activeVariant.images[1]
+                          : product.hoverImage || displayImg;
+                        
+                        return (
+                          <>
+                            <img 
+                              src={displayImg} 
+                              alt={product.name} 
+                              className="arrival-img" 
+                              loading="lazy" 
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => onProductClick?.(product, activeVariant?.id)}
+                            />
+                            {displayHoverImg && (
+                              <img 
+                                src={displayHoverImg} 
+                                alt={product.name} 
+                                className="arrival-img-hover" 
+                                loading="lazy" 
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => onProductClick?.(product, activeVariant?.id)}
+                              />
+                            )}
+                          </>
+                        );
+                      })()}
 
                       {/* Hover Actions */}
                       <div 
                         className="arrival-card-actions"
-                        onClick={(e) => { e.stopPropagation(); onProductClick?.(product); }}
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          const visibleVariants = getProductVariantsAndDefault(product);
+                          const activeVariant = selectedCardVariants[product.id] || visibleVariants[0];
+                          onProductClick?.(product, activeVariant?.id); 
+                        }}
                       >
-                        <button className="arrival-quick-add" onClick={(e) => { e.stopPropagation(); onAddToCart?.(product); }}>
-                          <ShoppingBag size={13} style={{ display: 'inline', marginRight: 6 }} />
-                          Quick Add
-                        </button>
-                        <button className="arrival-quick-view" onClick={(e) => { e.stopPropagation(); onProductClick?.(product); }}>
+                        {(() => {
+                          const visibleVariants = getProductVariantsAndDefault(product);
+                          const activeVar = selectedCardVariants[product.id] || visibleVariants[0];
+                          const isOutOfStock = activeVar ? (activeVar.status === 'out_of_stock' || activeVar.stock <= 0) : product.stock <= 0;
+                          
+                          if (isOutOfStock) {
+                            return (
+                              <button 
+                                className="arrival-quick-add" 
+                                disabled={true} 
+                                style={{ opacity: 0.6, cursor: 'not-allowed', backgroundColor: '#a1a1aa' }}
+                              >
+                                <ShoppingBag size={13} style={{ display: 'inline', marginRight: 6 }} />
+                                Out of Stock
+                              </button>
+                            );
+                          }
+                          
+                          return (
+                            <button className="arrival-quick-add" onClick={(e) => { 
+                              e.stopPropagation(); 
+                              const visibleVariants = getProductVariantsAndDefault(product);
+                              const activeVariant = selectedCardVariants[product.id] || visibleVariants[0];
+                              onAddToCart?.(product, 'Free Size', activeVariant?.id); 
+                            }}>
+                              <ShoppingBag size={13} style={{ display: 'inline', marginRight: 6 }} />
+                              Quick Add
+                            </button>
+                          );
+                        })()}
+                        <button className="arrival-quick-view" onClick={(e) => { 
+                          e.stopPropagation(); 
+                          const visibleVariants = getProductVariantsAndDefault(product);
+                          const activeVariant = selectedCardVariants[product.id] || visibleVariants[0];
+                          onProductClick?.(product, activeVariant?.id); 
+                        }}>
                           <Eye size={12} style={{ display: 'inline', marginRight: 5 }} />
                           View Details
                         </button>
                       </div>
                     </div>
 
-                    <div className="arrival-info" onClick={() => onProductClick?.(product)}>
+                    <div 
+                      className="arrival-info" 
+                      onClick={() => {
+                        const visibleVariants = getProductVariantsAndDefault(product);
+                        const activeVariant = selectedCardVariants[product.id] || visibleVariants[0];
+                        onProductClick?.(product, activeVariant?.id);
+                      }}
+                    >
                       <p className="arrival-name">{product.name}</p>
                       
                       <div className="catalog-price-row-editorial" style={{ margin: '4px 0' }}>
-                        <span className="original-price-editorial">₹{(product.price * 2).toLocaleString('en-IN')}</span>
-                        <span className="sale-price-editorial">₹{product.price?.toLocaleString('en-IN')}</span>
-                        <span className="discount-editorial">50% off</span>
+                        {(() => {
+                           const visibleVariants = getProductVariantsAndDefault(product);
+                           const activeVariant = selectedCardVariants[product.id] || visibleVariants[0];
+                           const displayPrice = activeVariant ? activeVariant.price : product.price;
+                           const displayDiscountPrice = activeVariant && activeVariant.id !== 'default' ? null : product.discountPrice;
+                          
+                          return displayDiscountPrice && Number(displayDiscountPrice) < Number(displayPrice) ? (
+                            <>
+                              <span className="original-price-editorial">₹{Number(displayPrice).toLocaleString('en-IN')}</span>
+                              <span className="sale-price-editorial">₹{Number(displayDiscountPrice).toLocaleString('en-IN')}</span>
+                              <span className="discount-editorial">{Math.round((1 - Number(displayDiscountPrice) / Number(displayPrice)) * 100)}% off</span>
+                            </>
+                          ) : (
+                            <span className="sale-price-editorial">₹{Number(displayPrice).toLocaleString('en-IN')}</span>
+                          );
+                        })()}
                       </div>
                       
+                      {/* Dynamic Color Swatches circular list */}
+                      {(() => {
+                          const visibleVariants = getProductVariantsAndDefault(product);
+                          const hasVars = visibleVariants.length > 0;
+                          const activeVariant = selectedCardVariants[product.id] || visibleVariants[0];
+                         
+                         if (hasVars) {
+                           return (
+                             <div className="catalog-swatches-editorial" style={{ margin: '8px 0 4px 0' }}>
+                               {visibleVariants.map((v) => {
+                                 const isSelected = activeVariant ? (activeVariant.id === v.id) : false;
+                                 const isOutOfStock = v.status === 'out_of_stock' || v.stock <= 0;
+                                 return (
+                                   <span
+                                     key={v.id}
+                                     className={`catalog-swatch-circle ${isSelected ? 'active' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`}
+                                     style={{ 
+                                       backgroundColor: v.hex || '#111111',
+                                       position: 'relative'
+                                     }}
+                                     title={isOutOfStock ? `${v.color} (Out of Stock)` : v.color}
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       setSelectedCardVariants(prev => ({
+                                         ...prev,
+                                         [product.id]: v
+                                       }));
+                                     }}
+                                   >
+                                     {isOutOfStock && (
+                                       <div style={{
+                                         position: 'absolute',
+                                         top: '50%',
+                                         left: '50%',
+                                         width: '120%',
+                                         height: '1.5px',
+                                         backgroundColor: '#ef4444',
+                                         transform: 'translate(-50%, -50%) rotate(45deg)',
+                                         pointerEvents: 'none'
+                                       }} />
+                                     )}
+                                   </span>
+                                 );
+                               })}
+                             </div>
+                           );
+                         }
+                         return null;
+                      })()}
 
                       <div className="arrival-meta-row">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

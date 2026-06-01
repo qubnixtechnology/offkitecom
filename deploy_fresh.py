@@ -115,7 +115,7 @@ def main():
     run(ssh, f'rm -f {REMOTE_TAR}', 'Remove remote tarball')
     
     # Create .env
-    env_content = """APP_NAME=Offkite
+    env_content = """APP_NAME=Offkilt
 APP_ENV=production
 APP_KEY=
 APP_DEBUG=false

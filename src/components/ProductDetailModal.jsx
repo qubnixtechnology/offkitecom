@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, ChevronDown, ChevronUp, ShoppingBag, Heart, ZoomIn, ShoppingCart, Star, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { products as localProducts } from '../data/products';
@@ -16,8 +16,18 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
   const [loadedImages, setLoadedImages] = useState({});
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [shakeButton, setShakeButton] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareUrlCopied, setShareUrlCopied] = useState(false);
+
+  // Touch swipe state
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
+  const isSwiping = useRef(false);
+  // Holds the current images array length so swipe handlers don't capture a stale value
+  const productImagesLenRef = useRef(1);
 
   const [selectedColor, setSelectedColor] = useState('');
+  const [selectedVariant, setSelectedVariant] = useState(null);
   const [promoText, setPromoText] = useState('Extra 20% off $100+');
   const [showPromo, setShowPromo] = useState(false);
 
@@ -73,6 +83,41 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
 
   const swatches = parseSwatches();
 
+  const getProductVariantsAndDefault = (product) => {
+    if (!product) return [];
+    const visibleVars = (product.variants || []).filter(v => v.status !== 'hidden');
+    if (visibleVars.length > 0) {
+      let defaultColorName = 'Original';
+      let defaultHex = '#111111';
+      
+      if (swatches && swatches.length > 0) {
+        defaultColorName = swatches[0].name;
+        defaultHex = swatches[0].hex;
+      }
+      
+      const defaultVariant = {
+        id: 'default',
+        color: defaultColorName,
+        hex: defaultHex,
+        price: product.price,
+        discountPrice: product.discountPrice,
+        stock: product.stock,
+        sku: product.sku || product.id,
+        images: Array.isArray(product.images) && product.images.length > 0 
+          ? product.images 
+          : [product.image, product.hoverImage || product.hover_image].filter(Boolean),
+        status: 'available',
+        display_order: -1
+      };
+      
+      return [defaultVariant, ...visibleVars];
+    }
+    return [];
+  };
+
+  const visibleVariants = getProductVariantsAndDefault(product);
+  const hasVariants = visibleVariants.length > 0;
+
   // Reviews State & CRUD Logic
   const [reviews, setReviews] = useState([]);
   const [newRating, setNewRating] = useState(5);
@@ -100,6 +145,46 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
       setSelectedColor('');
     }
   }, [product, swatches]);
+
+  useEffect(() => {
+    if (!isOpen || !product) {
+      setSelectedVariant(null);
+      return;
+    }
+    const hasVars = visibleVariants.length > 0;
+    if (hasVars) {
+      const params = new URLSearchParams(window.location.search);
+      const urlVariantId = params.get('variant');
+      const foundVariant = visibleVariants.find(v => v.id === urlVariantId);
+      if (foundVariant) {
+        setSelectedVariant(foundVariant);
+      } else {
+        setSelectedVariant(visibleVariants[0]);
+      }
+
+      // Preload images
+      const imagesToPreload = [];
+      if (product.image) imagesToPreload.push(product.image);
+      const defaultImages = product.images && Array.isArray(product.images)
+        ? product.images
+        : (typeof product.images === 'string' ? (() => { try { return JSON.parse(product.images); } catch { return []; } })() : []);
+      defaultImages.forEach(img => imagesToPreload.push(img));
+      
+      visibleVariants.forEach(v => {
+        if (Array.isArray(v.images)) {
+          v.images.forEach(img => imagesToPreload.push(img));
+        }
+      });
+      
+      const uniqueImages = [...new Set(imagesToPreload)].filter(Boolean);
+      uniqueImages.forEach(url => {
+        const img = new Image();
+        img.src = url;
+      });
+    } else {
+      setSelectedVariant(null);
+    }
+  }, [isOpen, product, visibleVariants]);
 
   useEffect(() => {
     const text = localStorage.getItem('offkilt_promo_discount_text') || 'Extra 20% off $100+';
@@ -218,7 +303,13 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
           ...p,
           image: toWebp(p.image),
           hoverImage: toWebp(p.hoverImage || p.hover_image),
-          images: Array.isArray(p.images) ? p.images.map(toWebp) : [toWebp(p.image)]
+          images: Array.isArray(p.images) ? p.images.map(toWebp) : [toWebp(p.image)],
+          variants: Array.isArray(p.variants)
+            ? p.variants.map(v => ({
+                ...v,
+                images: Array.isArray(v.images) ? v.images.map(toWebp) : []
+              }))
+            : []
         }));
         const filtered = mapped.filter(p => p.category === product.category && p.id !== product.id).slice(0, 4);
         setSimilarProducts(filtered);
@@ -257,26 +348,84 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
     window.dispatchEvent(new Event('offkilt_qna_updated'));
   };
 
-  const handleShareProduct = (e) => {
-    e.stopPropagation();
-    const shareUrl = `${window.location.origin}${window.location.pathname}?product=${product.id}`;
-    
-    // Copy to clipboard
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 2000);
-    }).catch(err => {
-      console.error('Failed to copy: ', err);
-    });
+  const handleShareProduct = useCallback((e) => {
+    if (e) e.stopPropagation();
+    setShareModalOpen(true);
+  }, []);
 
-    if (navigator.share) {
+  const handleSharePlatform = (platform) => {
+    const shareUrl = `${window.location.origin}${window.location.pathname}?product=${product.id}`;
+    const productPrice = product.discountPrice || product.price;
+    const text = `Check out ${product.name} — ₹${Number(productPrice).toLocaleString('en-IN')} on Off-Kilt!\n${shareUrl}`;
+
+    const urls = {
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(text)}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+      twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
+      instagram: shareUrl, // Instagram doesn't support direct URL sharing — copy link
+    };
+
+    if (platform === 'copy' || platform === 'instagram') {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        setShareUrlCopied(true);
+        setTimeout(() => setShareUrlCopied(false), 2500);
+      }).catch(() => {});
+      return;
+    }
+
+    if (platform === 'native' && navigator.share) {
+      const displayPrice = product.discountPrice || product.price;
       navigator.share({
         title: product.name,
-        text: `Check out ${product.name} on off-kilt!`,
+        text: `Check out ${product.name} — ₹${Number(displayPrice).toLocaleString('en-IN')} on Off-Kilt!`,
         url: shareUrl,
       }).catch(() => {});
+      return;
     }
+
+    if (urls[platform]) window.open(urls[platform], '_blank', 'noopener,noreferrer');
   };
+
+  // Touch swipe handlers
+  const handleTouchStart = useCallback((e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    isSwiping.current = false;
+  }, []);
+
+  const handleTouchMove = useCallback((e) => {
+    if (touchStartX.current === null) return;
+    const deltaX = e.touches[0].clientX - touchStartX.current;
+    const deltaY = e.touches[0].clientY - touchStartY.current;
+    // If horizontal movement is dominant, prevent vertical scroll
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 8) {
+      e.preventDefault();
+      isSwiping.current = true;
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((e) => {
+    if (touchStartX.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    touchStartY.current = null;
+
+    if (!isSwiping.current) return;
+    isSwiping.current = false;
+
+    const SWIPE_THRESHOLD = 45;
+    if (Math.abs(deltaX) < SWIPE_THRESHOLD) return;
+
+    const len = productImagesLenRef.current;
+    if (deltaX < 0) {
+      // Swipe left → next image
+      setActiveImgIndex(prev => (prev === len - 1 ? 0 : prev + 1));
+    } else {
+      // Swipe right → previous image
+      setActiveImgIndex(prev => (prev === 0 ? len - 1 : prev - 1));
+    }
+  }, []); // productImagesLenRef is a ref — always stable, no dep needed
+
 
   // Load reviews from localStorage
   useEffect(() => {
@@ -438,18 +587,35 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
     setLoadedImages(prev => ({ ...prev, [url]: true }));
   };
 
+  const handleVariantSelect = (variant) => {
+    setSelectedVariant(variant);
+    setActiveImgIndex(0);
+    
+    // Update query params
+    const params = new URLSearchParams(window.location.search);
+    params.set('variant', variant.id);
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({ ...window.history.state }, '', newUrl);
+  };
+
   // Safely parse sizes and details (may come as strings from localStorage)
   const safeSizes = Array.isArray(product?.sizes) ? product.sizes
     : (typeof product?.sizes === 'string' ? (() => { try { return JSON.parse(product.sizes); } catch { return []; } })() : []);
   const safeDetails = Array.isArray(product?.details) ? product.details
     : (typeof product?.details === 'string' ? (() => { try { return JSON.parse(product.details); } catch { return []; } })() : []);
-  const productImages = product?.images && Array.isArray(product.images) && product.images.length > 0
-    ? product.images
-    : (typeof product?.images === 'string'
-        ? (() => { try { return JSON.parse(product.images); } catch { return [product?.image].filter(Boolean); } })()
-        : [product?.image].filter(Boolean));
+  const productImages = selectedVariant && Array.isArray(selectedVariant.images) && selectedVariant.images.length > 0
+    ? selectedVariant.images
+    : (product?.images && Array.isArray(product.images) && product.images.length > 0
+        ? product.images
+        : (typeof product?.images === 'string'
+            ? (() => { try { return JSON.parse(product.images); } catch { return [product?.image].filter(Boolean); } })()
+            : [product?.image].filter(Boolean)));
+
+  // Keep the ref in sync so touch-swipe handlers always see the current length
+  productImagesLenRef.current = productImages.length;
 
   const currentImage = productImages[activeImgIndex] || product?.image;
+
   const isWishlistedProduct = wishlist.some(w => (w.id || w) === product?.id);
 
   const handleAddToCart = () => {
@@ -465,7 +631,7 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
       return;
     }
     setErrorMsg('');
-    onAddToCart(product, selectedSize);
+    onAddToCart(product, selectedSize, selectedVariant?.id);
     onClose();
     setSelectedSize('');
   };
@@ -522,6 +688,15 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                 className="modal-image-gallery modal-image-tappable"
                 onClick={openLightbox}
                 title="Tap to view fullscreen"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                ref={(el) => {
+                  // passive: false is required to call preventDefault in touchmove
+                  if (el) {
+                    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+                  }
+                }}
               >
                 {!loadedImages[currentImage] && (
                   <div className="image-shimmer-skeleton" />
@@ -572,7 +747,22 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                     </button>
                   </>
                 )}
+
+                {/* Position Indicator Dots */}
+                {productImages.length > 1 && (
+                  <div className="gallery-dots-indicator">
+                    {productImages.map((_, i) => (
+                      <button
+                        key={i}
+                        className={`gallery-dot ${i === activeImgIndex ? 'active' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); setActiveImgIndex(i); }}
+                        aria-label={`Image ${i + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
+
 
               {/* Thumbnails Row */}
               {productImages.length > 1 && (
@@ -621,14 +811,85 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                 </div>
 
                 <div className="modal-price-row-editorial" style={{ display: 'flex', gap: '10px', alignItems: 'center', margin: '4px 0', fontFamily: 'var(--font-mono)' }}>
-                  <span className="original-price-editorial" style={{ fontSize: '0.95rem' }}>₹{(product.price * 2).toLocaleString('en-IN')}</span>
-                  <span className="sale-price-editorial" style={{ fontSize: '1.15rem' }}>₹{product.price.toLocaleString('en-IN')}</span>
-                  <span className="discount-editorial" style={{ fontSize: '0.95rem' }}>50% off</span>
+                  {(() => {
+                    const displayPrice = selectedVariant ? selectedVariant.price : product.price;
+                    const displayDiscountPrice = selectedVariant && selectedVariant.id !== 'default' ? null : product.discountPrice;
+                    return displayDiscountPrice && Number(displayDiscountPrice) < Number(displayPrice) ? (
+                      <>
+                        <span className="original-price-editorial" style={{ fontSize: '0.95rem' }}>₹{Number(displayPrice).toLocaleString('en-IN')}</span>
+                        <span className="sale-price-editorial" style={{ fontSize: '1.15rem' }}>₹{Number(displayDiscountPrice).toLocaleString('en-IN')}</span>
+                        <span className="discount-editorial" style={{ fontSize: '0.95rem' }}>{Math.round((1 - Number(displayDiscountPrice) / Number(displayPrice)) * 100)}% off</span>
+                      </>
+                    ) : (
+                      <span className="sale-price-editorial" style={{ fontSize: '1.15rem' }}>₹{Number(displayPrice).toLocaleString('en-IN')}</span>
+                    );
+                  })()}
                 </div>
-                
+
+                {/* SKU and Stock Info */}
+                <div style={{ display: 'flex', gap: '20px', margin: '8px 0', fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-grey)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <span>SKU: <span style={{ color: 'var(--text-light)' }}>{selectedVariant ? selectedVariant.sku : product.sku || product.id}</span></span>
+                  <span>AVAILABILITY: <span style={{ 
+                    color: (() => {
+                      const isOutOfStock = selectedVariant
+                        ? (selectedVariant.status === 'out_of_stock' || selectedVariant.stock <= 0)
+                        : (product.stock <= 0);
+                      return !isOutOfStock ? '#15803d' : '#ef4444';
+                    })(),
+                    fontWeight: 'bold' 
+                  }}>
+                    {(() => {
+                      const isOutOfStock = selectedVariant
+                        ? (selectedVariant.status === 'out_of_stock' || selectedVariant.stock <= 0)
+                        : (product.stock <= 0);
+                      const currentStock = selectedVariant ? selectedVariant.stock : product.stock;
+                      return !isOutOfStock ? `${currentStock} IN STOCK` : 'OUT OF STOCK';
+                    })()}
+                  </span></span>
+                </div>
 
                 {/* Color Swatches */}
-                {swatches.length > 1 ? (
+                {hasVariants ? (
+                  <div className="color-swatches-area">
+                    <span className="color-swatches-title">COLOR: <span style={{ color: 'var(--accent-raw)', fontWeight: 'bold', marginLeft: '6px' }}>{selectedVariant ? selectedVariant.color.toUpperCase() : ''}</span></span>
+                    <div className="color-swatches">
+                      {visibleVariants.map((v) => {
+                        const isOutOfStock = v.status === 'out_of_stock' || v.stock <= 0;
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            className={`color-swatch ${selectedVariant?.id === v.id ? 'active' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`}
+                            onClick={() => handleVariantSelect(v)}
+                            title={isOutOfStock ? `${v.color} (Out of Stock)` : v.color}
+                          >
+                            <div
+                              className="color-swatch-inner"
+                              style={{ 
+                                backgroundColor: v.hex || '#111111',
+                                position: 'relative'
+                              }}
+                            >
+                              {isOutOfStock && (
+                                <div style={{
+                                  position: 'absolute',
+                                  top: '50%',
+                                  left: '50%',
+                                  width: '120%',
+                                  height: '1.5px',
+                                  backgroundColor: '#ef4444',
+                                  transform: 'translate(-50%, -50%) rotate(45deg)',
+                                  pointerEvents: 'none'
+                                }} />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <span className="color-swatch-label">{selectedVariant?.color || ''}</span>
+                  </div>
+                ) : swatches.length > 1 ? (
                   <div className="color-swatches-area">
                     <span className="color-swatches-title">COLOR</span>
                     <div className="color-swatches">
@@ -1138,9 +1399,29 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
 
               {/* Sticky bottom actions */}
               <div className="modal-actions-fixed">
-                <button className={`btn-primary add-to-cart-btn ${shakeButton ? 'shake-anim' : ''}`} onClick={handleAddToCart} style={{ flex: 1 }}>
-                  <ShoppingBag size={16} /> Add To Cart
-                </button>
+                {(() => {
+                  const isOutOfStock = selectedVariant
+                    ? (selectedVariant.status === 'out_of_stock' || selectedVariant.stock <= 0)
+                    : (product.stock <= 0);
+                  
+                  if (isOutOfStock) {
+                    return (
+                      <button 
+                        className="btn-primary add-to-cart-btn" 
+                        disabled={true} 
+                        style={{ flex: 1, backgroundColor: '#a1a1aa', cursor: 'not-allowed', opacity: 0.7 }}
+                      >
+                        <ShoppingBag size={16} /> Out of Stock
+                      </button>
+                    );
+                  }
+                  
+                  return (
+                    <button className={`btn-primary add-to-cart-btn ${shakeButton ? 'shake-anim' : ''}`} onClick={handleAddToCart} style={{ flex: 1 }}>
+                      <ShoppingBag size={16} /> Add To Cart
+                    </button>
+                  );
+                })()}
                 {/* Share Product Button */}
                 <button
                   onClick={handleShareProduct}
@@ -1266,6 +1547,110 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                     ))}
                   </div>
                 )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── SHARE MODAL ── */}
+          <AnimatePresence>
+            {shareModalOpen && (
+              <motion.div
+                className="share-modal-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setShareModalOpen(false)}
+              >
+                <motion.div
+                  className="share-modal-card"
+                  initial={{ y: 60, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 40, opacity: 0 }}
+                  transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="share-modal-handle" />
+                  <button className="share-modal-close" onClick={() => setShareModalOpen(false)} aria-label="Close share">
+                    <X size={14} />
+                  </button>
+
+                  <p className="share-modal-title">Share This Product</p>
+
+                  {/* Product Preview */}
+                  <div className="share-modal-product-preview">
+                    <img
+                      src={currentImage || product?.image}
+                      alt={product?.name}
+                      className="share-modal-product-img"
+                    />
+                    <div className="share-modal-product-info">
+                      <span className="share-modal-product-name">{product?.name}</span>
+                      <span className="share-modal-product-price">
+                        ₹{Number(product?.discountPrice || product?.price).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Social Platforms */}
+                  <div className="share-modal-platforms">
+                    {/* WhatsApp */}
+                    <button className="share-platform-btn" onClick={() => handleSharePlatform('whatsapp')} title="Share on WhatsApp">
+                      <svg viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                      <span className="share-platform-label">WhatsApp</span>
+                    </button>
+
+                    {/* Facebook */}
+                    <button className="share-platform-btn" onClick={() => handleSharePlatform('facebook')} title="Share on Facebook">
+                      <svg viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                      <span className="share-platform-label">Facebook</span>
+                    </button>
+
+                    {/* X / Twitter */}
+                    <button className="share-platform-btn" onClick={() => handleSharePlatform('twitter')} title="Share on X (Twitter)">
+                      <svg viewBox="0 0 24 24" fill="#000000"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.748l7.73-8.835L1.254 2.25H8.08l4.254 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                      <span className="share-platform-label">X / Twitter</span>
+                    </button>
+
+                    {/* Instagram (Copy link) */}
+                    <button className="share-platform-btn" onClick={() => handleSharePlatform('instagram')} title="Copy link for Instagram">
+                      <svg viewBox="0 0 24 24" fill="url(#ig-gradient)">
+                        <defs>
+                          <linearGradient id="ig-gradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#f09433"/>
+                            <stop offset="25%" stopColor="#e6683c"/>
+                            <stop offset="50%" stopColor="#dc2743"/>
+                            <stop offset="75%" stopColor="#cc2366"/>
+                            <stop offset="100%" stopColor="#bc1888"/>
+                          </linearGradient>
+                        </defs>
+                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                      </svg>
+                      <span className="share-platform-label">Instagram</span>
+                    </button>
+
+                    {/* Native Share (mobile) */}
+                    {typeof navigator !== 'undefined' && navigator.share && (
+                      <button className="share-platform-btn" onClick={() => handleSharePlatform('native')} title="More options">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                        <span className="share-platform-label">More</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Copy Link Row */}
+                  <div className="share-copy-link-row">
+                    <span className="share-copy-url">
+                      {`${window.location.origin}${window.location.pathname}?product=${product?.id}`}
+                    </span>
+                    <button
+                      className={`share-copy-btn ${shareUrlCopied ? 'copied' : ''}`}
+                      onClick={() => handleSharePlatform('copy')}
+                    >
+                      {shareUrlCopied ? '✓ Copied!' : 'Copy Link'}
+                    </button>
+                  </div>
+                </motion.div>
               </motion.div>
             )}
           </AnimatePresence>

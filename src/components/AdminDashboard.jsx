@@ -1,14 +1,264 @@
-import { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Plus, Edit2, Trash2, Save, Image as ImageIcon, UploadCloud, 
   BarChart3, Package, ShoppingBag, Layout, List, FileText, Megaphone, 
   Tag, Users, Globe, RefreshCw, ShieldAlert, Database, UserCheck, 
   Download, Upload, Search, Check, AlertTriangle, Eye, Printer,
-  Type, Share2, Phone, MapPin, HelpCircle, Layers, CreditCard, Key, ShieldCheck, Zap
+  Type, Share2, Phone, MapPin, HelpCircle, Layers, CreditCard, Key, ShieldCheck, Zap, Mail, Send
 } from 'lucide-react';
 import { products as productsApi, admin as adminApi } from '../services/api';
 import { saveMediaToIndexedDB } from '../services/db';
+
+// ── Admin Email Management Tab ──────────────────────────────────────────────
+function AdminEmailTab() {
+  const [emailProvider, setEmailProvider] = useState(() =>
+    JSON.parse(localStorage.getItem('offkilt_email_provider') || JSON.stringify({
+      provider: 'Brevo', senderName: 'Off-Kilt',
+      senderEmail: 'support@off-kilt.com', replyTo: 'support@off-kilt.com', apiKey: ''
+    }))
+  );
+  const [emailToggles, setEmailToggles] = useState(() =>
+    JSON.parse(localStorage.getItem('offkilt_email_toggles') || JSON.stringify({
+      welcome: true, forgot_password: true, order_confirm: true,
+      order_shipped: true, order_delivered: true, contact_form: true, newsletter: true
+    }))
+  );
+  const [selectedTemplate, setSelectedTemplate] = useState('forgot_password');
+  const [templateSubject, setTemplateSubject] = useState('Reset Your Password - Off-Kilt');
+  const [templateBody, setTemplateBody] = useState(`Hello {{customer_name}},\n\nClick the button below to reset your password.\n\n[ Reset Password ]\n\nThis link expires in 15 minutes.\n\n— Off-Kilt Team`);
+  const [testEmail, setTestEmail] = useState('');
+  const [testResult, setTestResult] = useState(null);
+  const [providerSaved, setProviderSaved] = useState(false);
+  const [togglesSaved, setTogglesSaved] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
+
+  const activityLog = [
+    { date: 'Today, 14:31', type: 'Forgot Password', recipient: 'user@gmail.com', status: 'Delivered' },
+    { date: 'Today, 11:02', type: 'Order Confirmed', recipient: 'customer@gmail.com', status: 'Delivered' },
+    { date: 'Yesterday, 18:55', type: 'Welcome Email', recipient: 'newuser@gmail.com', status: 'Delivered' },
+    { date: 'Yesterday, 09:13', type: 'Order Shipped', recipient: 'orders@gmail.com', status: 'Delivered' },
+    { date: '30 May, 16:40', type: 'Newsletter', recipient: 'fan@gmail.com', status: 'Bounced' },
+  ];
+
+  const emailTypes = [
+    { value: 'forgot_password', label: 'Forgot Password' },
+    { value: 'welcome', label: 'Welcome Email' },
+    { value: 'order_confirm', label: 'Order Confirmation' },
+    { value: 'order_shipped', label: 'Order Shipped' },
+    { value: 'order_delivered', label: 'Order Delivered' },
+    { value: 'newsletter', label: 'Newsletter Subscription' },
+  ];
+
+  const toggleRows = [
+    { key: 'welcome', label: 'Welcome Email', desc: 'Sent when customer creates account.' },
+    { key: 'forgot_password', label: 'Forgot Password', desc: 'Sent when customer requests password reset.' },
+    { key: 'order_confirm', label: 'Order Confirmation', desc: 'Sent after successful order placement.' },
+    { key: 'order_shipped', label: 'Order Shipped', desc: 'Sent when order is shipped.' },
+    { key: 'order_delivered', label: 'Order Delivered', desc: 'Sent when order is delivered.' },
+    { key: 'contact_form', label: 'Contact Form Notification', desc: 'Sent when customer submits contact form.' },
+    { key: 'newsletter', label: 'Newsletter Subscription', desc: 'Sent after newsletter signup.' },
+  ];
+
+  return (
+    <div className="admin-email-section">
+      {/* Email Provider */}
+      <div className="admin-email-card">
+        <div className="admin-email-card-title">
+          <Mail size={14} style={{ display: 'inline', marginRight: '8px' }} />
+          Email Provider
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', fontWeight: 600 }}>Current Provider: Brevo</span>
+          <span className="admin-email-status-badge connected">🟢 Connected</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          {[
+            { label: 'Sender Name', key: 'senderName', type: 'text', placeholder: 'Off-Kilt' },
+            { label: 'Sender Email', key: 'senderEmail', type: 'email', placeholder: 'support@off-kilt.com' },
+            { label: 'Reply-To Email', key: 'replyTo', type: 'email', placeholder: 'support@off-kilt.com' },
+            { label: 'Brevo API Key', key: 'apiKey', type: 'password', placeholder: '••••••••••••••••••' },
+          ].map(field => (
+            <div key={field.key}>
+              <label style={{ display: 'block', fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-grey)', marginBottom: '6px', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                {field.label}
+              </label>
+              <input
+                type={field.type}
+                value={emailProvider[field.key] || ''}
+                onChange={e => setEmailProvider(p => ({ ...p, [field.key]: e.target.value }))}
+                placeholder={field.placeholder}
+                style={{ width: '100%', padding: '10px 12px', fontSize: '0.82rem', border: '1.5px solid rgba(0,0,0,0.1)', borderRadius: '6px', fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box' }}
+              />
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: '10px', marginTop: '18px' }}>
+          <button className="btn-primary" style={{ padding: '10px 20px', fontSize: '0.72rem', width: 'auto' }}
+            onClick={() => { localStorage.setItem('offkilt_email_provider', JSON.stringify(emailProvider)); setProviderSaved(true); setTimeout(() => setProviderSaved(false), 2000); }}>
+            {providerSaved ? <Check size={14} /> : <Save size={14} />}
+            {providerSaved ? ' Saved!' : ' Save Changes'}
+          </button>
+          <button className="btn-secondary" style={{ padding: '10px 18px', fontSize: '0.72rem', width: 'auto' }}
+            onClick={() => alert('Connection test: ✓ Brevo API key validated (simulated)')}>
+            <Zap size={14} style={{ marginRight: '6px' }} /> Test Connection
+          </button>
+        </div>
+      </div>
+
+      {/* Automated Email Toggles */}
+      <div className="admin-email-card">
+        <div className="admin-email-card-title">
+          <Send size={14} style={{ display: 'inline', marginRight: '8px' }} />
+          Automated Emails
+        </div>
+        {toggleRows.map(row => (
+          <div key={row.key} className="admin-email-toggle-row">
+            <div>
+              <div className="admin-email-toggle-label">{row.label}</div>
+              <div className="admin-email-toggle-desc">{row.desc}</div>
+            </div>
+            <label className="admin-toggle-switch">
+              <input
+                type="checkbox"
+                checked={emailToggles[row.key] !== false}
+                onChange={e => setEmailToggles(t => ({ ...t, [row.key]: e.target.checked }))}
+              />
+              <span className="admin-toggle-slider" />
+            </label>
+          </div>
+        ))}
+        <button className="btn-primary" style={{ marginTop: '18px', padding: '10px 20px', fontSize: '0.72rem', width: 'auto' }}
+          onClick={() => { localStorage.setItem('offkilt_email_toggles', JSON.stringify(emailToggles)); setTogglesSaved(true); setTimeout(() => setTogglesSaved(false), 2000); }}>
+          {togglesSaved ? <><Check size={14} /> Saved!</> : <><Save size={14} /> Save Preferences</>}
+        </button>
+      </div>
+
+      {/* Email Templates */}
+      <div className="admin-email-card">
+        <div className="admin-email-card-title">Email Templates</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-grey)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1px' }}>Email Type</label>
+            <select value={selectedTemplate} onChange={e => setSelectedTemplate(e.target.value)}
+              style={{ width: '100%', padding: '10px 12px', fontSize: '0.82rem', border: '1.5px solid rgba(0,0,0,0.1)', borderRadius: '6px', fontFamily: 'var(--font-mono)', outline: 'none' }}>
+              {emailTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-grey)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1px' }}>Subject Line</label>
+            <input type="text" value={templateSubject} onChange={e => setTemplateSubject(e.target.value)}
+              style={{ width: '100%', padding: '10px 12px', fontSize: '0.82rem', border: '1.5px solid rgba(0,0,0,0.1)', borderRadius: '6px', fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box' }} />
+          </div>
+        </div>
+        <label style={{ display: 'block', fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-grey)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Email Content</label>
+        <textarea className="admin-email-template-editor" value={templateBody} onChange={e => setTemplateBody(e.target.value)} rows={8} />
+        <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+          <button className="btn-primary" style={{ padding: '10px 20px', fontSize: '0.72rem', width: 'auto' }}
+            onClick={() => {
+              const tmpl = JSON.parse(localStorage.getItem('offkilt_email_templates') || '{}');
+              tmpl[selectedTemplate] = { subject: templateSubject, body: templateBody };
+              localStorage.setItem('offkilt_email_templates', JSON.stringify(tmpl));
+              setTemplateSaved(true); setTimeout(() => setTemplateSaved(false), 2000);
+            }}>
+            {templateSaved ? <><Check size={14} /> Saved!</> : <><Save size={14} /> Save Template</>}
+          </button>
+          <button className="btn-secondary" style={{ padding: '10px 18px', fontSize: '0.72rem', width: 'auto' }}
+            onClick={() => alert(`Preview — ${emailTypes.find(t=>t.value===selectedTemplate)?.label}\n\nSubject: ${templateSubject}\n\n${templateBody}`)}>
+            <Eye size={14} style={{ marginRight: '6px' }} /> Preview
+          </button>
+        </div>
+      </div>
+
+      {/* Test Email */}
+      <div className="admin-email-card">
+        <div className="admin-email-card-title">
+          <Send size={14} style={{ display: 'inline', marginRight: '8px' }} />
+          Send Test Email
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-grey)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1px' }}>Recipient Email</label>
+            <input type="email" value={testEmail} onChange={e => setTestEmail(e.target.value)} placeholder="test@example.com"
+              style={{ width: '100%', padding: '10px 12px', fontSize: '0.82rem', border: '1.5px solid rgba(0,0,0,0.1)', borderRadius: '6px', fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box' }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-grey)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1px' }}>Email Type</label>
+            <select style={{ width: '100%', padding: '10px 12px', fontSize: '0.82rem', border: '1.5px solid rgba(0,0,0,0.1)', borderRadius: '6px', fontFamily: 'var(--font-mono)', outline: 'none' }}>
+              {emailTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <button className="btn-primary" style={{ padding: '10px 20px', fontSize: '0.72rem', width: 'auto' }}
+          onClick={() => { if (!testEmail) { alert('Please enter a recipient email address.'); return; } setTestResult('success'); setTimeout(() => setTestResult(null), 4000); }}>
+          <Send size={14} style={{ marginRight: '6px' }} /> Send Test Email
+        </button>
+        {testResult === 'success' && (
+          <div style={{ marginTop: '14px', padding: '10px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', color: '#15803d', fontFamily: 'var(--font-mono)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Check size={14} /> Test email sent to {testEmail} (simulated)
+          </div>
+        )}
+      </div>
+
+      {/* Activity Log */}
+      <div className="admin-email-card">
+        <div className="admin-email-card-title">Recent Email Activity</div>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="admin-email-log-table">
+            <thead>
+              <tr><th>Date</th><th>Type</th><th>Recipient</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {activityLog.map((log, i) => (
+                <tr key={i}>
+                  <td>{log.date}</td><td>{log.type}</td><td>{log.recipient}</td>
+                  <td>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '4px',
+                      padding: '2px 8px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: 600,
+                      background: log.status === 'Delivered' ? '#f0fdf4' : '#fef2f2',
+                      color: log.status === 'Delivered' ? '#15803d' : '#dc2626',
+                      border: `1px solid ${log.status === 'Delivered' ? '#bbf7d0' : '#fecaca'}`
+                    }}>
+                      {log.status === 'Delivered' ? '✓' : '✕'} {log.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}>
+          <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.7rem', width: 'auto' }} onClick={() => alert('Exporting logs... (simulated)')}>
+            <Download size={13} style={{ marginRight: '6px' }} /> Export Logs
+          </button>
+          <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.7rem', width: 'auto' }} onClick={() => alert('Failed queue cleared! (simulated)')}>
+            Clear Failed Queue
+          </button>
+        </div>
+      </div>
+
+      {/* Email Statistics */}
+      <div className="admin-email-card">
+        <div className="admin-email-card-title">Email Statistics (Today)</div>
+        <div className="admin-email-stat-grid">
+          {[
+            { label: 'Emails Sent', value: '125', color: '#111111' },
+            { label: 'Delivered', value: '122', color: '#15803d' },
+            { label: 'Failed', value: '3', color: '#dc2626' },
+            { label: 'Delivery Rate', value: '97.6%', color: '#2563eb' },
+          ].map(stat => (
+            <div key={stat.label} className="admin-email-stat-card">
+              <div className="admin-email-stat-number" style={{ color: stat.color }}>{stat.value}</div>
+              <div className="admin-email-stat-label">{stat.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 // Helper component for Q&A Manager row
 function QnaItemRow({ q, prodId, onSaveAnswer, onDelete }) {
@@ -97,9 +347,14 @@ export default function AdminDashboard({ currentUser, onClose }) {
   const [productForm, setProductForm] = useState({
     id: '', name: '', tagline: '', price: '', category: 'jeans',
     image: '', hover_image: '', description: '', discountPrice: '',
-    stock: '50', sku: '', swatches: 'Raw Indigo:#1e293b, Charcoal Black:#111111',
+    stock: '50', sku: '', swatches: [{ name: 'Raw Indigo', hex: '#1e293b' }, { name: 'Charcoal Black', hex: '#111111' }],
     sizes: ['30', '32', '34'],
-    images: []
+    images: [],
+    variants: [],
+    slug: '',
+    meta_title: '',
+    meta_description: '',
+    meta_keywords: ''
   });
   const [editingProductId, setEditingProductId] = useState(null);
   const [productSearch, setProductSearch] = useState('');
@@ -140,6 +395,10 @@ export default function AdminDashboard({ currentUser, onClose }) {
     const mainImg = productForm.images?.[0] || productForm.image || '';
     const hoverImg = productForm.images?.[1] || productForm.hover_image || mainImg;
 
+    const swatchesStr = Array.isArray(productForm.swatches)
+      ? productForm.swatches.map(s => `${s.name.trim()}:${s.hex.trim()}`).join(', ')
+      : productForm.swatches;
+
     const payload = {
       ...productForm,
       image: mainImg,
@@ -153,7 +412,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
       details: [
         `SKU: ${productForm.sku || 'OK-' + Math.floor(Math.random() * 10000)}`,
         `Inventory: ${productForm.stock} units`,
-        `Fabric Swatches: ${productForm.swatches}`
+        `Fabric Swatches: ${swatchesStr}`
       ],
       materials: "100% heavyweight selvedge denim",
       shipping: "Standard delivery 3-5 business days"
@@ -168,9 +427,14 @@ export default function AdminDashboard({ currentUser, onClose }) {
       setProductForm({
         id: '', name: '', tagline: '', price: '', category: 'jeans',
         image: '', hover_image: '', description: '', discountPrice: '',
-        stock: '50', sku: '', swatches: 'Raw Indigo:#1e293b, Charcoal Black:#111111',
+        stock: '50', sku: '', swatches: [{ name: 'Raw Indigo', hex: '#1e293b' }, { name: 'Charcoal Black', hex: '#111111' }],
         sizes: ['30', '32', '34'],
-        images: []
+        images: [],
+        variants: [],
+        slug: '',
+        meta_title: '',
+        meta_description: '',
+        meta_keywords: ''
       });
       setEditingProductId(null);
       fetchProducts();
@@ -187,6 +451,14 @@ export default function AdminDashboard({ currentUser, onClose }) {
     if (Array.isArray(p.details)) {
       const swatchLine = p.details.find(d => d.includes('Fabric Swatches:'));
       if (swatchLine) swatchStr = swatchLine.replace('Fabric Swatches:', '').trim();
+    }
+
+    let swatchArr = [];
+    if (swatchStr) {
+      swatchArr = swatchStr.split(',').map(s => {
+        const parts = s.split(':');
+        return { name: parts[0]?.trim() || '', hex: parts[1]?.trim() || '#111111' };
+      });
     }
 
     let productImages = [];
@@ -220,8 +492,13 @@ export default function AdminDashboard({ currentUser, onClose }) {
       discountPrice: p.discountPrice || '',
       stock: p.stock || '50',
       sku: p.sku || p.id,
-      swatches: swatchStr,
-      sizes: Array.isArray(p.sizes) ? p.sizes : ['30', '32', '34']
+      swatches: swatchArr,
+      sizes: Array.isArray(p.sizes) ? p.sizes : ['30', '32', '34'],
+      variants: p.variants || [],
+      slug: p.slug || '',
+      meta_title: p.meta_title || '',
+      meta_description: p.meta_description || '',
+      meta_keywords: p.meta_keywords || ''
     });
     setEditingProductId(p.id);
   };
@@ -277,6 +554,91 @@ export default function AdminDashboard({ currentUser, onClose }) {
         image: filtered[0] || '',
         hover_image: filtered[1] || filtered[0] || ''
       };
+    });
+  };
+
+  const handleAddVariant = () => {
+    const nextId = 'v-' + Math.random().toString(36).substr(2, 9);
+    const newVariant = {
+      id: nextId,
+      color: 'New Color',
+      hex: '#000000',
+      price: productForm.price ? Number(productForm.price) : 2999,
+      stock: 50,
+      sku: productForm.sku ? `${productForm.sku}-${nextId.toUpperCase()}` : `SKU-${nextId.toUpperCase()}`,
+      images: [],
+      status: 'available',
+      display_order: productForm.variants ? productForm.variants.length : 0
+    };
+    setProductForm(prev => ({
+      ...prev,
+      variants: [...(prev.variants || []), newVariant]
+    }));
+  };
+
+  const handleUpdateVariant = (idx, field, value) => {
+    setProductForm(prev => {
+      const updatedVariants = [...(prev.variants || [])];
+      updatedVariants[idx] = { ...updatedVariants[idx], [field]: value };
+      return { ...prev, variants: updatedVariants };
+    });
+  };
+
+  const handleDeleteVariant = (idx) => {
+    setProductForm(prev => {
+      const updatedVariants = (prev.variants || []).filter((_, i) => i !== idx);
+      // Re-index display_order
+      const indexed = updatedVariants.map((v, i) => ({ ...v, display_order: i }));
+      return { ...prev, variants: indexed };
+    });
+  };
+
+  const handleMoveVariant = (idx, direction) => {
+    setProductForm(prev => {
+      const variants = [...(prev.variants || [])];
+      if (direction === 'up' && idx > 0) {
+        const temp = variants[idx];
+        variants[idx] = variants[idx - 1];
+        variants[idx - 1] = temp;
+      } else if (direction === 'down' && idx < variants.length - 1) {
+        const temp = variants[idx];
+        variants[idx] = variants[idx + 1];
+        variants[idx + 1] = temp;
+      }
+      // Re-index display_order
+      const updated = variants.map((v, i) => ({ ...v, display_order: i }));
+      return { ...prev, variants: updated };
+    });
+  };
+
+  const handleVariantImagesUpload = (e, idx) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProductForm(prev => {
+          const updatedVariants = [...(prev.variants || [])];
+          const variant = updatedVariants[idx];
+          if (variant) {
+            const updatedImages = [...(variant.images || []), reader.result];
+            updatedVariants[idx] = { ...variant, images: updatedImages };
+          }
+          return { ...prev, variants: updatedVariants };
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveVariantImage = (variantIdx, imgIdx) => {
+    setProductForm(prev => {
+      const updatedVariants = [...(prev.variants || [])];
+      const variant = updatedVariants[variantIdx];
+      if (variant) {
+        const updatedImages = (variant.images || []).filter((_, i) => i !== imgIdx);
+        updatedVariants[variantIdx] = { ...variant, images: updatedImages };
+      }
+      return { ...prev, variants: updatedVariants };
     });
   };
 
@@ -1425,6 +1787,158 @@ export default function AdminDashboard({ currentUser, onClose }) {
     alert('Product SEO tags saved!');
   };
 
+  // --- Website Content CMS State ---
+  const [pressBrandsInput, setPressBrandsInput] = useState(() => {
+    const defaults = ['Vogue India', 'Grazia', 'Elle', 'Femina', 'Harper\'s Bazaar'];
+    try {
+      const stored = localStorage.getItem('offkilt_press_brands');
+      const list = stored ? JSON.parse(stored) : defaults;
+      return list.join(', ');
+    } catch (e) {
+      return defaults.join(', ');
+    }
+  });
+
+  const [tickerItemsInput, setTickerItemsInput] = useState(() => {
+    const defaults = ['NEW ARRIVALS', '✦', 'JUST LANDED', '✦', 'FRESH DROPS', '✦', 'NEW SEASON', '✦', 'SHOP NOW', '✦'];
+    try {
+      const stored = localStorage.getItem('offkilt_ticker_items');
+      const list = stored ? JSON.parse(stored) : defaults;
+      return list.join(', ');
+    } catch (e) {
+      return defaults.join(', ');
+    }
+  });
+
+  const [companyPages, setCompanyPages] = useState(() => {
+    const defaults = {
+      about: {
+        title: "About Us",
+        content: `Off-Kilt is not just a brand—it's an attitude. Born from the spirit of rebellion and self-expression, Off-Kilt challenges the ordinary and redefines modern denim.\n\nOur philosophy is simple: fashion should have an edge. We merge heavy-weight selvedge denim fabrics, utility silhouettes, and premium hardware to create garments that feel like armor for the street. Every raw edge, offset pocket, and asymmetric stitch is a deliberate choice.\n\nStay raw, stay rebellious.`
+      },
+      refund: {
+        title: "Refund & Return Policy",
+        content: `We offer a 7-day hassle-free return and exchange policy. Items must be unworn, unwashed, and in their original packaging with tags intact.\n\nTo initiate a return or exchange, contact support via our WhatsApp widget or email. Refunds are processed back to your original payment method (or store credit for COD) within 5-7 business days of our warehouse receiving the return.`
+      },
+      faq: {
+        title: "Frequently Asked Questions",
+        content: `Q: How do I track my order?\nA: You can track your order using the 'Track Order' option in the menu by entering your Order ID.\n\nQ: Do you offer free shipping?\nA: Yes! We offer free shipping on all orders above ₹5,000 across India.\n\nQ: What payment methods do you support?\nA: We accept all major credit/debit cards, net banking, UPI, and wallets via Razorpay Checkout. Cash on Delivery (COD) is also available.`
+      },
+      terms: {
+        title: "Terms & Conditions",
+        content: `Welcome to Off-Kilt. By accessing or using our website, you agree to comply with and be bound by these terms and conditions. All content, designs, and brand elements are copyrighted.\n\nPrices are subject to change without notice. We reserve the right to cancel or refuse any orders at our discretion. STAY RAW.`
+      },
+      career: {
+        title: "Careers",
+        content: `We are always looking for creative rebels to join our design, marketing, and operations teams.\n\nIf you have a passion for heavy-weight streetwear and selvedge denim, send your CV and portfolio to careers@off-kilt.com. Join the rebellion.`
+      },
+      partnership: {
+        title: "Partnership & Collaborations",
+        content: `Are you an influencer, designer, or boutique looking to collaborate with us? We'd love to chat!\n\nDrop us an email at collab@off-kilt.com with your proposal, social handles, and ideas. Let's create something extraordinary.`
+      }
+    };
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_company_pages')) || defaults;
+    } catch (e) {
+      return defaults;
+    }
+  });
+
+  const [selectedCompanyPageKey, setSelectedCompanyPageKey] = useState('about');
+  const [currentPageForm, setCurrentPageForm] = useState({
+    title: '',
+    content: ''
+  });
+
+  useEffect(() => {
+    const page = companyPages[selectedCompanyPageKey] || { title: '', content: '' };
+    setCurrentPageForm({
+      title: page.title || '',
+      content: page.content || ''
+    });
+  }, [selectedCompanyPageKey, companyPages]);
+
+  const handleCompanyPageFormChange = (field, value) => {
+    setCurrentPageForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveCompanyPage = () => {
+    const updatedPages = {
+      ...companyPages,
+      [selectedCompanyPageKey]: {
+        title: currentPageForm.title,
+        content: currentPageForm.content
+      }
+    };
+    setCompanyPages(updatedPages);
+    localStorage.setItem('offkilt_company_pages', JSON.stringify(updatedPages));
+    triggerSync('offkilt_settings_updated');
+    alert(`Company Page "${currentPageForm.title}" saved successfully!`);
+  };
+
+  const handleSaveWebsiteContentCms = (e) => {
+    if (e) e.preventDefault();
+    const brandsArr = pressBrandsInput.split(',').map(x => x.trim()).filter(Boolean);
+    const tickerArr = tickerItemsInput.split(',').map(x => x.trim()).filter(Boolean);
+
+    localStorage.setItem('offkilt_press_brands', JSON.stringify(brandsArr));
+    localStorage.setItem('offkilt_ticker_items', JSON.stringify(tickerArr));
+    triggerSync('offkilt_settings_updated');
+    alert('Website Content CMS settings saved!');
+  };
+
+  const [bestsellers, setBestsellers] = useState(() => {
+    const defaults = [
+      {
+        id: 'bs1',
+        name: 'Signature Flared Denim',
+        price: 2999,
+        originalPrice: 3999,
+        label: 'most-loved',
+        labelText: 'Most Loved',
+        image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=600&q=85',
+        rating: 4.9,
+        reviews: 284,
+      },
+      {
+        id: 'bs2',
+        name: 'Asymmetric Denim Midi Skirt',
+        price: 1999,
+        originalPrice: null,
+        label: 'trending-now',
+        labelText: 'Trending Now',
+        image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=600&q=85',
+        rating: 4.7,
+        reviews: 167,
+      },
+      {
+        id: 'bs3',
+        name: 'Wide-Leg High-Waist Trousers',
+        price: 3499,
+        originalPrice: 4499,
+        label: 'limited-edition',
+        labelText: 'Limited Edition',
+        image: 'https://images.unsplash.com/photo-1485218126466-34e6392ec754?w=600&q=85',
+        rating: 5.0,
+        reviews: 53,
+      }
+    ];
+    try {
+      return JSON.parse(localStorage.getItem('offkilt_bestsellers')) || defaults;
+    } catch (e) {
+      return defaults;
+    }
+  });
+
+  const handleSaveBestseller = (idx, updatedCard) => {
+    const updated = [...bestsellers];
+    updated[idx] = updatedCard;
+    setBestsellers(updated);
+    localStorage.setItem('offkilt_bestsellers', JSON.stringify(updated));
+    triggerSync('offkilt_settings_updated');
+    alert('Best Seller Card saved!');
+  };
+
   // --- RENDERING TABS SIDEBAR ---
   const menuConfig = [
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
@@ -1432,6 +1946,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
     { id: 'orders', label: 'Order Manager', icon: ShoppingBag },
     { id: 'payment', label: 'Payment Gateway', icon: CreditCard },
     { id: 'campaigns', label: 'Campaign CMS', icon: Layout },
+    { id: 'contentcms', label: 'Content CMS', icon: Edit2 },
     { id: 'collections', label: 'Collections & Story', icon: Layers },
     { id: 'qna', label: 'Q&A Manager', icon: HelpCircle },
     { id: 'typography', label: 'Typography CMS', icon: Type },
@@ -1447,6 +1962,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
     { id: 'seo', label: 'SEO Tags', icon: Globe },
     { id: 'logs', label: 'Security & Logs', icon: ShieldAlert },
     { id: 'backups', label: 'System Backups', icon: Database },
+    { id: 'email', label: 'Email Management', icon: Mail },
     { id: 'roles', label: 'Admin Roles', icon: UserCheck }
   ];
 
@@ -1865,7 +2381,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                           description: 'Gateway Connection Test ₹1',
                           image: s.businessLogo || '',
                           handler: () => alert('✅ Razorpay connection successful! Your gateway is working perfectly.'),
-                          prefill: { name: 'Admin Test', email: 'admin@offkite.com', contact: '9000000000' },
+                          prefill: { name: 'Admin Test', email: 'admin@offkilt.com', contact: '9000000000' },
                           theme: { color: s.theme || '#f97316' },
                         });
                         rzp.open();
@@ -1903,9 +2419,14 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       setProductForm({
                         id: '', name: '', tagline: '', price: '', category: 'jeans',
                         image: '', hover_image: '', description: '', discountPrice: '',
-                        stock: '50', sku: '', swatches: 'Raw Indigo:#1e293b, Charcoal Black:#111111',
+                        stock: '50', sku: '', swatches: [{ name: 'Raw Indigo', hex: '#1e293b' }, { name: 'Charcoal Black', hex: '#111111' }],
                         sizes: ['30', '32', '34'],
-                        images: []
+                        images: [],
+                        variants: [],
+                        slug: '',
+                        meta_title: '',
+                        meta_description: '',
+                        meta_keywords: ''
                       });
                     }}
                     className="btn-primary"
@@ -2071,14 +2592,73 @@ export default function AdminDashboard({ currentUser, onClose }) {
                   </div>
 
                   <div>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Color Swatches (Hex mappings)</label>
-                    <input 
-                      type="text" 
-                      value={productForm.swatches} 
-                      onChange={(e) => setProductForm({...productForm, swatches: e.target.value})} 
-                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
-                      placeholder="e.g. Indigo:#2b4360, Slate:#64748b"
-                    />
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Color Swatches</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                      {(productForm.swatches || []).map((sw, idx) => (
+                        <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <input 
+                            type="text" 
+                            value={sw.name} 
+                            onChange={(e) => {
+                              const updated = [...productForm.swatches];
+                              updated[idx] = { ...updated[idx], name: e.target.value };
+                              setProductForm({ ...productForm, swatches: updated });
+                            }}
+                            placeholder="Color Name (e.g. Raw Indigo)"
+                            style={{ flex: 2, padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                            required
+                          />
+                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                            <input 
+                              type="color" 
+                              value={sw.hex} 
+                              onChange={(e) => {
+                                const updated = [...productForm.swatches];
+                                updated[idx] = { ...updated[idx], hex: e.target.value };
+                                setProductForm({ ...productForm, swatches: updated });
+                              }}
+                              style={{ width: '28px', height: '28px', border: 'none', padding: 0, cursor: 'pointer' }}
+                            />
+                            <input 
+                              type="text" 
+                              value={sw.hex} 
+                              onChange={(e) => {
+                                const updated = [...productForm.swatches];
+                                updated[idx] = { ...updated[idx], hex: e.target.value };
+                                setProductForm({ ...productForm, swatches: updated });
+                              }}
+                              placeholder="#000000"
+                              style={{ width: '80px', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', fontFamily: 'var(--font-mono)' }}
+                              required
+                            />
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              const updated = productForm.swatches.filter((_, i) => i !== idx);
+                              setProductForm({ ...productForm, swatches: updated });
+                            }}
+                            style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title="Remove Swatch"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button 
+                      type="button" 
+                      className="btn-secondary"
+                      onClick={() => {
+                        setProductForm({
+                          ...productForm,
+                          swatches: [...(productForm.swatches || []), { name: '', hex: '#000000' }]
+                        });
+                      }}
+                      style={{ padding: '6px 12px', fontSize: '0.7rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Plus size={12} /> Add Swatch Color
+                    </button>
                   </div>
 
                   {/* Size Checklist */}
@@ -2157,7 +2737,221 @@ export default function AdminDashboard({ currentUser, onClose }) {
                     ></textarea>
                   </div>
 
-                  <button type="submit" className="btn-primary" style={{ justifyContent: 'center', marginTop: '10px' }}>
+                  {/* SEO & Meta Details */}
+                  <div style={{ borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '16px', marginTop: '16px' }}>
+                    <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: '12px' }}>SEO & META DATA</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>URL Slug</label>
+                        <input 
+                          type="text" 
+                          value={productForm.slug || ''} 
+                          onChange={(e) => setProductForm({...productForm, slug: e.target.value})} 
+                          placeholder="e.g. premium-oversized-tshirt"
+                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', marginTop: '4px' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Meta Title</label>
+                        <input 
+                          type="text" 
+                          value={productForm.meta_title || ''} 
+                          onChange={(e) => setProductForm({...productForm, meta_title: e.target.value})} 
+                          placeholder="Meta Title for search engines"
+                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', marginTop: '4px' }}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Meta Description</label>
+                        <textarea 
+                          value={productForm.meta_description || ''} 
+                          onChange={(e) => setProductForm({...productForm, meta_description: e.target.value})} 
+                          placeholder="Short description for search results"
+                          rows="2"
+                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', marginTop: '4px', resize: 'vertical' }}
+                        ></textarea>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Meta Keywords</label>
+                        <input 
+                          type="text" 
+                          value={productForm.meta_keywords || ''} 
+                          onChange={(e) => setProductForm({...productForm, meta_keywords: e.target.value})} 
+                          placeholder="comma-separated keywords"
+                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', marginTop: '4px' }}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '12px' }}>
+                      <button type="submit" className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px', width: 'auto' }}>
+                        <Save size={14} /> Save Product
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Variants Management Section */}
+                  <div style={{ borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '20px', marginTop: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                      <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>PRODUCT COLOR VARIANTS</h4>
+                      <button 
+                        type="button" 
+                        className="btn-secondary" 
+                        onClick={handleAddVariant} 
+                        style={{ padding: '6px 12px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px', width: 'auto' }}
+                      >
+                        <Plus size={12} /> Add Variant
+                      </button>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {(!productForm.variants || productForm.variants.length === 0) ? (
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                          No variants defined. The product will only use its primary default color/swatches.
+                        </p>
+                      ) : (
+                        productForm.variants.map((v, vIdx) => (
+                          <div key={v.id || vIdx} style={{ border: '1px solid rgba(0,0,0,0.06)', padding: '16px', borderRadius: '4px', backgroundColor: '#fafafa' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '8px', marginBottom: '12px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>Variant {vIdx + 1}: {v.color || 'Unnamed'}</span>
+                                <div style={{ display: 'flex', gap: '2px' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveVariant(vIdx, 'up')}
+                                    disabled={vIdx === 0}
+                                    style={{ border: 'none', background: 'rgba(0,0,0,0.04)', color: 'var(--text-light)', cursor: vIdx === 0 ? 'not-allowed' : 'pointer', padding: '2px 6px', fontSize: '0.65rem', borderRadius: '2px', opacity: vIdx === 0 ? 0.3 : 1 }}
+                                    title="Move Up"
+                                  >
+                                    ↑
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveVariant(vIdx, 'down')}
+                                    disabled={vIdx === productForm.variants.length - 1}
+                                    style={{ border: 'none', background: 'rgba(0,0,0,0.04)', color: 'var(--text-light)', cursor: vIdx === productForm.variants.length - 1 ? 'not-allowed' : 'pointer', padding: '2px 6px', fontSize: '0.65rem', borderRadius: '2px', opacity: vIdx === productForm.variants.length - 1 ? 0.3 : 1 }}
+                                    title="Move Down"
+                                  >
+                                    ↓
+                                  </button>
+                                </div>
+                              </div>
+                              <button 
+                                type="button" 
+                                onClick={() => handleDeleteVariant(vIdx)}
+                                style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem' }}
+                              >
+                                <Trash2 size={12} /> Remove
+                              </button>
+                            </div>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '12px' }}>
+                              <div>
+                                <label style={{ fontSize: '0.65rem', color: 'var(--text-grey)' }}>Color Name</label>
+                                <input 
+                                  type="text" 
+                                  value={v.color} 
+                                  onChange={(e) => handleUpdateVariant(vIdx, 'color', e.target.value)}
+                                  placeholder="e.g. Acid Blue"
+                                  style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '0.65rem', color: 'var(--text-grey)' }}>Hex Code</label>
+                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginTop: '4px' }}>
+                                  <input 
+                                    type="color" 
+                                    value={v.hex} 
+                                    onChange={(e) => handleUpdateVariant(vIdx, 'hex', e.target.value)}
+                                    style={{ width: '28px', height: '28px', border: 'none', padding: 0, cursor: 'pointer' }}
+                                  />
+                                  <input 
+                                    type="text" 
+                                    value={v.hex} 
+                                    onChange={(e) => handleUpdateVariant(vIdx, 'hex', e.target.value)}
+                                    placeholder="#000000"
+                                    style={{ flex: 1, padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)' }}
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '0.65rem', color: 'var(--text-grey)' }}>Price (₹)</label>
+                                <input 
+                                  type="number" 
+                                  value={v.price} 
+                                  onChange={(e) => handleUpdateVariant(vIdx, 'price', Number(e.target.value))}
+                                  style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '0.65rem', color: 'var(--text-grey)' }}>Stock Qty</label>
+                                <input 
+                                  type="number" 
+                                  value={v.stock} 
+                                  onChange={(e) => handleUpdateVariant(vIdx, 'stock', Number(e.target.value))}
+                                  style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '0.65rem', color: 'var(--text-grey)' }}>SKU</label>
+                                <input 
+                                  type="text" 
+                                  value={v.sku} 
+                                  onChange={(e) => handleUpdateVariant(vIdx, 'sku', e.target.value)}
+                                  placeholder="SKU Code"
+                                  style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '0.65rem', color: 'var(--text-grey)' }}>Availability Status</label>
+                                <select
+                                  value={v.status || 'available'}
+                                  onChange={(e) => handleUpdateVariant(vIdx, 'status', e.target.value)}
+                                  style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', marginTop: '4px', backgroundColor: '#ffffff', height: '29px' }}
+                                >
+                                  <option value="available">Available</option>
+                                  <option value="out_of_stock">Out of Stock</option>
+                                  <option value="hidden">Hidden</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Variant Images Gallery */}
+                            <div>
+                              <label style={{ fontSize: '0.65rem', color: 'var(--text-grey)', display: 'block', marginBottom: '6px' }}>Variant Gallery Images</label>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                {(v.images || []).map((img, imgIdx) => (
+                                  <div key={imgIdx} style={{ position: 'relative', width: '50px', height: '50px', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                                    <img src={img} alt={`Variant img ${imgIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <button 
+                                      type="button" 
+                                      onClick={() => handleRemoveVariantImage(vIdx, imgIdx)}
+                                      style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '14px', height: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                    >
+                                      <Trash2 size={8} />
+                                    </button>
+                                  </div>
+                                ))}
+                                <label style={{ width: '50px', height: '50px', border: '1px dashed var(--accent-raw)', borderRadius: '2px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backgroundColor: 'rgba(249,115,22,0.01)' }}>
+                                  <UploadCloud size={14} style={{ color: 'var(--accent-raw)' }} />
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    multiple 
+                                    onChange={(e) => handleVariantImagesUpload(e, vIdx)}
+                                    style={{ display: 'none' }} 
+                                  />
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <button type="submit" className="btn-primary" style={{ justifyContent: 'center', marginTop: '20px' }}>
                     <Save size={16} /> Save Product to Catalog
                   </button>
                 </form>
@@ -2576,6 +3370,106 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       </button>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Website Content CMS */}
+          {activeTab === 'contentcms' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Brand & Marquee Ticker CMS</h3>
+                <form onSubmit={handleSaveWebsiteContentCms}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>As Seen On Brands (Comma-separated)</label>
+                      <input 
+                        type="text" 
+                        value={pressBrandsInput}
+                        onChange={(e) => setPressBrandsInput(e.target.value)}
+                        placeholder="e.g. Vogue India, Grazia, Elle, Femina"
+                        style={{ width: '100%', padding: '10px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', marginTop: '6px' }}
+                      />
+                      <small style={{ color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '4px', display: 'block' }}>
+                        These brands will appear in the "AS SEEN ON" slider/strip on the homepage.
+                      </small>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>New Arrivals Ticker / Marquee Items (Comma-separated)</label>
+                      <input 
+                        type="text" 
+                        value={tickerItemsInput}
+                        onChange={(e) => setTickerItemsInput(e.target.value)}
+                        placeholder="e.g. NEW ARRIVALS, ✦, JUST LANDED, ✦, FRESH DROPS, ✦"
+                        style={{ width: '100%', padding: '10px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', marginTop: '6px' }}
+                      />
+                      <small style={{ color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '4px', display: 'block' }}>
+                        These words or symbols will cycle continuously in the gold marquee bar. Use ✦ or other icons to separate items.
+                      </small>
+                    </div>
+
+                    <button 
+                      type="submit" 
+                      className="btn-primary" 
+                      style={{ width: 'auto', alignSelf: 'flex-start', padding: '10px 24px', fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}
+                    >
+                      Save Ticker & Brands
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Company Pages CMS</h3>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>Select Page to Edit:</label>
+                    <select 
+                      value={selectedCompanyPageKey}
+                      onChange={(e) => setSelectedCompanyPageKey(e.target.value)}
+                      style={{ padding: '8px 12px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#ffffff' }}
+                    >
+                      <option value="about">About Us</option>
+                      <option value="refund">Refund & Return Policy</option>
+                      <option value="faq">FAQ</option>
+                      <option value="terms">Terms & Conditions</option>
+                      <option value="career">Career</option>
+                      <option value="partnership">Partnership & Collaborations</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Page Title</label>
+                    <input 
+                      type="text" 
+                      value={currentPageForm.title}
+                      onChange={(e) => handleCompanyPageFormChange('title', e.target.value)}
+                      placeholder="e.g. Refund Policy"
+                      style={{ width: '100%', padding: '10px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', marginTop: '6px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Page Content</label>
+                    <textarea 
+                      value={currentPageForm.content}
+                      onChange={(e) => handleCompanyPageFormChange('content', e.target.value)}
+                      placeholder="Enter detailed content here..."
+                      rows="12"
+                      style={{ width: '100%', padding: '10px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', marginTop: '6px', resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.5' }}
+                    />
+                  </div>
+
+                  <button 
+                    onClick={handleSaveCompanyPage}
+                    className="btn-primary" 
+                    style={{ width: 'auto', alignSelf: 'flex-start', padding: '10px 24px', fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}
+                  >
+                    Save Company Page
+                  </button>
                 </div>
               </div>
             </div>
@@ -4398,6 +5292,127 @@ export default function AdminDashboard({ currentUser, onClose }) {
                 </div>
               </div>
 
+              {/* Best Seller Cards Editor Card */}
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px', textTransform: 'uppercase' }}>BEST SELLER PRODUCTS EDIT</h3>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-grey)', marginBottom: '20px' }}>
+                  Edit details of the 3 featured cards displayed in the Customer Favourites / Best Sellers homepage section.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  {bestsellers.map((card, idx) => (
+                    <div key={card.id || idx} style={{ border: '1px solid rgba(0,0,0,0.06)', padding: '20px', borderRadius: '4px', backgroundColor: '#fcfcfc' }}>
+                      <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '8px' }}>
+                        <span>BEST SELLER CARD #{idx + 1} ({card.labelText})</span>
+                      </h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div>
+                          <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Product Name</label>
+                          <input 
+                            type="text" 
+                            value={card.name} 
+                            onChange={(e) => {
+                              const updated = { ...card, name: e.target.value };
+                              handleSaveBestseller(idx, updated);
+                            }}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Badge Label CSS Class (e.g. most-loved, trending-now, limited-edition)</label>
+                          <input 
+                            type="text" 
+                            value={card.label} 
+                            onChange={(e) => {
+                              const updated = { ...card, label: e.target.value };
+                              handleSaveBestseller(idx, updated);
+                            }}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Badge Text Display (e.g. Most Loved)</label>
+                          <input 
+                            type="text" 
+                            value={card.labelText} 
+                            onChange={(e) => {
+                              const updated = { ...card, labelText: e.target.value };
+                              handleSaveBestseller(idx, updated);
+                            }}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Price (₹)</label>
+                          <input 
+                            type="number" 
+                            value={card.price} 
+                            onChange={(e) => {
+                              const updated = { ...card, price: Number(e.target.value) };
+                              handleSaveBestseller(idx, updated);
+                            }}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Original Price (₹, optional)</label>
+                          <input 
+                            type="number" 
+                            value={card.originalPrice || ''} 
+                            onChange={(e) => {
+                              const updated = { ...card, originalPrice: e.target.value ? Number(e.target.value) : null };
+                              handleSaveBestseller(idx, updated);
+                            }}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Rating Stars (e.g. 4.9)</label>
+                          <input 
+                            type="number" 
+                            step="0.1" 
+                            max="5.0"
+                            value={card.rating} 
+                            onChange={(e) => {
+                              const updated = { ...card, rating: Number(e.target.value) };
+                              handleSaveBestseller(idx, updated);
+                            }}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
+                          />
+                        </div>
+                        <div style={{ gridColumn: 'span 2' }}>
+                          <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Image URL or Base64</label>
+                          <input 
+                            type="text" 
+                            value={card.image} 
+                            onChange={(e) => {
+                              const updated = { ...card, image: e.target.value };
+                              handleSaveBestseller(idx, updated);
+                            }}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
+                          />
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  const updated = { ...card, image: reader.result };
+                                  handleSaveBestseller(idx, updated);
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            style={{ fontSize: '0.65rem', marginTop: '6px', width: '100%' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Product Categories List Card */}
               <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
                 <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>STOREFRONT CATEGORY TABS</h3>
@@ -4861,6 +5876,9 @@ export default function AdminDashboard({ currentUser, onClose }) {
               </div>
             </div>
           )}
+
+          {/* 15. EMAIL MANAGEMENT */}
+          {activeTab === 'email' && <AdminEmailTab />}
 
         </div>
       </div>

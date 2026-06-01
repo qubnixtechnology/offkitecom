@@ -7,6 +7,7 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
   const [productsList, setProductsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadedImages, setLoadedImages] = useState({});
+  const [selectedCardVariants, setSelectedCardVariants] = useState({});
   const [renderedCategory, setRenderedCategory] = useState(activeTab);
   const [addedIds, setAddedIds] = useState({}); // track which products were just added
   const [reviewTrigger, setReviewTrigger] = useState(0);
@@ -126,6 +127,39 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
       }
     }
     return swatchesList;
+  };
+
+  const getProductVariantsAndDefault = (product) => {
+    if (!product) return [];
+    const visibleVariants = (product.variants || []).filter(v => v.status !== 'hidden');
+    if (visibleVariants.length > 0) {
+      let defaultColorName = 'Original';
+      let defaultHex = '#111111';
+      
+      const sw = parseSwatches(product);
+      if (sw && sw.length > 0) {
+        defaultColorName = sw[0].name;
+        defaultHex = sw[0].hex;
+      }
+      
+      const defaultVariant = {
+        id: 'default',
+        color: defaultColorName,
+        hex: defaultHex,
+        price: product.price,
+        discountPrice: product.discountPrice,
+        stock: product.stock,
+        sku: product.sku || product.id,
+        images: Array.isArray(product.images) && product.images.length > 0 
+          ? product.images 
+          : [product.image, product.hoverImage || product.hover_image].filter(Boolean),
+        status: 'available',
+        display_order: -1
+      };
+      
+      return [defaultVariant, ...visibleVariants];
+    }
+    return [];
   };
 
   const getProductRatingInfo = (productId) => {
@@ -308,7 +342,10 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                 >
                   <div 
                     className="product-image-container"
-                    onClick={() => onProductClick(product)}
+                    onClick={() => {
+                      const activeVariant = selectedCardVariants[product.id];
+                      onProductClick(product, activeVariant?.id);
+                    }}
                     style={{ cursor: 'pointer' }}
                   >
                     {product.badge && <span className="product-card-badge">{product.badge}</span>}
@@ -327,47 +364,69 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                       />
                     </button>
                     
-                    {!loadedImages[product.image] && (
-                      <div className="image-shimmer-skeleton" />
-                    )}
-                    
-                    <img 
-                       src={product.image} 
-                      alt={product.name} 
-                      className={`product-image ${loadedImages[product.image] ? 'loaded' : 'loading-blur'}`}
-                      loading="lazy"
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => onProductClick(product)}
-                      ref={(el) => {
-                        if (el && el.complete && el.naturalWidth > 0 && !loadedImages[product.image]) {
-                          handleImageLoad(product.image);
-                        }
-                      }}
-                      onLoad={() => handleImageLoad(product.image)}
-                    />
-                    {product.hoverImage && (
-                      <img 
-                        src={product.hoverImage} 
-                        alt={`${product.name} alternate view`} 
-                        className={`product-image-hover ${loadedImages[product.hoverImage] ? 'loaded' : 'loading-blur'}`} 
-                        loading="lazy"
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => onProductClick(product)}
-                        ref={(el) => {
-                          if (el && el.complete && el.naturalWidth > 0 && !loadedImages[product.hoverImage]) {
-                            handleImageLoad(product.hoverImage);
-                          }
-                        }}
-                        onLoad={() => handleImageLoad(product.hoverImage)}
-                      />
-                    )}
+                    {(() => {
+                      const visibleVariants = getProductVariantsAndDefault(product);
+                      const activeVariant = selectedCardVariants[product.id] || visibleVariants[0];
+                      const displayImg = activeVariant && Array.isArray(activeVariant.images) && activeVariant.images.length > 0
+                        ? activeVariant.images[0]
+                        : product.image;
+                      
+                      const displayHoverImg = activeVariant && Array.isArray(activeVariant.images) && activeVariant.images.length > 1
+                        ? activeVariant.images[1]
+                        : product.hoverImage || displayImg;
+                      
+                      return (
+                        <>
+                          {!loadedImages[displayImg] && (
+                            <div className="image-shimmer-skeleton" />
+                          )}
+                          <img 
+                            src={displayImg} 
+                            alt={product.name} 
+                            className={`product-image ${loadedImages[displayImg] ? 'loaded' : 'loading-blur'}`}
+                            loading="lazy"
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => onProductClick(product, activeVariant?.id)}
+                            ref={(el) => {
+                              if (el && el.complete && el.naturalWidth > 0 && !loadedImages[displayImg]) {
+                                handleImageLoad(displayImg);
+                              }
+                            }}
+                            onLoad={() => handleImageLoad(displayImg)}
+                          />
+                          {displayHoverImg && (
+                            <img 
+                              src={displayHoverImg} 
+                              alt={`${product.name} alternate view`} 
+                              className={`product-image-hover ${loadedImages[displayHoverImg] ? 'loaded' : 'loading-blur'}`} 
+                              loading="lazy"
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => onProductClick(product, activeVariant?.id)}
+                              ref={(el) => {
+                                if (el && el.complete && el.naturalWidth > 0 && !loadedImages[displayHoverImg]) {
+                                  handleImageLoad(displayHoverImg);
+                                }
+                              }}
+                              onLoad={() => handleImageLoad(displayHoverImg)}
+                            />
+                          )}
+                        </>
+                      );
+                    })()}
                     <div 
                       className="product-card-overlay"
-                      onClick={() => onProductClick(product)}
+                      onClick={() => {
+                        const activeVariant = selectedCardVariants[product.id];
+                        onProductClick(product, activeVariant?.id);
+                      }}
                     >
                       <button 
                         className="product-quick-btn mono"
-                        onClick={(e) => { e.stopPropagation(); onProductClick(product); }}
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          const activeVariant = selectedCardVariants[product.id];
+                          onProductClick(product, activeVariant?.id); 
+                        }}
                       >
                         Quick Details
                       </button>
@@ -377,7 +436,10 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                   {/* Product info — on mobile bottom tap = quick add to cart */}
                   <div
                     className="product-info"
-                    onClick={() => onProductClick(product)}
+                    onClick={() => {
+                      const activeVariant = selectedCardVariants[product.id];
+                      onProductClick(product, activeVariant?.id);
+                    }}
                     style={{ cursor: 'pointer' }}
                   >
                     <div className="product-meta" style={{ width: '100%', maxWidth: '100%' }}>
@@ -385,28 +447,87 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                       
                       {/* Calvin Klein style price display with discounts */}
                       <div className="catalog-price-row-editorial">
-                        <span className="original-price-editorial">₹{(product.price * 2).toLocaleString('en-IN')}</span>
-                        <span className="sale-price-editorial">₹{product.price.toLocaleString('en-IN')}</span>
-                        <span className="discount-editorial">50% off</span>
+                        {(() => {
+                          const visibleVariants = getProductVariantsAndDefault(product);
+                          const activeVariant = selectedCardVariants[product.id] || visibleVariants[0];
+                          const displayPrice = activeVariant ? activeVariant.price : product.price;
+                          const displayDiscountPrice = activeVariant && activeVariant.id !== 'default' ? null : product.discountPrice;
+                          
+                          return displayDiscountPrice && Number(displayDiscountPrice) < Number(displayPrice) ? (
+                            <>
+                              <span className="original-price-editorial">₹{Number(displayPrice).toLocaleString('en-IN')}</span>
+                              <span className="sale-price-editorial">₹{Number(displayDiscountPrice).toLocaleString('en-IN')}</span>
+                              <span className="discount-editorial">{Math.round((1 - Number(displayDiscountPrice) / Number(displayPrice)) * 100)}% off</span>
+                            </>
+                          ) : (
+                            <span className="sale-price-editorial">₹{Number(displayPrice).toLocaleString('en-IN')}</span>
+                          );
+                        })()}
                       </div>
 
 
                       {/* Dynamic Color Swatches circular list */}
                       {(() => {
-                        const swatchesList = parseSwatches(product);
-                        if (swatchesList && swatchesList.length > 0) {
+                        const visibleVariants = getProductVariantsAndDefault(product);
+                        const hasVars = visibleVariants.length > 0;
+                        const activeVariant = selectedCardVariants[product.id] || visibleVariants[0];
+                        
+                        if (hasVars) {
                           return (
                             <div className="catalog-swatches-editorial">
-                              {swatchesList.map((color, i) => (
-                                <span
-                                  key={color.name}
-                                  className={`catalog-swatch-circle ${i === 0 ? 'active' : ''}`}
-                                  style={{ backgroundColor: color.hex }}
-                                  title={color.name}
-                                />
-                              ))}
+                              {visibleVariants.map((v) => {
+                                const isSelected = activeVariant ? (activeVariant.id === v.id) : false;
+                                const isOutOfStock = v.status === 'out_of_stock' || v.stock <= 0;
+                                return (
+                                  <span
+                                    key={v.id}
+                                    className={`catalog-swatch-circle ${isSelected ? 'active' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`}
+                                    style={{ 
+                                      backgroundColor: v.hex || '#111111',
+                                      position: 'relative'
+                                    }}
+                                    title={isOutOfStock ? `${v.color} (Out of Stock)` : v.color}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedCardVariants(prev => ({
+                                        ...prev,
+                                        [product.id]: v
+                                      }));
+                                    }}
+                                  >
+                                    {isOutOfStock && (
+                                      <div style={{
+                                        position: 'absolute',
+                                        top: '50%',
+                                        left: '50%',
+                                        width: '120%',
+                                        height: '1.5px',
+                                        backgroundColor: '#ef4444',
+                                        transform: 'translate(-50%, -50%) rotate(45deg)',
+                                        pointerEvents: 'none'
+                                      }} />
+                                    )}
+                                  </span>
+                                );
+                              })}
                             </div>
                           );
+                        } else {
+                          const swatchesList = parseSwatches(product);
+                          if (swatchesList && swatchesList.length > 0) {
+                            return (
+                              <div className="catalog-swatches-editorial">
+                                {swatchesList.map((color, i) => (
+                                  <span
+                                    key={color.name}
+                                    className={`catalog-swatch-circle ${i === 0 ? 'active' : ''}`}
+                                    style={{ backgroundColor: color.hex }}
+                                    title={color.name}
+                                  />
+                                ))}
+                              </div>
+                            );
+                          }
                         }
                         return null;
                       })()}
@@ -425,16 +546,50 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                     </div>
                     <div className="product-price-row" style={{ display: 'flex', alignSelf: 'flex-end', marginTop: '10px' }}>
                       {/* Mobile Quick Add button — replaces the price row on mobile tap */}
-                      <button
-                        className={`catalog-quick-add-btn ${addedIds[product.id] ? 'added' : ''}`}
-                        onClick={(e) => handleQuickAdd(e, product)}
-                        aria-label="Quick add to cart"
-                      >
-                        {addedIds[product.id]
-                          ? <><Check size={13} /> Added</>
-                          : <><ShoppingBag size={13} /> Add</>
+                      {(() => {
+                        const visibleVariants = getProductVariantsAndDefault(product);
+                        const activeVar = selectedCardVariants[product.id] || visibleVariants[0];
+                        const isOutOfStock = activeVar ? (activeVar.status === 'out_of_stock' || activeVar.stock <= 0) : product.stock <= 0;
+                        
+                        if (isOutOfStock) {
+                          return (
+                            <button
+                              className="catalog-quick-add-btn"
+                              disabled={true}
+                              style={{ opacity: 0.6, cursor: 'not-allowed', backgroundColor: '#a1a1aa' }}
+                              aria-label="Out of stock"
+                            >
+                              Out
+                            </button>
+                          );
                         }
-                      </button>
+                        
+                        return (
+                          <button
+                            className={`catalog-quick-add-btn ${addedIds[product.id] ? 'added' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const sizes = Array.isArray(product.sizes) ? product.sizes
+                                : (typeof product.sizes === 'string' ? (() => { try { return JSON.parse(product.sizes || '[]'); } catch(e) { return []; } })() : []);
+                              const activeVar = selectedCardVariants[product.id];
+                              if (sizes.length > 1) {
+                                onProductClick(product, activeVar?.id);
+                                return;
+                              }
+                              const size = sizes[0] || 'Free Size';
+                              onAddToCart?.(product, size, activeVar?.id);
+                              setAddedIds(prev => ({ ...prev, [product.id]: true }));
+                              setTimeout(() => setAddedIds(prev => { const n = { ...prev }; delete n[product.id]; return n; }), 1800);
+                            }}
+                            aria-label="Quick add to cart"
+                          >
+                            {addedIds[product.id]
+                              ? <><Check size={13} /> Added</>
+                              : <><ShoppingBag size={13} /> Add</>
+                            }
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 </motion.div>

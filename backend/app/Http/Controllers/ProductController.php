@@ -54,20 +54,24 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'        => 'required|string|max:255',
-            'tagline'     => 'nullable|string|max:500',
-            'price'       => 'required|numeric|min:0',
-            'category'    => 'required|string|max:100',
-            'image'       => 'nullable|string',       // URL or base64
-            'hover_image' => 'nullable|string',
-            'badge'       => 'nullable|string|max:50',
-            'description' => 'nullable|string',
-            'details'     => 'nullable|array',
-            'materials'   => 'nullable|string',
-            'shipping'    => 'nullable|string',
-            'sizes'       => 'nullable|array',
-            'images'      => 'nullable|array',
-            'is_active'   => 'nullable|boolean',
+            'name'             => 'required|string|max:255',
+            'tagline'          => 'nullable|string|max:500',
+            'price'            => 'required|numeric|min:0',
+            'category'         => 'required|string|max:100',
+            'image'            => 'nullable|string',       // URL or base64
+            'hover_image'      => 'nullable|string',
+            'badge'            => 'nullable|string|max:50',
+            'description'      => 'nullable|string',
+            'details'          => 'nullable|array',
+            'materials'        => 'nullable|string',
+            'shipping'         => 'nullable|string',
+            'sizes'            => 'nullable|array',
+            'images'           => 'nullable|array',
+            'is_active'        => 'nullable|boolean',
+            'slug'             => 'nullable|string|max:255',
+            'meta_title'       => 'nullable|string|max:255',
+            'meta_description' => 'nullable|string|max:1000',
+            'meta_keywords'    => 'nullable|string|max:500',
         ]);
 
         // Auto-generate a unique product ID like OKJ-001234
@@ -88,7 +92,31 @@ class ProductController extends Controller
 
         $product = Product::create($validated);
 
-        return response()->json($product, 201);
+        if ($request->has('variants') && is_array($request->variants)) {
+            foreach ($request->variants as $index => $v) {
+                $variant = $product->variants()->create([
+                    'id'            => $v['id'] ?? ('v-' . Str::random(8)),
+                    'color_name'    => $v['color'] ?? 'Unnamed',
+                    'color_hex'     => $v['hex'] ?? '#000000',
+                    'price'         => $v['price'] ?? $product->price,
+                    'stock'         => $v['stock'] ?? 0,
+                    'sku'           => $v['sku'] ?? ($product->id . '-' . strtoupper(Str::random(4))),
+                    'status'        => $v['status'] ?? 'available',
+                    'display_order' => $v['display_order'] ?? $index,
+                ]);
+
+                if (isset($v['images']) && is_array($v['images'])) {
+                    foreach ($v['images'] as $imgIdx => $imgUrl) {
+                        $variant->getImagesRelation()->create([
+                            'image_url'  => $imgUrl,
+                            'sort_order' => $imgIdx,
+                        ]);
+                    }
+                }
+            }
+        }
+
+        return response()->json($product->fresh(), 201);
     }
 
     // ─── Admin: update product ────────────────────────────────────────────────
@@ -98,20 +126,24 @@ class ProductController extends Controller
         $product = Product::findOrFail($id);
 
         $validated = $request->validate([
-            'name'        => 'sometimes|required|string|max:255',
-            'tagline'     => 'nullable|string|max:500',
-            'price'       => 'sometimes|required|numeric|min:0',
-            'category'    => 'sometimes|required|string|max:100',
-            'image'       => 'nullable|string',
-            'hover_image' => 'nullable|string',
-            'badge'       => 'nullable|string|max:50',
-            'description' => 'nullable|string',
-            'details'     => 'nullable|array',
-            'materials'   => 'nullable|string',
-            'shipping'    => 'nullable|string',
-            'sizes'       => 'nullable|array',
-            'images'      => 'nullable|array',
-            'is_active'   => 'nullable|boolean',
+            'name'             => 'sometimes|required|string|max:255',
+            'tagline'          => 'nullable|string|max:500',
+            'price'            => 'sometimes|required|numeric|min:0',
+            'category'         => 'sometimes|required|string|max:100',
+            'image'            => 'nullable|string',
+            'hover_image'      => 'nullable|string',
+            'badge'            => 'nullable|string|max:50',
+            'description'      => 'nullable|string',
+            'details'          => 'nullable|array',
+            'materials'        => 'nullable|string',
+            'shipping'         => 'nullable|string',
+            'sizes'            => 'nullable|array',
+            'images'           => 'nullable|array',
+            'is_active'        => 'nullable|boolean',
+            'slug'             => 'nullable|string|max:255',
+            'meta_title'       => 'nullable|string|max:255',
+            'meta_description' => 'nullable|string|max:1000',
+            'meta_keywords'    => 'nullable|string|max:500',
         ]);
 
         // Encode arrays for JSON columns
@@ -126,6 +158,33 @@ class ProductController extends Controller
         }
 
         $product->update($validated);
+
+        if ($request->has('variants') && is_array($request->variants)) {
+            // Delete existing variants (cascades to variant_images)
+            $product->variants()->delete();
+
+            foreach ($request->variants as $index => $v) {
+                $variant = $product->variants()->create([
+                    'id'            => $v['id'] ?? ('v-' . Str::random(8)),
+                    'color_name'    => $v['color'] ?? 'Unnamed',
+                    'color_hex'     => $v['hex'] ?? '#000000',
+                    'price'         => $v['price'] ?? $product->price,
+                    'stock'         => $v['stock'] ?? 0,
+                    'sku'           => $v['sku'] ?? ($product->id . '-' . strtoupper(Str::random(4))),
+                    'status'        => $v['status'] ?? 'available',
+                    'display_order' => $v['display_order'] ?? $index,
+                ]);
+
+                if (isset($v['images']) && is_array($v['images'])) {
+                    foreach ($v['images'] as $imgIdx => $imgUrl) {
+                        $variant->getImagesRelation()->create([
+                            'image_url'  => $imgUrl,
+                            'sort_order' => $imgIdx,
+                        ]);
+                    }
+                }
+            }
+        }
 
         return response()->json($product->fresh());
     }

@@ -12,7 +12,10 @@ export default function CartDrawer({
   onRemoveItem, 
   onCheckout 
 }) {
-  const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const subtotal = cartItems.reduce((acc, item) => {
+    const price = item.variant ? item.variant.price : item.price;
+    return acc + (price * item.quantity);
+  }, 0);
   const remainingForFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotal);
   const shippingPercent = Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100);
   
@@ -135,20 +138,33 @@ export default function CartDrawer({
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
                       className="cart-item" 
-                      key={`${item.id}-${item.selectedSize}`}
+                      key={`${item.id}-${item.selectedSize}-${item.selectedVariantId || ''}`}
                     >
                       <div className="cart-item-img-wrapper">
-                        <img src={item.image} alt={item.name} className="cart-item-img" />
+                        <img 
+                          src={item.variant && Array.isArray(item.variant.images) && item.variant.images.length > 0
+                            ? item.variant.images[0]
+                            : item.image
+                          } 
+                          alt={item.name} 
+                          className="cart-item-img" 
+                        />
                       </div>
                       
                       <div className="cart-item-details">
                         <div className="cart-item-title-row">
                           <div>
                             <h3 className="cart-item-name">{item.name}</h3>
-                            <div className="cart-item-size">SIZE: {item.selectedSize || 'FREE SIZE'}</div>
+                            <div className="cart-item-size">
+                              SIZE: {item.selectedSize || 'FREE SIZE'}
+                              {item.variant && ` | COLOR: ${item.variant.color}`}
+                            </div>
                           </div>
                           <span className="cart-item-price">
-                            ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                            {(() => {
+                              const itemPrice = item.variant ? item.variant.price : item.price;
+                              return `₹${(itemPrice * item.quantity).toLocaleString('en-IN')}`;
+                            })()}
                           </span>
                         </div>
                         
@@ -156,14 +172,14 @@ export default function CartDrawer({
                           <div className="quantity-control">
                             <button 
                               className="quantity-btn" 
-                              onClick={() => onUpdateQty(item.id, item.selectedSize, item.quantity - 1)}
+                              onClick={() => onUpdateQty(item.id, item.selectedSize, item.selectedVariantId, item.quantity - 1)}
                             >
                               <Minus size={10} />
                             </button>
                             <span className="quantity-val">{item.quantity}</span>
                             <button 
                               className="quantity-btn" 
-                              onClick={() => onUpdateQty(item.id, item.selectedSize, item.quantity + 1)}
+                              onClick={() => onUpdateQty(item.id, item.selectedSize, item.selectedVariantId, item.quantity + 1)}
                             >
                               <Plus size={10} />
                             </button>
@@ -171,7 +187,7 @@ export default function CartDrawer({
                           
                           <button 
                             className="remove-item-btn" 
-                            onClick={() => onRemoveItem(item.id, item.selectedSize)}
+                            onClick={() => onRemoveItem(item.id, item.selectedSize, item.selectedVariantId)}
                           >
                             <Trash2 size={12} />
                           </button>
