@@ -60,6 +60,7 @@ class ProductController extends Controller
             'category'         => 'required|string|max:100',
             'image'            => 'nullable|string',       // URL or base64
             'hover_image'      => 'nullable|string',
+            'stock'            => 'nullable|integer|min:0',
             'badge'            => 'nullable|string|max:50',
             'description'      => 'nullable|string',
             'details'          => 'nullable|array',
@@ -132,6 +133,7 @@ class ProductController extends Controller
             'category'         => 'sometimes|required|string|max:100',
             'image'            => 'nullable|string',
             'hover_image'      => 'nullable|string',
+            'stock'            => 'nullable|integer|min:0',
             'badge'            => 'nullable|string|max:50',
             'description'      => 'nullable|string',
             'details'          => 'nullable|array',

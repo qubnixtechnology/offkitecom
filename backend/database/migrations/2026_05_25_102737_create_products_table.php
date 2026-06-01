@@ -16,13 +16,14 @@ return new class extends Migration
             $table->string('name');
             $table->string('category');
             $table->integer('price');
-            $table->string('tagline');
-            $table->text('description');
+            $table->string('tagline')->nullable();
+            $table->text('description')->nullable();
             $table->json('details')->nullable();
             $table->json('sizes')->nullable();
             $table->string('materials')->nullable();
             $table->string('shipping')->nullable();
-            $table->string('image');
+            $table->string('image')->nullable();
+            $table->integer('stock')->default(50);
             $table->string('hover_image')->nullable();
             $table->json('images')->nullable();
             $table->string('badge')->nullable();

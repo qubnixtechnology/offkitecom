@@ -35,11 +35,12 @@ class ProductSeeder extends Seeder
                     'sizes' => json_encode($product['sizes'] ?? []),
                     'materials' => $product['materials'] ?? null,
                     'shipping' => $product['shipping'] ?? null,
-                    'image' => $product['image'],
+                    'image' => $product['image'] ?? null,
                     'hover_image' => $product['hoverImage'] ?? null,
                     'images' => json_encode($product['images'] ?? []),
                     'badge' => $product['badge'] ?? null,
                     'is_active' => true,
+                    'stock' => $product['stock'] ?? 50,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]

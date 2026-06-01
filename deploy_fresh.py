@@ -42,11 +42,10 @@ def package_backend():
     
     def tar_filter(tarinfo):
         path = tarinfo.name
-        # normalize path separator
         path_norm = path.replace('\\', '/')
         
-        # Exclude large archive/zip files
-        if path_norm.endswith('.zip'):
+        # Exclude large archive/zip files or video files
+        if path_norm.endswith('.zip') or path_norm.endswith('.mp4') or '/videos/' in path_norm or 'public/videos' in path_norm:
             return None
             
         parts = path_norm.split('/')
@@ -112,12 +111,21 @@ def main():
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(HOST, port=PORT, username=USER, password=PASSWORD, timeout=15)
     
+    # Backup videos remotely to preserve them
+    run(ssh, f'mkdir -p {ROOT}/tmp_videos && cp -r {LARAVEL}/public/videos {ROOT}/tmp_videos/ 2>/dev/null || true', 'Backup public videos')
+    run(ssh, f'mkdir -p {ROOT}/tmp_build_videos && cp -r {LARAVEL}/public/build/videos {ROOT}/tmp_build_videos/ 2>/dev/null || true', 'Backup public build videos')
+
     # Clean previous laravel-app if any, and create directory
     run(ssh, f'rm -rf {LARAVEL} && mkdir -p {LARAVEL}', 'Recreate remote laravel-app directory')
     
     # Extract
     run(ssh, f'tar -xzf {REMOTE_TAR} -C {LARAVEL}', 'Extract backend on remote server')
     run(ssh, f'rm -f {REMOTE_TAR}', 'Remove remote tarball')
+    
+    # Restore videos remotely
+    run(ssh, f'mkdir -p {LARAVEL}/public/videos && cp -r {ROOT}/tmp_videos/videos/* {LARAVEL}/public/videos/ 2>/dev/null || true', 'Restore public videos')
+    run(ssh, f'mkdir -p {LARAVEL}/public/build/videos && cp -r {ROOT}/tmp_build_videos/videos/* {LARAVEL}/public/build/videos/ 2>/dev/null || true', 'Restore public build videos')
+    run(ssh, f'rm -rf {ROOT}/tmp_videos {ROOT}/tmp_build_videos', 'Cleanup remote video backups')
     
     # Create .env
     env_content = """APP_NAME=Offkilt

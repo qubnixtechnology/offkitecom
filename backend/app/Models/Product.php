@@ -28,6 +28,7 @@ class Product extends Model
         'images',
         'badge',
         'is_active',
+        'stock',
         'slug',
         'meta_title',
         'meta_description',
@@ -40,6 +41,7 @@ class Product extends Model
         'images'  => 'array',
         'is_active' => 'boolean',
         'price'   => 'integer',
+        'stock'   => 'integer',
     ];
 
     protected $with = ['variants'];
