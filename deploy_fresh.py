@@ -164,6 +164,9 @@ SESSION_LIFETIME=120
     # Run Migrations and Seeders
     run(ssh, f'cd {LARAVEL} && php artisan migrate:fresh --seed --force', 'Artisan Migrate and Seed')
     
+    # Re-create Admin User
+    run(ssh, f'cd {LARAVEL} && php create_admin.php', 'Create Admin User')
+    
     # Set permissions
     run(ssh, f'chmod -R 775 {LARAVEL}/storage {LARAVEL}/bootstrap/cache', 'Set storage & cache permissions')
     
