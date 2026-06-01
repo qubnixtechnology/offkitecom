@@ -281,7 +281,7 @@ export default function App() {
       { label: 'Women', link: '#campaign-women', category: 'skirts', visible: true },
       { label: 'Collection', link: '#catalog', category: 'all', visible: true },
       { label: 'After Dusk', link: '#catalog', category: 'all', visible: true },
-      { label: 'Sale', link: '#catalog', category: 'all', visible: true }
+      { label: 'Sale', link: '#catalog', category: 'sale', visible: true }
     ];
     try {
       return JSON.parse(localStorage.getItem('offkilt_menus')) || defaults;
@@ -1026,7 +1026,9 @@ export default function App() {
                               setExpandedMobileMenu(prev => ({ ...prev, [labelSlug]: !prev[labelSlug] }));
                             } else {
                               e.preventDefault();
-                              if (item.category) {
+                              if (item.label.toLowerCase() === 'sale') {
+                                setActiveCategory('sale');
+                              } else if (item.category) {
                                 setActiveCategory(item.category);
                               }
                               const sectionId = item.link.replace('#', '');

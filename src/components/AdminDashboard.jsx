@@ -1226,7 +1226,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
       { label: 'Women', link: '#campaign-women', category: 'skirts', visible: true },
       { label: 'Collection', link: '#catalog', category: 'all', visible: true },
       { label: 'After Dusk', link: '#catalog', category: 'all', visible: true },
-      { label: 'Sale', link: '#catalog', category: 'all', visible: true }
+      { label: 'Sale', link: '#catalog', category: 'sale', visible: true }
     ];
     return JSON.parse(localStorage.getItem('offkilt_menus') || JSON.stringify(defaults));
   });
