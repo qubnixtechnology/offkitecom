@@ -44,6 +44,11 @@ def package_backend():
         path = tarinfo.name
         # normalize path separator
         path_norm = path.replace('\\', '/')
+        
+        # Exclude large archive/zip files
+        if path_norm.endswith('.zip'):
+            return None
+            
         parts = path_norm.split('/')
         
         # Exclude directories/files
