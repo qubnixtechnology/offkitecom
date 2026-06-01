@@ -1071,6 +1071,10 @@ export default function AdminDashboard({ currentUser, onClose }) {
 
   const handleSavePromoPopup = () => {
     localStorage.setItem('offkilt_promo_popup_settings', JSON.stringify(promoPopupSettings));
+    // Reset dismissed state so the popup shows again for all visitors
+    if (promoPopupSettings.enabled) {
+      localStorage.removeItem('offkilt_promo_popup_dismissed');
+    }
     triggerSync('offkilt_settings_updated');
     alert('Newsletter Promo Popup settings saved successfully!');
   };

@@ -13,9 +13,14 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
   const [reviewTrigger, setReviewTrigger] = useState(0);
   const [productTrigger, setProductTrigger] = useState(0);
   const [categoriesList, setCategoriesList] = useState(() => {
-    const defaults = ['all', 'jeans', 'skirts', 'baggy', 'relaxed', 'boot cut', 'slim', 'skinny'];
+    const defaults = ['all', 'jeans', 'skirts', 'baggy', 'relaxed', 'boot cut', 'slim', 'skinny', 'sale'];
     try {
-      return JSON.parse(localStorage.getItem('offkilt_categories_list')) || defaults;
+      const stored = JSON.parse(localStorage.getItem('offkilt_categories_list'));
+      // Always ensure 'sale' is in the list
+      if (stored && Array.isArray(stored)) {
+        return stored.includes('sale') ? stored : [...stored, 'sale'];
+      }
+      return defaults;
     } catch (e) {
       return defaults;
     }
@@ -32,11 +37,12 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
   });
 
   const handleSettingsUpdate = () => {
-    const defaults = ['all', 'jeans', 'skirts', 'baggy', 'relaxed', 'boot cut', 'slim', 'skinny'];
+    const defaults = ['all', 'jeans', 'skirts', 'baggy', 'relaxed', 'boot cut', 'slim', 'skinny', 'sale'];
     try {
       const stored = JSON.parse(localStorage.getItem('offkilt_categories_list'));
       if (stored && Array.isArray(stored)) {
-        setCategoriesList(stored);
+        // Always ensure 'sale' is present
+        setCategoriesList(stored.includes('sale') ? stored : [...stored, 'sale']);
       } else {
         setCategoriesList(defaults);
       }
@@ -320,10 +326,18 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                 {categoriesList.map(tab => (
                   <button 
                     key={tab}
-                    className={`category-tab mono ${activeTab === tab ? 'active' : ''}`}
+                    className={`category-tab mono ${activeTab === tab ? 'active' : ''} ${tab.toLowerCase() === 'sale' ? 'sale-tab' : ''}`}
                     onClick={() => setActiveTab(tab)}
+                    style={tab.toLowerCase() === 'sale' && activeTab !== tab ? {
+                      color: '#d93838',
+                      borderColor: 'rgba(217,56,56,0.3)',
+                    } : tab.toLowerCase() === 'sale' && activeTab === tab ? {
+                      backgroundColor: '#d93838',
+                      color: '#ffffff',
+                      borderColor: '#d93838',
+                    } : {}}
                   >
-                    {tab}
+                    {tab.toLowerCase() === 'sale' ? '🔴 SALE' : tab}
                   </button>
                 ))}
               </div>
