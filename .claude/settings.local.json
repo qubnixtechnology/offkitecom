@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python _verify_ssh.py)",
+      "Bash(python _inspect_remote.py)",
+      "Bash(python _inspect2.py)",
+      "Bash(npm run *)",
+      "Bash(tar -czf build.tar.gz -C backend/public build)"
+    ]
+  }
+}

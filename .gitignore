@@ -28,3 +28,19 @@ public/images/products.zip
 backend/public/images/products.zip
 *.zip
 
+# Secrets — never commit
+hostingerssh.md
+dbcredential.md
+backend/.env
+backend/.env.production
+backend/.env.local
+
+# Deployment helper scripts containing inline credentials
+_deploy_script.py
+_verify_ssh.py
+_inspect_remote.py
+_inspect2.py
+_deploy.py
+deploy.py
+
+

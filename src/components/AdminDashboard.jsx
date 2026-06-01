@@ -476,25 +476,65 @@ export default function AdminDashboard({ currentUser, onClose }) {
   const handleCampaignSave = (section, data) => {
     const updated = { ...campaigns, [section]: data };
     setCampaigns(updated);
-  };
-
-  const handleCampaignSaveBtn = (section) => {
-    localStorage.setItem(`offkilt_campaign_${section}`, JSON.stringify(campaigns[section]));
+    try {
+      localStorage.setItem(`offkilt_campaign_${section}`, JSON.stringify(data));
+    } catch (e) {
+      console.error('localStorage quota exceeded when saving campaign:', e);
+      alert('Image is too large for storage. Please use a smaller image (under 500KB).');
+      return;
+    }
     triggerSync('offkilt_settings_updated');
     alert(`${section === 'men' ? "Men's" : "Women's"} campaign settings saved!`);
   };
 
-  const handleCampaignImageUpload = (section, file) => {
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCampaigns(prev => ({
-          ...prev,
-          [section]: { ...prev[section], image: reader.result }
-        }));
+  // Compress image to max 1200px wide before base64 encoding to avoid localStorage quota errors
+  const compressImage = (file, maxWidth = 1200, quality = 0.82) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
       };
-      reader.readAsDataURL(file);
-    }
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        // Fall back to original FileReader if canvas fails
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      };
+      img.src = url;
+    });
+  };
+
+  const handleCampaignImageUpload = (section, file) => {
+    if (!file) return;
+    compressImage(file).then((dataUrl) => {
+      // Use functional updater so we always have latest campaigns state (no stale closure)
+      setCampaigns(prev => {
+        const updated = { ...prev[section], image: dataUrl };
+        const newState = { ...prev, [section]: updated };
+        try {
+          localStorage.setItem(`offkilt_campaign_${section}`, JSON.stringify(updated));
+        } catch (e) {
+          console.error('localStorage quota exceeded:', e);
+          alert('Image is too large for browser storage even after compression. Please use a smaller image.');
+          return prev; // revert state
+        }
+        triggerSync('offkilt_settings_updated');
+        return newState;
+      });
+    });
   };
 
   const handleHeroMediaUpload = async (e) => {
@@ -2445,7 +2485,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       <input 
                         type="text" 
                         value={campaigns.men.title} 
-                        onChange={(e) => handleCampaignSave('men', { ...campaigns.men, title: e.target.value })} 
+                        onChange={(e) => setCampaigns(prev => ({ ...prev, men: { ...prev.men, title: e.target.value } }))} 
                         style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
                       />
                     </div>
@@ -2453,7 +2493,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Subtitle</label>
                       <textarea 
                         value={campaigns.men.subtitle} 
-                        onChange={(e) => handleCampaignSave('men', { ...campaigns.men, subtitle: e.target.value })} 
+                        onChange={(e) => setCampaigns(prev => ({ ...prev, men: { ...prev.men, subtitle: e.target.value } }))} 
                         rows="2"
                         style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
                       ></textarea>
@@ -2463,7 +2503,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       <input 
                         type="text" 
                         value={campaigns.men.ctaText} 
-                        onChange={(e) => handleCampaignSave('men', { ...campaigns.men, ctaText: e.target.value })} 
+                        onChange={(e) => setCampaigns(prev => ({ ...prev, men: { ...prev.men, ctaText: e.target.value } }))} 
                         style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
                       />
                     </div>
@@ -2474,12 +2514,13 @@ export default function AdminDashboard({ currentUser, onClose }) {
                         {campaigns.men.image ? (
                           <img src={campaigns.men.image} alt="Men Preview" style={{ maxHeight: '100%', objectFit: 'contain' }} />
                         ) : (
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Upload Men's Campaign Image</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Click to upload Men's Campaign Image</span>
                         )}
                       </div>
+                      <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '4px' }}>Image is auto-compressed and saved instantly on upload.</p>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-                      <button type="button" onClick={() => handleCampaignSaveBtn('men')} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button type="button" onClick={() => handleCampaignSave('men', campaigns.men)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Save size={14} /> Save Men's Campaign Settings
                       </button>
                     </div>
@@ -2495,7 +2536,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       <input 
                         type="text" 
                         value={campaigns.women.title} 
-                        onChange={(e) => handleCampaignSave('women', { ...campaigns.women, title: e.target.value })} 
+                        onChange={(e) => setCampaigns(prev => ({ ...prev, women: { ...prev.women, title: e.target.value } }))} 
                         style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
                       />
                     </div>
@@ -2503,7 +2544,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Subtitle</label>
                       <textarea 
                         value={campaigns.women.subtitle} 
-                        onChange={(e) => handleCampaignSave('women', { ...campaigns.women, subtitle: e.target.value })} 
+                        onChange={(e) => setCampaigns(prev => ({ ...prev, women: { ...prev.women, subtitle: e.target.value } }))} 
                         rows="2"
                         style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
                       ></textarea>
@@ -2513,7 +2554,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       <input 
                         type="text" 
                         value={campaigns.women.ctaText} 
-                        onChange={(e) => handleCampaignSave('women', { ...campaigns.women, ctaText: e.target.value })} 
+                        onChange={(e) => setCampaigns(prev => ({ ...prev, women: { ...prev.women, ctaText: e.target.value } }))} 
                         style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
                       />
                     </div>
@@ -2524,12 +2565,13 @@ export default function AdminDashboard({ currentUser, onClose }) {
                         {campaigns.women.image ? (
                           <img src={campaigns.women.image} alt="Women Preview" style={{ maxHeight: '100%', objectFit: 'contain' }} />
                         ) : (
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Upload Women's Campaign Image</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Click to upload Women's Campaign Image</span>
                         )}
                       </div>
+                      <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '4px' }}>Image is auto-compressed and saved instantly on upload.</p>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-                      <button type="button" onClick={() => handleCampaignSaveBtn('women')} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button type="button" onClick={() => handleCampaignSave('women', campaigns.women)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Save size={14} /> Save Women's Campaign Settings
                       </button>
                     </div>

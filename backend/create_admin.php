@@ -11,8 +11,11 @@ use Illuminate\Support\Facades\Hash;
 $admin = User::where('email', 'admin@offkite.com')->first();
 
 if ($admin) {
-    $admin->update(['is_admin' => true]);
-    echo "Admin already exists. Updated is_admin = true.\n";
+    $admin->update([
+        'is_admin' => true,
+        'password' => Hash::make('Admin@123'),
+    ]);
+    echo "Admin already exists. Updated is_admin = true and reset password to Admin@123.\n";
     echo "Email: " . $admin->email . "\n";
 } else {
     $admin = User::create([

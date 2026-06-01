@@ -63,7 +63,7 @@ export default function NewArrivals({ onProductClick, onAddToCart, wishlist, onW
       const avg = prodReviews.reduce((acc, r) => acc + r.rating, 0) / prodReviews.length;
       return { rating: avg, count: prodReviews.length };
     }
-    const sum = productId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const sum = String(productId).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const mockRating = (4.5 + (sum % 5) * 0.1);
     const mockCount = 6 + (sum % 20);
     return { rating: mockRating, count: mockCount };
