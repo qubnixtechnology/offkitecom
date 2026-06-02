@@ -13,6 +13,7 @@ import ShopByStyle from './components/ShopByStyle';
 import BrandStory from './components/BrandStory';
 import CustomerReviews from './components/CustomerReviews';
 import InstagramGallery from './components/InstagramGallery';
+import NewsletterSection from './components/NewsletterSection';
 import Catalog from './components/Catalog';
 import ProductDetailModal from './components/ProductDetailModal';
 import CartDrawer from './components/CartDrawer';
@@ -1318,6 +1319,8 @@ export default function App() {
                 <InstagramGallery />
 
                 <SellerPartners />
+
+                <NewsletterSection />
               </>
             )}
           </main>
@@ -1447,51 +1450,26 @@ export default function App() {
           {/* Newsletter Promo Popup */}
           <AnimatePresence>
             {showPromoPopup && (
-              <div className="modal-overlay" style={{ zIndex: 11000, backgroundColor: 'rgba(0, 0, 0, 0.85)' }}>
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                  className="newsletter-popup-card"
-                  style={{
-                    position: 'relative',
-                    display: 'grid',
-                    gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : '1fr 1.2fr',
-                    width: '90%',
-                    maxWidth: '850px',
-                    height: window.innerWidth <= 768 ? 'auto' : '500px',
-                    backgroundColor: 'var(--bg-dark)',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    overflow: 'hidden',
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                  }}
-                >
-                  {/* Left Column: Image */}
-                  <div style={{
-                    position: 'relative',
-                    height: window.innerWidth <= 768 ? '200px' : '100%',
-                    backgroundImage: `url(${promoPopupSettings.coverImage})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                  }}>
-                    <div style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.6) 100%)'
-                    }} />
-                  </div>
-
-                  {/* Right Column: Content Form */}
-                  <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    padding: '40px',
-                    position: 'relative',
-                    textAlign: 'left'
-                  }}>
+              <div 
+                className="modal-overlay" 
+                style={{ 
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  width: '100vw',
+                  height: '100vh',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  zIndex: 11000, 
+                  backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  padding: '20px',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <div style={{ position: 'relative', width: '90%', maxWidth: '850px' }}>
                   {/* Close Button — top-right corner of entire card, always visible */}
                   <button 
                     onClick={() => {
@@ -1501,8 +1479,8 @@ export default function App() {
                     title="Close"
                     style={{
                       position: 'absolute',
-                      top: '-14px',
-                      right: '-14px',
+                      top: '-18px',
+                      right: '-18px',
                       width: '36px',
                       height: '36px',
                       borderRadius: '50%',
@@ -1513,8 +1491,8 @@ export default function App() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      zIndex: 10,
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                      zIndex: 11010,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
                       transition: 'background 0.2s, transform 0.2s',
                     }}
                     onMouseEnter={e => { e.currentTarget.style.background = '#d93838'; e.currentTarget.style.transform = 'scale(1.1)'; }}
@@ -1523,99 +1501,142 @@ export default function App() {
                     <X size={16} />
                   </button>
 
-                    <span className="mono" style={{ color: 'var(--accent-gold)', fontSize: '0.75rem', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '12px', display: 'block' }}>
-                      WELCOME OFFER
-                    </span>
-
-                    <h3 style={{
-                      fontFamily: 'var(--font-heading)',
-                      fontSize: '1.7rem',
-                      fontWeight: 'bold',
-                      lineHeight: '1.2',
-                      letterSpacing: '1px',
-                      color: '#ffffff',
-                      marginBottom: '10px',
-                      textTransform: 'uppercase'
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                    className="newsletter-popup-card"
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : '1fr 1.2fr',
+                      width: '100%',
+                      height: window.innerWidth <= 768 ? 'auto' : '500px',
+                      backgroundColor: 'var(--bg-dark)',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      overflow: 'hidden',
+                      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                    }}
+                  >
+                    {/* Left Column: Image */}
+                    <div style={{
+                      position: 'relative',
+                      height: window.innerWidth <= 768 ? '200px' : '100%',
+                      backgroundImage: `url(${promoPopupSettings.coverImage})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
                     }}>
-                      {promoPopupSettings.title}
-                    </h3>
-
-                    <p style={{
-                      fontSize: '0.85rem',
-                      color: 'var(--text-grey)',
-                      marginBottom: '24px',
-                      lineHeight: '1.5'
-                    }}>
-                      {promoPopupSettings.subtitle}
-                    </p>
-
-                    {promoStatus === 'success' ? (
                       <div style={{
-                        padding: '20px',
-                        backgroundColor: 'rgba(212, 175, 55, 0.05)',
-                        border: '1px solid var(--accent-gold)',
-                        borderRadius: '4px',
-                        animation: 'fadeIn 0.5s'
-                      }}>
-                        <p style={{ color: 'var(--accent-gold)', fontSize: '0.9rem', fontWeight: 'bold', margin: '0 0 4px 0' }}>
-                          You're on the list!
-                        </p>
-                        <p style={{ color: '#ffffff', fontSize: '0.85rem', margin: 0 }}>
-                          Use code <strong style={{ color: '#ffffff', backgroundColor: '#222', padding: '2px 6px', borderRadius: '2px', fontFamily: 'var(--font-mono)' }}>{promoPopupSettings.discountCode}</strong> at checkout.
-                        </p>
-                      </div>
-                    ) : (
-                      <form onSubmit={handlePromoSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <input 
-                          type="email"
-                          placeholder="Enter your email address"
-                          value={promoEmail}
-                          onChange={(e) => { setPromoEmail(e.target.value); setPromoStatus(''); }}
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            fontSize: '0.85rem',
-                            backgroundColor: '#111',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            color: '#ffffff',
-                            borderRadius: '4px',
-                            outline: 'none'
-                          }}
-                        />
-                        <button 
-                          type="submit"
-                          disabled={promoLoading}
-                          className="btn-primary"
-                          style={{
-                            padding: '12px',
-                            fontSize: '0.85rem',
-                            fontWeight: 600,
-                            textAlign: 'center',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {promoLoading ? 'Subscribing...' : 'SUBSCRIBE & SAVE'}
-                        </button>
-                        {promoMsg && (
-                          <p style={{
-                            fontSize: '0.75rem',
-                            color: promoStatus === 'error' ? '#ef4444' : 'var(--accent-gold)',
-                            margin: '4px 0 0 0'
-                          }}>{promoMsg}</p>
-                        )}
-                      </form>
-                    )}
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.6) 100%)'
+                      }} />
+                    </div>
 
-                    <p style={{
-                      fontSize: '0.65rem',
-                      color: 'var(--text-muted)',
-                      marginTop: '20px',
-                      textAlign: 'center'
+                    {/* Right Column: Content Form */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      padding: '40px',
+                      position: 'relative',
+                      textAlign: 'left'
                     }}>
-                      * Discount valid for new customers only. Free shipping automatically applied.
-                    </p>
-                  </div>
-                </motion.div>
+                      <span className="mono" style={{ color: 'var(--accent-gold)', fontSize: '0.75rem', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '12px', display: 'block' }}>
+                        WELCOME OFFER
+                      </span>
+
+                      <h3 style={{
+                        fontFamily: 'var(--font-heading)',
+                        fontSize: '1.7rem',
+                        fontWeight: 'bold',
+                        lineHeight: '1.2',
+                        letterSpacing: '1px',
+                        color: '#ffffff',
+                        marginBottom: '10px',
+                        textTransform: 'uppercase'
+                      }}>
+                        {promoPopupSettings.title}
+                      </h3>
+
+                      <p style={{
+                        fontSize: '0.85rem',
+                        color: 'var(--text-grey)',
+                        marginBottom: '24px',
+                        lineHeight: '1.5'
+                      }}>
+                        {promoPopupSettings.subtitle}
+                      </p>
+
+                      {promoStatus === 'success' ? (
+                        <div style={{
+                          padding: '20px',
+                          backgroundColor: 'rgba(212, 175, 55, 0.05)',
+                          border: '1px solid var(--accent-gold)',
+                          borderRadius: '4px',
+                          animation: 'fadeIn 0.5s'
+                        }}>
+                          <p style={{ color: 'var(--accent-gold)', fontSize: '0.9rem', fontWeight: 'bold', margin: '0 0 4px 0' }}>
+                            You're on the list!
+                          </p>
+                          <p style={{ color: '#ffffff', fontSize: '0.85rem', margin: 0 }}>
+                            Use code <strong style={{ color: '#ffffff', backgroundColor: '#222', padding: '2px 6px', borderRadius: '2px', fontFamily: 'var(--font-mono)' }}>{promoPopupSettings.discountCode}</strong> at checkout.
+                          </p>
+                        </div>
+                      ) : (
+                        <form onSubmit={handlePromoSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <input 
+                            type="email"
+                            placeholder="Enter your email address"
+                            value={promoEmail}
+                            onChange={(e) => { setPromoEmail(e.target.value); setPromoStatus(''); }}
+                            style={{
+                              width: '100%',
+                              padding: '12px',
+                              fontSize: '0.85rem',
+                              backgroundColor: '#111',
+                              border: '1px solid rgba(255, 255, 255, 0.1)',
+                              color: '#ffffff',
+                              borderRadius: '4px',
+                              outline: 'none'
+                            }}
+                          />
+                          <button 
+                            type="submit"
+                            disabled={promoLoading}
+                            className="btn-primary"
+                            style={{
+                              padding: '12px',
+                              fontSize: '0.85rem',
+                              fontWeight: 600,
+                              textAlign: 'center',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {promoLoading ? 'Subscribing...' : 'SUBSCRIBE & SAVE'}
+                          </button>
+                          {promoMsg && (
+                            <p style={{
+                              fontSize: '0.75rem',
+                              color: promoStatus === 'error' ? '#ef4444' : 'var(--accent-gold)',
+                              margin: '4px 0 0 0'
+                            }}>{promoMsg}</p>
+                          )}
+                        </form>
+                      )}
+
+                      <p style={{
+                        fontSize: '0.65rem',
+                        color: 'var(--text-muted)',
+                        marginTop: '20px',
+                        textAlign: 'center'
+                      }}>
+                        * Discount valid for new customers only. Free shipping automatically applied.
+                      </p>
+                    </div>
+                  </motion.div>
+                </div>
               </div>
             )}
           </AnimatePresence>

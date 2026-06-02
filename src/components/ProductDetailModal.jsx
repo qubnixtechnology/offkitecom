@@ -1096,7 +1096,7 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                               <img 
                                 src={displayImg} 
                                 alt={p.name} 
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.25)', transformOrigin: 'center 85%', objectPosition: 'center 85%' }} 
                                 loading="lazy"
                               />
                             </div>
