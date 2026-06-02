@@ -15,7 +15,7 @@ class MailHelper
             $settings = json_decode(file_get_contents($path), true);
         }
 
-        $apiKey = !empty($settings['emailProvider']['apiKey']) ? $settings['emailProvider']['apiKey'] : env('BREVO_API_KEY');
+        $apiKey = !empty($settings['emailProvider']['apiKey']) ? $settings['emailProvider']['apiKey'] : config('services.brevo.api_key');
         $senderName = $settings['emailProvider']['senderName'] ?? 'Off-Kilt Production';
         $senderEmail = $settings['emailProvider']['senderEmail'] ?? 'Info@off-kilt.com';
         

@@ -52,7 +52,7 @@ export default function UserProfileModal({
     if (isOpen) {
       const params = new URLSearchParams(window.location.search);
       const emailParam = params.get('reset-email');
-      const tokenParam = params.get('reset-token');
+      const tokenParam = params.get('token') || params.get('reset-token');
       if (emailParam) {
         setTimeout(() => {
           setResetEmail(emailParam);
@@ -458,7 +458,7 @@ export default function UserProfileModal({
                     {/* Register Form */}
                     {activeTab === 'register' && (
                       <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div className="auth-grid-2col">
                           <div className="rzp-input-group">
                             <label className="rzp-label">Full Name</label>
                             <div style={{ position: 'relative' }}>
@@ -510,7 +510,7 @@ export default function UserProfileModal({
                           </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '16px' }}>
+                        <div className="auth-grid-3-1">
                           <div className="rzp-input-group">
                             <label className="rzp-label">Complete Shipping Address</label>
                             <div style={{ position: 'relative' }}>
@@ -571,7 +571,7 @@ export default function UserProfileModal({
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <h3 style={{ fontSize: '0.9rem', color: 'var(--text-light)', fontFamily: 'var(--font-mono)' }}>PASSWORD RECOVERY</h3>
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-grey)', lineHeight: '1.4' }}>
-                          Enter your registered email address below. We will simulate sending a secure verification token to reset your password credentials.
+                          Enter your registered email address below. We will send a secure verification token link to reset your password credentials.
                         </p>
 
                         <form onSubmit={handleForgotSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -596,19 +596,11 @@ export default function UserProfileModal({
                               Request Reset Link
                             </button>
                           ) : (
-                            <div style={{ backgroundColor: 'rgba(249,115,22,0.03)', border: '1px dashed rgba(249,115,22,0.25)', padding: '18px', borderRadius: '4px', textAlign: 'center' }}>
-                              <div className="mono" style={{ fontSize: '0.65rem', color: 'var(--accent-raw)', fontWeight: 800, marginBottom: '6px' }}>[REBEL EMAIL GATEWAY]</div>
-                              <p style={{ fontSize: '0.8rem', color: 'var(--text-grey)', lineHeight: '1.4', marginBottom: '12px' }}>
-                                A simulated verification reset link has been dispatched to <strong>{resetEmail}</strong>. Tap below to verify and open the password reset page:
+                            <div style={{ backgroundColor: 'rgba(34,197,94,0.03)', border: '1px dashed rgba(34,197,94,0.25)', padding: '18px', borderRadius: '4px', textAlign: 'center' }}>
+                              <div className="mono" style={{ fontSize: '0.65rem', color: '#22c55e', fontWeight: 800, marginBottom: '6px' }}>[EMAIL DISPATCHED]</div>
+                              <p style={{ fontSize: '0.8rem', color: 'var(--text-grey)', lineHeight: '1.4', margin: 0 }}>
+                                A secure password reset link has been sent to <strong>{resetEmail}</strong>. Please check your email inbox (and spam folder) and click the link to reset your credentials.
                               </p>
-                              <button 
-                                type="button" 
-                                className="btn-secondary" 
-                                style={{ padding: '8px 16px', fontSize: '0.7rem', width: '100%', justifyContent: 'center' }}
-                                onClick={() => { setActiveTab('reset'); setAuthError(''); }}
-                              >
-                                Verify & Set New Password
-                              </button>
                             </div>
                           )}
 
@@ -820,7 +812,7 @@ export default function UserProfileModal({
 
                       {isEditing ? (
                         <form onSubmit={handleProfileSave} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                          <div className="auth-grid-2col">
                             <div className="rzp-input-group">
                               <label className="rzp-label">Name</label>
                               <input 
@@ -845,7 +837,7 @@ export default function UserProfileModal({
                             </div>
                           </div>
 
-                          <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '16px' }}>
+                          <div className="auth-grid-3-1">
                             <div className="rzp-input-group">
                               <label className="rzp-label">Complete Shipping Address</label>
                               <input 
@@ -880,15 +872,15 @@ export default function UserProfileModal({
                         </form>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', fontSize: '0.85rem' }}>
+                          <div className="profile-info-row">
                             <span style={{ color: 'var(--text-muted)' }}>Email:</span>
                             <span style={{ color: 'var(--text-light)' }}>{currentUser.email}</span>
                           </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', fontSize: '0.85rem' }}>
+                          <div className="profile-info-row">
                             <span style={{ color: 'var(--text-muted)' }}>Mobile Phone:</span>
                             <span style={{ color: 'var(--text-light)' }}>+91 {currentUser.phone}</span>
                           </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', fontSize: '0.85rem' }}>
+                          <div className="profile-info-row">
                             <span style={{ color: 'var(--text-muted)' }}>Address:</span>
                             <span style={{ color: 'var(--text-light)', lineHeight: '1.4' }}>
                               {currentUser.address}, Pincode - {currentUser.pincode}
@@ -916,7 +908,7 @@ export default function UserProfileModal({
                             return (
                               <div 
                                 key={order.id || order.orderId}
-                                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '4px' }}
+                                className="order-history-item"
                               >
                                 <div>
                                   <div className="mono" style={{ fontSize: '0.8rem', color: 'var(--accent-raw)', fontWeight: 700 }}>

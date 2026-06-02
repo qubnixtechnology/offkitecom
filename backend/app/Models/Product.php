@@ -17,6 +17,7 @@ class Product extends Model
         'name',
         'category',
         'price',
+        'discountPrice',
         'tagline',
         'description',
         'details',
@@ -42,6 +43,7 @@ class Product extends Model
         'images'  => 'array',
         'is_active' => 'boolean',
         'price'   => 'integer',
+        'discountPrice' => 'integer',
         'stock'   => 'integer',
     ];
 

@@ -24,7 +24,7 @@ class AuthServiceProvider extends ServiceProvider
         $this->registerPolicies();
 
         \Illuminate\Auth\Notifications\ResetPassword::createUrlUsing(function ($user, string $token) {
-            return env('FRONTEND_URL', 'http://localhost:5173') . '?reset-token=' . $token . '&reset-email=' . urlencode($user->email);
+            return config('app.frontend_url', 'http://localhost:5173') . '?reset-token=' . $token . '&reset-email=' . urlencode($user->email);
         });
     }
 }

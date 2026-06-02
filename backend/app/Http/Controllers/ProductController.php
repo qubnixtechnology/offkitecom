@@ -57,6 +57,7 @@ class ProductController extends Controller
             'name'             => 'required|string|max:255',
             'tagline'          => 'nullable|string|max:500',
             'price'            => 'required|numeric|min:0',
+            'discountPrice'    => 'nullable|numeric|min:0',
             'category'         => 'required|string|max:100',
             'image'            => 'nullable|string',       // URL or base64
             'hover_image'      => 'nullable|string',
@@ -78,17 +79,6 @@ class ProductController extends Controller
 
         // Auto-generate a unique product ID like OKJ-001234
         $validated['id'] = 'OKJ' . strtoupper(Str::random(2)) . rand(10000, 99999);
-
-        // Encode arrays to JSON for storage
-        if (isset($validated['details'])) {
-            $validated['details'] = json_encode($validated['details']);
-        }
-        if (isset($validated['sizes'])) {
-            $validated['sizes'] = json_encode($validated['sizes']);
-        }
-        if (isset($validated['images'])) {
-            $validated['images'] = json_encode($validated['images']);
-        }
 
         $validated['is_active'] = $validated['is_active'] ?? true;
 
@@ -131,6 +121,7 @@ class ProductController extends Controller
             'name'             => 'sometimes|required|string|max:255',
             'tagline'          => 'nullable|string|max:500',
             'price'            => 'sometimes|required|numeric|min:0',
+            'discountPrice'    => 'nullable|numeric|min:0',
             'category'         => 'sometimes|required|string|max:100',
             'image'            => 'nullable|string',
             'hover_image'      => 'nullable|string',
@@ -149,17 +140,6 @@ class ProductController extends Controller
             'meta_keywords'    => 'nullable|string|max:500',
             'size_guide'       => 'nullable|string',
         ]);
-
-        // Encode arrays for JSON columns
-        if (isset($validated['details'])) {
-            $validated['details'] = json_encode($validated['details']);
-        }
-        if (isset($validated['sizes'])) {
-            $validated['sizes'] = json_encode($validated['sizes']);
-        }
-        if (isset($validated['images'])) {
-            $validated['images'] = json_encode($validated['images']);
-        }
 
         $product->update($validated);
 

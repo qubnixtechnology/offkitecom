@@ -31,4 +31,13 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'brevo' => [
+        'api_key' => env('BREVO_API_KEY'),
+    ],
+
+    'shiprocket' => [
+        'email' => env('SHIPROCKET_EMAIL', 'Info@off-kilt.com'),
+        'password' => env('SHIPROCKET_PASSWORD'),
+    ],
+
 ];

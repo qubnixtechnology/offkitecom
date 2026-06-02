@@ -138,8 +138,8 @@ class OrderController extends Controller
         try {
             $token = \Illuminate\Support\Facades\Cache::remember('shiprocket_token', 86000, function () {
                 $response = \Illuminate\Support\Facades\Http::post('https://apiv2.shiprocket.in/v1/external/auth/login', [
-                    'email'    => env('SHIPROCKET_EMAIL', 'Info@off-kilt.com'),
-                    'password' => env('SHIPROCKET_PASSWORD'),
+                    'email'    => config('services.shiprocket.email', 'Info@off-kilt.com'),
+                    'password' => config('services.shiprocket.password'),
                 ]);
                 return $response->json()['token'] ?? null;
             });

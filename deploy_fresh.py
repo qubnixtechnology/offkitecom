@@ -190,8 +190,8 @@ SHIPROCKET_PASSWORD={shiprocket_pass}
     # Storage link
     run(ssh, f'ln -sf {LARAVEL}/storage/app/public {LARAVEL}/public/storage', 'Artisan storage link (manual)')
     
-    # Run Migrations and Seeders
-    run(ssh, f'cd {LARAVEL} && php artisan migrate:fresh --seed --force', 'Artisan Migrate and Seed')
+    # Run Migrations
+    run(ssh, f'cd {LARAVEL} && php artisan migrate --force', 'Artisan Migrate')
     
     # Re-create Admin User
     run(ssh, f'cd {LARAVEL} && php create_admin.php', 'Create Admin User')
