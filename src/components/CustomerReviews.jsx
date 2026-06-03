@@ -72,9 +72,12 @@ function StarRow({ rating }) {
 export default function CustomerReviews() {
   const [activeReviewIdx, setActiveReviewIdx] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [revealedCards, setRevealedCards] = useState({});
+  const [headerInView, setHeaderInView] = useState(false);
   const headerRef = useRef(null);
   const cardsRef = useRef([]);
   const gridRef = useRef(null);
+  const throttleTimeout = useRef(null);
 
   const getReviewStats = () => {
     try {
@@ -99,7 +102,20 @@ export default function CustomerReviews() {
     window.addEventListener('resize', handleResize);
 
     const observer = new IntersectionObserver(
-      (entries) => entries.forEach(e => e.isIntersecting && e.target.classList.add('in-view')),
+      (entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            if (e.target === headerRef.current) {
+              setHeaderInView(true);
+            } else {
+              const idx = cardsRef.current.indexOf(e.target);
+              if (idx !== -1) {
+                setRevealedCards(prev => ({ ...prev, [idx]: true }));
+              }
+            }
+          }
+        });
+      },
       { threshold: 0.1 }
     );
     if (headerRef.current) observer.observe(headerRef.current);
@@ -108,30 +124,40 @@ export default function CustomerReviews() {
     return () => {
       window.removeEventListener('resize', handleResize);
       observer.disconnect();
+      if (throttleTimeout.current) {
+        clearTimeout(throttleTimeout.current);
+      }
     };
   }, []);
 
   const handleScroll = () => {
-    if (!gridRef.current) return;
-    const container = gridRef.current;
-    const cards = container.querySelectorAll('.review-card');
-    let closestIdx = 0;
-    let minDistance = Infinity;
-    
-    const containerRect = container.getBoundingClientRect();
-    const containerCenter = containerRect.top + containerRect.height / 2;
-    
-    cards.forEach((card, idx) => {
-      const cardRect = card.getBoundingClientRect();
-      const cardCenter = cardRect.top + cardRect.height / 2;
-      const distance = Math.abs(cardCenter - containerCenter);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestIdx = idx;
-      }
-    });
-    
-    setActiveReviewIdx(closestIdx);
+    if (throttleTimeout.current) return;
+
+    throttleTimeout.current = setTimeout(() => {
+      throttleTimeout.current = null;
+      if (!gridRef.current) return;
+      const container = gridRef.current;
+      const cards = container.querySelectorAll('.review-card');
+      if (cards.length === 0) return;
+
+      let closestIdx = 0;
+      let minDistance = Infinity;
+
+      const containerRect = container.getBoundingClientRect();
+      const containerCenter = containerRect.left + containerRect.width / 2;
+
+      cards.forEach((card, idx) => {
+        const cardRect = card.getBoundingClientRect();
+        const cardCenter = cardRect.left + cardRect.width / 2;
+        const distance = Math.abs(cardCenter - containerCenter);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestIdx = idx;
+        }
+      });
+
+      setActiveReviewIdx(closestIdx);
+    }, 120);
   };
 
   const scrollToReview = (idx) => {
@@ -141,7 +167,7 @@ export default function CustomerReviews() {
     const targetCard = cards[idx];
     if (targetCard) {
       container.scrollTo({
-        top: targetCard.offsetTop - 10,
+        left: targetCard.offsetLeft - (container.clientWidth - targetCard.clientWidth) / 2,
         behavior: 'smooth'
       });
       setActiveReviewIdx(idx);
@@ -151,17 +177,17 @@ export default function CustomerReviews() {
   return (
     <section className="reviews-sec" id="reviews">
       <div className="container">
-        <div className="luxury-section-header section-reveal" ref={headerRef}>
+        <div className={`luxury-section-header section-reveal ${headerInView ? 'in-view' : ''}`} ref={headerRef}>
           <span className="luxury-eyebrow">What They Say</span>
           <h2 className="luxury-section-title">Customer <em>Love</em></h2>
           <p className="luxury-section-subtitle">Thousands of women trust <span style={{ fontFamily: 'var(--font-brand)', fontWeight: 700 }}>off-kilt</span> for their wardrobe. Here's what they have to say.</p>
         </div>
 
-        <div className="reviews-grid" ref={gridRef} onScroll={isMobile ? handleScroll : undefined} data-lenis-prevent={isMobile ? "true" : undefined}>
+        <div className="reviews-grid" ref={gridRef} onScroll={isMobile ? handleScroll : undefined}>
           {REVIEWS.map((review, idx) => (
             <div
               key={review.id}
-              className="review-card section-reveal"
+              className={`review-card section-reveal ${revealedCards[idx] ? 'in-view' : ''}`}
               ref={el => cardsRef.current[idx] = el}
               style={{ transitionDelay: `${idx * 0.12}s` }}
             >

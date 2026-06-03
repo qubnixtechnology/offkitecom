@@ -15,7 +15,7 @@ function AdminEmailTab() {
   const [emailProvider, setEmailProvider] = useState(() =>
     JSON.parse(localStorage.getItem('offkilt_email_provider') || JSON.stringify({
       provider: 'Brevo', senderName: 'Off-Kilt',
-      senderEmail: 'support@off-kilt.com', apiKey: ''
+      senderEmail: 'offkiltfashion@gmail.com', apiKey: ''
     }))
   );
   const [emailToggles, setEmailToggles] = useState(() =>
@@ -156,7 +156,7 @@ function AdminEmailTab() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           {[
             { label: 'Sender Name', key: 'senderName', type: 'text', placeholder: 'Off-Kilt' },
-            { label: 'Sender Email', key: 'senderEmail', type: 'email', placeholder: 'support@off-kilt.com' },
+            { label: 'Sender Email', key: 'senderEmail', type: 'email', placeholder: 'offkiltfashion@gmail.com' },
             { label: 'Brevo API Key', key: 'apiKey', type: 'password', placeholder: '••••••••••••••••••' },
           ].map(field => (
             <div key={field.key}>

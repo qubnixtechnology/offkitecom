@@ -4278,7 +4278,7 @@ button {
   border: 1px solid rgba(255,255,255,0.06);
   padding: 36px;
   position: relative;
-  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex !important;
   flex-direction: column !important;
   justify-content: space-between !important;
@@ -5811,35 +5811,32 @@ button {
 }
 
 @media (max-width: 768px) {
-  /* Customer Love Section: vertical scrolling with multiple reviews visible */
+  /* Customer Love Section: horizontal carousel slider on mobile */
   .reviews-grid {
     display: flex !important;
-    flex-direction: column !important;
-    max-height: 480px !important; /* height to fit multiple reviews */
-    overflow-y: auto !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important; /* smooth momentum scrolling on iOS */
     gap: 16px !important;
-    padding: 10px 10px !important;
-    border: 1px solid rgba(0, 0, 0, 0.05) !important;
-    border-radius: 6px !important;
-    background: rgba(0, 0, 0, 0.01) !important;
-    scrollbar-width: thin !important;
+    padding: 16px 12px !important;
+    scrollbar-width: none !important; /* Hide scrollbar */
+    scroll-snap-type: x mandatory !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
   .reviews-grid::-webkit-scrollbar {
-    display: block !important;
-    width: 4px !important;
-  }
-  .reviews-grid::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.15) !important;
-    border-radius: 2px !important;
+    display: none !important;
   }
   .review-card {
-    flex: 0 0 auto !important; /* natural height, don't stretch */
+    flex: 0 0 85% !important; /* Show 85% width so next card is partially visible */
+    width: 85% !important;
     height: auto !important;
     display: flex !important;
     flex-direction: column !important;
-    padding: 20px !important;
+    padding: 24px !important;
     box-sizing: border-box !important;
-    scroll-snap-align: none !important; /* disable snap */
+    scroll-snap-align: center !important; /* snap center */
   }
   
   /* Compact single-row trust stats on mobile */
@@ -5986,15 +5983,17 @@ button {
   }
 
   .modal-actions-fixed {
-    position: fixed !important;
+    position: sticky !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    width: 100% !important;
+    width: calc(100% + 48px) !important; /* Stretch to edges by cancelling parent's 24px horizontal padding */
+    margin: 0 -24px -100px -24px !important; /* Negative horizontal margin to joint it, negative bottom margin to offset parent's 100px bottom padding */
     padding: 12px 16px !important;
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
     background: #ffffff !important;
     border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-radius: 0 !important; /* Square corners for full-bleed sheet layout */
     z-index: 30 !important;
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08) !important;
     display: flex !important;
@@ -7284,6 +7283,8 @@ button {
   }
 
   .modal-actions-fixed {
+    width: calc(100% + 32px) !important; /* Cancel parent's 16px horizontal padding */
+    margin: 0 -16px -100px -16px !important; /* Joint to screen edges and offset parent's 100px bottom padding */
     padding: 10px 12px !important;
     gap: 8px !important;
   }

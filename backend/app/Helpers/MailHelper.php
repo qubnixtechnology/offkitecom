@@ -21,7 +21,7 @@ class MailHelper
 
         $apiKey = !empty($settings['emailProvider']['apiKey']) ? $settings['emailProvider']['apiKey'] : config('services.brevo.api_key');
         $senderName = $settings['emailProvider']['senderName'] ?? 'Off-Kilt Production';
-        $senderEmail = $settings['emailProvider']['senderEmail'] ?? 'Info@off-kilt.com';
+        $senderEmail = $settings['emailProvider']['senderEmail'] ?? 'offkiltfashion@gmail.com';
         
         if (empty($apiKey)) {
             self::$lastError = "Brevo API Key is missing. Check your Brevo config settings or backend env variables.";

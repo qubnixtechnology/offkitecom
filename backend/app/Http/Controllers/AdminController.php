@@ -43,7 +43,7 @@ class AdminController extends Controller
             'emailProvider' => [
                 'provider' => 'Brevo',
                 'senderName' => 'Off-Kilt Production',
-                'senderEmail' => 'Info@off-kilt.com',
+                'senderEmail' => 'offkiltfashion@gmail.com',
                 'apiKey' => config('services.brevo.api_key')
             ],
             'emailToggles' => [
