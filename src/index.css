@@ -5989,15 +5989,42 @@ button {
     position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
+    right: 0 !important;
     width: 100% !important;
-    padding: 16px 24px !important;
+    padding: 12px 16px !important;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
     background: #ffffff !important;
     border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
     z-index: 30 !important;
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08) !important;
     display: flex !important;
-    gap: 12px !important;
+    align-items: stretch !important;
+    justify-content: center !important;
+    gap: 10px !important;
     box-sizing: border-box !important;
+  }
+
+  .modal-actions-fixed .add-to-cart-btn,
+  .modal-actions-fixed .btn-primary {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 14px 20px !important;
+    font-size: 0.82rem !important;
+    letter-spacing: 0.08em !important;
+    gap: 8px !important;
+  }
+
+  .modal-actions-fixed button:not(.add-to-cart-btn):not(.btn-primary) {
+    flex-shrink: 0 !important;
+    width: 48px !important;
+    min-width: 48px !important;
+    height: auto !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   .modal-gallery-thumbnails {
@@ -6957,9 +6984,294 @@ button {
   }
 }
 
-/* Mobile-specific Product Modal Gallery Overrides */
+/* ═══════════════════════════════════════════════════
+   GLOBAL MOBILE OPTIMIZATIONS — comprehensive fixes
+   for all screens ≤ 768px
+═══════════════════════════════════════════════════ */
+
 @media (max-width: 768px) {
-  /* Mobile slider adjustments can go here if needed */
+
+  /* ── Touch targets: all interactive elements at least 44×44px ── */
+  button,
+  a,
+  input[type="checkbox"],
+  input[type="radio"],
+  select {
+    min-height: 44px;
+  }
+
+  /* Buttons that are icon-only should stay square */
+  .header-btn,
+  .menu-toggle,
+  .close-btn,
+  .modal-close-btn,
+  .quantity-btn,
+  .gallery-nav-btn,
+  .gallery-thumb-btn,
+  .social-link,
+  .share-platform-btn,
+  .modal-close-btn {
+    min-height: unset;
+  }
+
+  /* ── Cart Drawer: full width on mobile ── */
+  .cart-drawer {
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+
+  .cart-items {
+    padding: 20px 16px !important;
+    gap: 18px !important;
+  }
+
+  .cart-header {
+    padding: 20px 16px !important;
+  }
+
+  .cart-footer {
+    padding: 20px 16px !important;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .cart-item {
+    gap: 14px !important;
+  }
+
+  .cart-item-img-wrapper {
+    width: 75px !important;
+  }
+
+  /* ── Catalog grid: 2 columns on mobile ── */
+  .catalog-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  /* ── Catalog section spacing ── */
+  .catalog-sec {
+    padding: 60px 0 !important;
+  }
+
+  .catalog-header {
+    margin-bottom: 30px !important;
+  }
+
+  /* ── Category tabs: horizontal scroll ── */
+  .category-tabs {
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    scrollbar-width: none !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 4px !important;
+  }
+
+  .category-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .category-tab {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    padding: 8px 16px !important;
+    font-size: 0.7rem !important;
+  }
+
+  /* ── Footer spacing ── */
+  .site-footer {
+    padding: 60px 0 30px !important;
+  }
+
+  .site-footer .container {
+    padding: 0 16px !important;
+  }
+
+  /* ── Newsletter form: stacked on small screens ── */
+  .newsletter-form {
+    flex-direction: column !important;
+  }
+
+  .newsletter-input {
+    border-right: 1px solid var(--text-muted) !important;
+    border-bottom: none !important;
+    min-height: 48px !important;
+  }
+
+  .newsletter-submit {
+    min-height: 48px !important;
+    width: 100% !important;
+    padding: 12px !important;
+  }
+
+  /* ── Form inputs mobile sizing ── */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+  }
+
+  /* ── Auth form improvements ── */
+  .auth-grid-2col {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .auth-grid-3-1 {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* ── Hero content ── */
+  .hero-content {
+    padding: 0 16px !important;
+    margin-top: 30px !important;
+  }
+
+  /* ── Sections: tighten vertical spacing ── */
+  .brand-story-sec,
+  .arrivals-sec,
+  .bestsellers-sec,
+  .trending-sec,
+  .instagram-sec,
+  .reviews-sec {
+    padding: 60px 0 !important;
+  }
+
+  /* ── Product cards: tighter name/price text ── */
+  .product-name,
+  .arrival-name,
+  .bestseller-name {
+    font-size: 0.8rem !important;
+    letter-spacing: 0.2px !important;
+  }
+
+  .catalog-price-row-editorial {
+    font-size: 0.78rem !important;
+  }
+
+  /* ── Section titles ── */
+  .section-title {
+    font-size: 1.8rem !important;
+  }
+
+  /* ── Announcement bar ── */
+  .announcement-bar {
+    font-size: 0.7rem !important;
+    padding: 6px 12px !important;
+  }
+
+  /* ── Avoid horizontal scroll on page ── */
+  html, body, #root {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  /* ── Tracking modal ── */
+  .tracking-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+    margin: 0 !important;
+  }
+
+  /* ── Razorpay checkout ── */
+  .razorpay-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+  }
+
+  /* ── Invoice overlay (order success) ── */
+  .invoice-overlay {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 100dvh !important;
+    top: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+    border-radius: 0 !important;
+    padding: 24px 16px !important;
+    overflow-y: auto !important;
+  }
+
+  /* ── Mega menu: no hover on mobile ── */
+  .mega-menu {
+    display: none !important;
+  }
+
+  /* ── Image lightbox close btn ── */
+  .image-lightbox-overlay .lightbox-close-btn,
+  .lightbox-close-btn {
+    min-height: unset !important;
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  /* ── Social share modal: make it full-width bottom sheet ── */
+  .share-modal-backdrop {
+    align-items: flex-end !important;
+  }
+
+  .share-modal-card {
+    border-radius: 20px 20px 0 0 !important;
+    padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* ── Color swatches: larger touch area ── */
+  .color-swatch,
+  .catalog-swatch-circle {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  /* ── Size selector buttons: bigger touch area ── */
+  .size-option-btn {
+    min-width: 44px !important;
+    min-height: 40px !important;
+  }
+
+  /* ── Quick view button always visible on mobile ── */
+  .catalog-quick-view-btn,
+  .catalog-quick-add-btn {
+    display: flex !important;
+    opacity: 1 !important;
+  }
+
 }
 
+/* Very small screens (≤ 400px) */
+@media (max-width: 400px) {
 
+  .catalog-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .container {
+    padding: 0 12px !important;
+  }
+
+  .modal-details-container {
+    padding: 24px 16px 100px !important;
+  }
+
+  .modal-actions-fixed {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+
+}

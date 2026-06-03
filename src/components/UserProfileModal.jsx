@@ -59,20 +59,29 @@ export default function UserProfileModal({
   const [editError, setEditError] = useState('');
   const [editSuccess, setEditSuccess] = useState(false);
 
-  // Auto-listen to URL hash parameters on mount/open to trigger mock reset links
+  // Auto-listen to URL parameters on mount/open to trigger reset password form
   useEffect(() => {
     if (isOpen) {
       const params = new URLSearchParams(window.location.search);
-      const emailParam = params.get('reset-email');
+      const emailParam = params.get('reset-email') || params.get('email');
       const tokenParam = params.get('token') || params.get('reset-token');
-      if (emailParam) {
+      if (emailParam && tokenParam) {
         setTimeout(() => {
           setResetEmail(emailParam);
-          setResetToken(tokenParam || '');
+          setResetToken(tokenParam);
           setActiveTab('reset');
           setAuthError('');
         }, 0);
         // Clean URL params so it doesn't trigger repeatedly
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else if (params.get('reset-email')) {
+        // Legacy fallback
+        setTimeout(() => {
+          setResetEmail(params.get('reset-email'));
+          setResetToken(params.get('reset-token') || '');
+          setActiveTab('reset');
+          setAuthError('');
+        }, 0);
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     }

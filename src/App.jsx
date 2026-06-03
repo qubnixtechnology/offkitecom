@@ -595,7 +595,17 @@ export default function App() {
   // Monitor URL parameters for simulated password reset links and product quick views on initialization
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('reset-email')) {
+    const resetEmail = params.get('reset-email') || params.get('email');
+    const resetToken = params.get('token') || params.get('reset-token');
+    
+    // Open profile modal in reset mode when user visits from a password reset email link
+    if (resetEmail && resetToken) {
+      setTimeout(() => {
+        setProfileInitialTab('reset');
+        setIsProfileOpen(true);
+      }, 300);
+    } else if (params.get('reset-email')) {
+      // Legacy format
       setTimeout(() => {
         setIsProfileOpen(true);
       }, 0);

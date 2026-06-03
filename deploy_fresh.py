@@ -152,6 +152,7 @@ APP_ENV=production
 APP_KEY=
 APP_DEBUG=false
 APP_URL=http://off-kilt.com
+FRONTEND_URL=http://off-kilt.com
 
 LOG_CHANNEL=stack
 LOG_DEPRECATIONS_CHANNEL=null
