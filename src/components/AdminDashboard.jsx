@@ -15,7 +15,7 @@ function AdminEmailTab() {
   const [emailProvider, setEmailProvider] = useState(() =>
     JSON.parse(localStorage.getItem('offkilt_email_provider') || JSON.stringify({
       provider: 'Brevo', senderName: 'Off-Kilt',
-      senderEmail: 'support@off-kilt.com', replyTo: 'support@off-kilt.com', apiKey: ''
+      senderEmail: 'support@off-kilt.com', apiKey: ''
     }))
   );
   const [emailToggles, setEmailToggles] = useState(() =>
@@ -29,9 +29,90 @@ function AdminEmailTab() {
   const [templateBody, setTemplateBody] = useState(`Hello {{customer_name}},\n\nClick the button below to reset your password.\n\n[ Reset Password ]\n\nThis link expires in 15 minutes.\n\n— Off-Kilt Team`);
   const [testEmail, setTestEmail] = useState('');
   const [testResult, setTestResult] = useState(null);
+  const [testLoading, setTestLoading] = useState(false);
+  const [testError, setTestError] = useState(null);
   const [providerSaved, setProviderSaved] = useState(false);
   const [togglesSaved, setTogglesSaved] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
+
+  const handleSendTestEmail = async () => {
+    if (!testEmail) {
+      alert('Please enter a recipient email address.');
+      return;
+    }
+    setTestLoading(true);
+    setTestResult(null);
+    setTestError(null);
+    try {
+      const res = await adminApi.sendTestEmail(testEmail);
+      setTestResult('success');
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Unknown error occurred.';
+      setTestError(errorMsg);
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const fetchEmailSettings = async () => {
+      try {
+        const res = await adminApi.getEmailSettings();
+        if (res.data) {
+          const data = res.data;
+          if (data.emailProvider) {
+            setEmailProvider(data.emailProvider);
+            localStorage.setItem('offkilt_email_provider', JSON.stringify(data.emailProvider));
+          }
+          if (data.emailToggles) {
+            setEmailToggles(data.emailToggles);
+            localStorage.setItem('offkilt_email_toggles', JSON.stringify(data.emailToggles));
+          }
+          if (data.templates) {
+            localStorage.setItem('offkilt_email_templates', JSON.stringify(data.templates));
+            const tmpl = data.templates[selectedTemplate] || { subject: '', body: '' };
+            setTemplateSubject(tmpl.subject || '');
+            setTemplateBody(tmpl.body || '');
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load email settings from backend', err);
+      }
+    };
+    fetchEmailSettings();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const tmpl = JSON.parse(localStorage.getItem('offkilt_email_templates') || '{}');
+      const current = tmpl[selectedTemplate] || { subject: '', body: '' };
+      setTemplateSubject(current.subject || '');
+      setTemplateBody(current.body || '');
+    } catch (e) {
+      console.error(e);
+    }
+  }, [selectedTemplate]);
+
+  const saveSettingsToBackend = async (updatedProvider = emailProvider, updatedToggles = emailToggles, updatedTemplates = null) => {
+    try {
+      let templates = updatedTemplates;
+      if (!templates) {
+        try {
+          templates = JSON.parse(localStorage.getItem('offkilt_email_templates') || '{}');
+        } catch (e) {
+          templates = {};
+        }
+      }
+      const payload = {
+        emailProvider: updatedProvider,
+        emailToggles: updatedToggles,
+        templates: templates
+      };
+      await adminApi.saveEmailSettings(payload);
+    } catch (err) {
+      console.error('Failed to save email settings to server', err);
+    }
+  };
 
   const activityLog = [
     { date: 'Today, 14:31', type: 'Forgot Password', recipient: 'user@gmail.com', status: 'Delivered' },
@@ -76,7 +157,6 @@ function AdminEmailTab() {
           {[
             { label: 'Sender Name', key: 'senderName', type: 'text', placeholder: 'Off-Kilt' },
             { label: 'Sender Email', key: 'senderEmail', type: 'email', placeholder: 'support@off-kilt.com' },
-            { label: 'Reply-To Email', key: 'replyTo', type: 'email', placeholder: 'support@off-kilt.com' },
             { label: 'Brevo API Key', key: 'apiKey', type: 'password', placeholder: '••••••••••••••••••' },
           ].map(field => (
             <div key={field.key}>
@@ -95,7 +175,12 @@ function AdminEmailTab() {
         </div>
         <div style={{ display: 'flex', gap: '10px', marginTop: '18px' }}>
           <button className="btn-primary" style={{ padding: '10px 20px', fontSize: '0.72rem', width: 'auto' }}
-            onClick={() => { localStorage.setItem('offkilt_email_provider', JSON.stringify(emailProvider)); setProviderSaved(true); setTimeout(() => setProviderSaved(false), 2000); }}>
+            onClick={async () => { 
+              localStorage.setItem('offkilt_email_provider', JSON.stringify(emailProvider)); 
+              setProviderSaved(true); 
+              await saveSettingsToBackend(emailProvider, emailToggles, null);
+              setTimeout(() => setProviderSaved(false), 2000); 
+            }}>
             {providerSaved ? <Check size={14} /> : <Save size={14} />}
             {providerSaved ? ' Saved!' : ' Save Changes'}
           </button>
@@ -129,7 +214,12 @@ function AdminEmailTab() {
           </div>
         ))}
         <button className="btn-primary" style={{ marginTop: '18px', padding: '10px 20px', fontSize: '0.72rem', width: 'auto' }}
-          onClick={() => { localStorage.setItem('offkilt_email_toggles', JSON.stringify(emailToggles)); setTogglesSaved(true); setTimeout(() => setTogglesSaved(false), 2000); }}>
+          onClick={async () => { 
+            localStorage.setItem('offkilt_email_toggles', JSON.stringify(emailToggles)); 
+            setTogglesSaved(true); 
+            await saveSettingsToBackend(emailProvider, emailToggles, null);
+            setTimeout(() => setTogglesSaved(false), 2000); 
+          }}>
           {togglesSaved ? <><Check size={14} /> Saved!</> : <><Save size={14} /> Save Preferences</>}
         </button>
       </div>
@@ -155,11 +245,13 @@ function AdminEmailTab() {
         <textarea className="admin-email-template-editor" value={templateBody} onChange={e => setTemplateBody(e.target.value)} rows={8} />
         <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
           <button className="btn-primary" style={{ padding: '10px 20px', fontSize: '0.72rem', width: 'auto' }}
-            onClick={() => {
+            onClick={async () => {
               const tmpl = JSON.parse(localStorage.getItem('offkilt_email_templates') || '{}');
               tmpl[selectedTemplate] = { subject: templateSubject, body: templateBody };
               localStorage.setItem('offkilt_email_templates', JSON.stringify(tmpl));
-              setTemplateSaved(true); setTimeout(() => setTemplateSaved(false), 2000);
+              setTemplateSaved(true); 
+              await saveSettingsToBackend(emailProvider, emailToggles, tmpl);
+              setTimeout(() => setTemplateSaved(false), 2000);
             }}>
             {templateSaved ? <><Check size={14} /> Saved!</> : <><Save size={14} /> Save Template</>}
           </button>
@@ -189,13 +281,26 @@ function AdminEmailTab() {
             </select>
           </div>
         </div>
-        <button className="btn-primary" style={{ padding: '10px 20px', fontSize: '0.72rem', width: 'auto' }}
-          onClick={() => { if (!testEmail) { alert('Please enter a recipient email address.'); return; } setTestResult('success'); setTimeout(() => setTestResult(null), 4000); }}>
-          <Send size={14} style={{ marginRight: '6px' }} /> Send Test Email
+        <button 
+          className="btn-primary" 
+          style={{ padding: '10px 20px', fontSize: '0.72rem', width: 'auto' }}
+          disabled={testLoading}
+          onClick={handleSendTestEmail}
+        >
+          {testLoading ? <RefreshCw size={14} className="spin-anim" style={{ marginRight: '6px' }} /> : <Send size={14} style={{ marginRight: '6px' }} />}
+          {testLoading ? 'Sending...' : 'Send Test Email'}
         </button>
         {testResult === 'success' && (
           <div style={{ marginTop: '14px', padding: '10px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', color: '#15803d', fontFamily: 'var(--font-mono)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Check size={14} /> Test email sent to {testEmail} (simulated)
+            <Check size={14} /> Test email sent successfully to {testEmail}!
+          </div>
+        )}
+        {testError && (
+          <div style={{ marginTop: '14px', padding: '10px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', color: '#dc2626', fontFamily: 'var(--font-mono)', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
+              <AlertTriangle size={14} /> Test Email Dispatch Failed
+            </div>
+            <p style={{ margin: 0, paddingLeft: '22px' }}>{testError}</p>
           </div>
         )}
       </div>
@@ -229,30 +334,12 @@ function AdminEmailTab() {
           </table>
         </div>
         <div style={{ display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}>
-          <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.7rem', width: 'auto' }} onClick={() => alert('Exporting logs... (simulated)')}>
+          <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.72rem', width: 'auto' }} onClick={() => alert('Exporting logs... (simulated)')}>
             <Download size={13} style={{ marginRight: '6px' }} /> Export Logs
           </button>
-          <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.7rem', width: 'auto' }} onClick={() => alert('Failed queue cleared! (simulated)')}>
+          <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.72rem', width: 'auto' }} onClick={() => alert('Failed queue cleared! (simulated)')}>
             Clear Failed Queue
           </button>
-        </div>
-      </div>
-
-      {/* Email Statistics */}
-      <div className="admin-email-card">
-        <div className="admin-email-card-title">Email Statistics (Today)</div>
-        <div className="admin-email-stat-grid">
-          {[
-            { label: 'Emails Sent', value: '125', color: '#111111' },
-            { label: 'Delivered', value: '122', color: '#15803d' },
-            { label: 'Failed', value: '3', color: '#dc2626' },
-            { label: 'Delivery Rate', value: '97.6%', color: '#2563eb' },
-          ].map(stat => (
-            <div key={stat.label} className="admin-email-stat-card">
-              <div className="admin-email-stat-number" style={{ color: stat.color }}>{stat.value}</div>
-              <div className="admin-email-stat-label">{stat.label}</div>
-            </div>
-          ))}
         </div>
       </div>
     </div>
@@ -317,6 +404,127 @@ export default function AdminDashboard({ currentUser, onClose }) {
     window.dispatchEvent(new Event(eventName || 'offkilt_settings_updated'));
   };
 
+  const saveGlobalSettingsToServer = async () => {
+    const keys = [
+      'offkilt_mega_menu',
+      'offkilt_campaigns',
+      'offkilt_categories_list',
+      'offkilt_homepage_collections',
+      'offkilt_category_metadata',
+      'offkilt_homepage_grid_cards',
+      'offkilt_narrative',
+      'offkilt_instagram',
+      'offkilt_best_sellers',
+      'offkilt_fashion_film',
+      'offkilt_instagram_gallery',
+      'offkilt_company_pages',
+      'offkilt_promo_discount_text',
+      'offkilt_promo_discount_show',
+      'offkilt_customer_love_stats',
+      'offkilt_seo_products',
+      'offkilt_razorpay_key',
+      'offkilt_razorpay_secret',
+      'offkilt_shiprocket_email',
+      'offkilt_shiprocket_password',
+      'offkilt_whatsapp_number',
+      'offkilt_press_brands',
+      'offkilt_announcement_text',
+      'offkilt_announcement_show',
+      'offkilt_announcement_bg',
+      'offkilt_announcement_color',
+      'offkilt_promo_popup_settings',
+      'offkilt_genders_list',
+      'offkilt_footer_settings',
+      'offkilt_socials',
+      'offkilt_partners',
+      'offkilt_brand_story',
+      'offkilt_review_stats',
+      'offkilt_font_heading',
+      'offkilt_font_body',
+      'offkilt_menus',
+      'offkilt_campaign_men',
+      'offkilt_campaign_women',
+      'offkilt_campaign_hero'
+    ];
+    const payload = {};
+    keys.forEach(k => {
+      const val = localStorage.getItem(k);
+      if (val !== null) {
+        try {
+          payload[k] = JSON.parse(val);
+        } catch (e) {
+          payload[k] = val;
+        }
+      }
+    });
+    try {
+      await adminApi.saveGlobalSettings(payload);
+    } catch (err) {
+      console.error('Failed to sync settings to server', err);
+    }
+  };
+
+  useEffect(() => {
+    const handleSettingsUpdated = async () => {
+      await saveGlobalSettingsToServer();
+    };
+    window.addEventListener('offkilt_settings_updated', handleSettingsUpdated);
+    return () => {
+      window.removeEventListener('offkilt_settings_updated', handleSettingsUpdated);
+    };
+  }, []);
+
+  const [gendersList, setGendersList] = useState(() => {
+    const defaults = ['men', 'women'];
+    try {
+      const stored = JSON.parse(localStorage.getItem('offkilt_genders_list'));
+      if (stored && Array.isArray(stored)) {
+        return stored.filter(g => g !== 'unisex');
+      }
+    } catch (e) {}
+    return defaults;
+  });
+
+  const [bulkTargetGender, setBulkTargetGender] = useState('men');
+
+  const [reviewStatsForm, setReviewStatsForm] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('offkilt_review_stats'));
+      if (stored && stored.happyCustomers) return stored;
+    } catch (e) {}
+    return { happyCustomers: '10,000+', avgRating: '4.9', reviewCount: '5,000+' };
+  });
+
+  const [campaignsList, setCampaignsList] = useState(() => {
+    const defaults = [
+      {
+        id: 'campaign-men',
+        gender: 'men',
+        title: "Denim Redefined",
+        subtitle: "Crafted for the modern rebel. Raw denim, bold silhouettes, uncompromising attitude.",
+        ctaText: "Explore Men's",
+        image: "/images/mens_campaign.png",
+        sectionInsertAfter: 'hero',
+        visible: true
+      },
+      {
+        id: 'campaign-women',
+        gender: 'women',
+        title: "Elegance Meets Edge",
+        subtitle: "Structured denim and statement skirts for the confident woman who defies convention.",
+        ctaText: "Explore Women's",
+        image: "/images/womens_campaign.png",
+        sectionInsertAfter: 'trending',
+        visible: true
+      }
+    ];
+    try {
+      const stored = localStorage.getItem('offkilt_campaigns');
+      if (stored) return JSON.parse(stored);
+    } catch(e) {}
+    return defaults;
+  });
+
   // --- 1. ANALYTICS STATE & MOCKS ---
   const [analyticsData, setAnalyticsData] = useState({
     totalSales: 0,
@@ -345,7 +553,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productForm, setProductForm] = useState({
-    id: '', name: '', tagline: '', price: '', category: 'jeans',
+    id: '', name: '', tagline: '', price: '', category: 'jeans', gender: 'unisex',
     image: '', hover_image: '', description: '', discountPrice: '',
     stock: '50', sku: '', swatches: [{ name: 'Raw Indigo', hex: '#1e293b' }, { name: 'Charcoal Black', hex: '#111111' }],
     sizes: ['30', '32', '34'],
@@ -355,7 +563,10 @@ export default function AdminDashboard({ currentUser, onClose }) {
     meta_title: '',
     meta_description: '',
     meta_keywords: '',
-    size_guide: ''
+    size_guide: '',
+    details: '',
+    materials: '',
+    shipping: ''
   });
   const [editingProductId, setEditingProductId] = useState(null);
   const [productSearch, setProductSearch] = useState('');
@@ -400,8 +611,26 @@ export default function AdminDashboard({ currentUser, onClose }) {
       ? productForm.swatches.map(s => `${s.name.trim()}:${s.hex.trim()}`).join(', ')
       : productForm.swatches;
 
+    const preparedVariants = Array.isArray(productForm.variants)
+      ? productForm.variants.map(v => {
+          let sizesArray = [];
+          if (Array.isArray(v.sizes)) {
+            sizesArray = v.sizes;
+          } else if (typeof v.sizes === 'string') {
+            sizesArray = v.sizes.split(',').map(s => s.trim()).filter(Boolean);
+          }
+          return {
+            ...v,
+            sizes: sizesArray,
+            price: Number(v.price),
+            stock: Number(v.stock)
+          };
+        })
+      : [];
+
     const payload = {
       ...productForm,
+      variants: preparedVariants,
       image: mainImg,
       hover_image: hoverImg,
       hoverImage: hoverImg,
@@ -410,14 +639,9 @@ export default function AdminDashboard({ currentUser, onClose }) {
       stock: Number(productForm.stock),
       sizes: productForm.sizes,
       size_guide: productForm.size_guide || '',
-      // Parse swatches comma separated list to structured details
-      details: [
-        `SKU: ${productForm.sku || 'OK-' + Math.floor(Math.random() * 10000)}`,
-        `Inventory: ${productForm.stock} units`,
-        `Fabric Swatches: ${swatchesStr}`
-      ],
-      materials: "100% heavyweight selvedge denim",
-      shipping: "Standard delivery 3-5 business days"
+      details: typeof productForm.details === 'string' ? productForm.details.split('\n').map(d => d.trim()).filter(Boolean) : (Array.isArray(productForm.details) ? productForm.details : []),
+      materials: productForm.materials || "100% heavyweight selvedge denim",
+      shipping: productForm.shipping || "Standard delivery 3-5 business days"
     };
 
     try {
@@ -427,7 +651,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
         await adminApi.createProduct(payload);
       }
       setProductForm({
-        id: '', name: '', tagline: '', price: '', category: 'jeans',
+        id: '', name: '', tagline: '', price: '', category: 'jeans', gender: 'unisex',
         image: '', hover_image: '', description: '', discountPrice: '',
         stock: '50', sku: '', swatches: [{ name: 'Raw Indigo', hex: '#1e293b' }, { name: 'Charcoal Black', hex: '#111111' }],
         sizes: ['30', '32', '34'],
@@ -437,7 +661,10 @@ export default function AdminDashboard({ currentUser, onClose }) {
         meta_title: '',
         meta_description: '',
         meta_keywords: '',
-        size_guide: ''
+        size_guide: '',
+        details: '',
+        materials: '',
+        shipping: ''
       });
       setEditingProductId(null);
       fetchProducts();
@@ -488,6 +715,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
       tagline: p.tagline || '',
       price: p.price,
       category: p.category || 'jeans',
+      gender: p.gender || 'unisex',
       image: p.image || '',
       hover_image: p.hoverImage || p.hover_image || '',
       images: productImages,
@@ -502,7 +730,10 @@ export default function AdminDashboard({ currentUser, onClose }) {
       meta_title: p.meta_title || '',
       meta_description: p.meta_description || '',
       meta_keywords: p.meta_keywords || '',
-      size_guide: p.size_guide || ''
+      size_guide: p.size_guide || '',
+      details: Array.isArray(p.details) ? p.details.join('\n') : (p.details || ''),
+      materials: p.materials || '',
+      shipping: p.shipping || ''
     });
     setEditingProductId(p.id);
   };
@@ -572,6 +803,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
       sku: productForm.sku ? `${productForm.sku}-${nextId.toUpperCase()}` : `SKU-${nextId.toUpperCase()}`,
       images: [],
       status: 'available',
+      sizes: '',
       display_order: productForm.variants ? productForm.variants.length : 0
     };
     setProductForm(prev => ({
@@ -2500,7 +2732,11 @@ export default function AdminDashboard({ currentUser, onClose }) {
                         slug: '',
                         meta_title: '',
                         meta_description: '',
-                        meta_keywords: ''
+                        meta_keywords: '',
+                        details: '',
+                        materials: '',
+                        shipping: '',
+                        size_guide: ''
                       });
                     }}
                     className="btn-primary"
@@ -2563,6 +2799,55 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       </tbody>
                     </table>
                   )}
+                </div>
+
+                {/* Collection Products Manager */}
+                <div style={{ backgroundColor: '#ffffff', padding: '24px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)', marginTop: '24px' }}>
+                  <h3 style={{ fontSize: '0.85rem', marginBottom: '8px', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Collection Products Manager</h3>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-grey)', marginBottom: '14px', lineHeight: '1.4' }}>
+                    Quickly assign or remove products to different gender/age collections. Toggle a checkbox below to update immediately.
+                  </p>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '16px' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Target Collection:</label>
+                    <select
+                      value={bulkTargetGender}
+                      onChange={(e) => setBulkTargetGender(e.target.value)}
+                      style={{ padding: '6px 10px', fontSize: '0.78rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#ffffff', outline: 'none' }}
+                    >
+                      {gendersList.map(g => (
+                        <option key={g} value={g}>{g.toUpperCase()}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid rgba(0,0,0,0.06)', padding: '10px', borderRadius: '2px', backgroundColor: '#fafafa' }} className="admin-sidebar-scroll">
+                    {products.map(p => {
+                      const isAssigned = p.gender === bulkTargetGender;
+                      return (
+                        <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderBottom: '1px solid rgba(0,0,0,0.02)', cursor: 'pointer', fontSize: '0.78rem' }}>
+                          <input
+                            type="checkbox"
+                            checked={isAssigned}
+                            onChange={async () => {
+                              const newGender = isAssigned ? 'unisex' : bulkTargetGender;
+                              try {
+                                await adminApi.updateProduct(p.id, { gender: newGender });
+                                fetchProducts();
+                                triggerSync('offkilt_products_updated');
+                              } catch (e) {
+                                alert('Failed to update product collection');
+                              }
+                            }}
+                          />
+                          <img src={p.image} alt={p.name} style={{ width: '22px', height: '22px', objectFit: 'cover', borderRadius: '2px' }} />
+                          <span style={{ fontWeight: isAssigned ? 600 : 400, color: isAssigned ? 'var(--accent-raw)' : 'inherit' }}>{p.name}</span>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginLeft: 'auto', fontFamily: 'var(--font-mono)' }}>
+                            ({p.gender || 'unisex'})
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -2631,17 +2916,74 @@ export default function AdminDashboard({ currentUser, onClose }) {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                     <div>
                       <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Category</label>
-                      <input 
-                        type="text" 
-                        value={productForm.category} 
-                        onChange={(e) => setProductForm({...productForm, category: e.target.value.toLowerCase()})}
-                        placeholder="e.g. jeans, skirts, footwear, accessories"
-                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                      <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
+                        <select 
+                          value={productForm.category} 
+                          onChange={(e) => setProductForm({...productForm, category: e.target.value})}
+                          style={{ flex: 1, padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', backgroundColor: '#ffffff', height: '34px' }}
+                          required
+                        >
+                          {categoryList.map(cat => (
+                            <option key={cat} value={cat}>{cat.toUpperCase()}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const name = prompt("Enter new category name:");
+                            if (name) {
+                              const trimmed = name.trim().toLowerCase();
+                              if (trimmed && !categoryList.includes(trimmed)) {
+                                const updatedList = [...categoryList, trimmed];
+                                setCategoryList(updatedList);
+                                localStorage.setItem('offkilt_categories_list', JSON.stringify(updatedList));
+                                setProductForm({...productForm, category: trimmed});
+                              } else if (categoryList.includes(trimmed)) {
+                                alert("Category already exists.");
+                              }
+                            }
+                          }}
+                          style={{ width: '28px', height: '34px', fontSize: '0.9rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title="Add Custom Category"
+                        >
+                          +
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (categoryList.length <= 1) {
+                              alert("Cannot delete the last category.");
+                              return;
+                            }
+                            if (confirm(`Are you sure you want to delete category "${productForm.category}"?`)) {
+                              const updatedList = categoryList.filter(c => c !== productForm.category);
+                              setCategoryList(updatedList);
+                              localStorage.setItem('offkilt_categories_list', JSON.stringify(updatedList));
+                              setProductForm({...productForm, category: updatedList[0]});
+                            }
+                          }}
+                          style={{ width: '28px', height: '34px', fontSize: '0.9rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#fee2e2', color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title="Delete Selected Category"
+                        >
+                          -
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Gender</label>
+                      <select 
+                        value={productForm.gender || 'unisex'} 
+                        onChange={(e) => setProductForm({...productForm, gender: e.target.value})}
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', backgroundColor: '#ffffff', height: '34px' }}
                         required
-                      />
+                      >
+                        {gendersList.map(g => (
+                          <option key={g} value={g}>{g.toUpperCase()}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Stock Count</label>
@@ -2652,6 +2994,72 @@ export default function AdminDashboard({ currentUser, onClose }) {
                         style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
                       />
                     </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '-6px', marginBottom: '4px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Add new gender..." 
+                      id="newGenderInput"
+                      style={{ padding: '4px 8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', width: '140px' }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = e.target.value.trim().toLowerCase();
+                          if (val && !gendersList.includes(val)) {
+                            const newList = [...gendersList, val];
+                            setGendersList(newList);
+                            localStorage.setItem('offkilt_genders_list', JSON.stringify(newList));
+                            triggerSync('offkilt_settings_updated');
+                            e.target.value = '';
+                          }
+                        }
+                      }}
+                    />
+                    <button 
+                      type="button" 
+                      className="btn-secondary" 
+                      style={{ padding: '4px 8px', fontSize: '0.7rem', width: 'auto' }}
+                      onClick={() => {
+                        const el = document.getElementById('newGenderInput');
+                        const val = el.value.trim().toLowerCase();
+                        if (val && !gendersList.includes(val)) {
+                          const newList = [...gendersList, val];
+                          setGendersList(newList);
+                          localStorage.setItem('offkilt_genders_list', JSON.stringify(newList));
+                          triggerSync('offkilt_settings_updated');
+                          el.value = '';
+                        }
+                      }}
+                    >
+                      + Add Gender Option
+                    </button>
+                    {gendersList.length > 3 && (
+                      <button
+                        type="button"
+                        style={{ color: '#ef4444', background: 'none', border: 'none', fontSize: '0.7rem', textDecoration: 'underline', cursor: 'pointer' }}
+                        onClick={() => {
+                          const toRemove = prompt(`Enter custom gender to remove (Available: ${gendersList.filter(g => !['unisex', 'men', 'women'].includes(g)).join(', ')}):`);
+                          if (toRemove) {
+                            const val = toRemove.trim().toLowerCase();
+                            if (['unisex', 'men', 'women'].includes(val)) {
+                              alert('Cannot remove default genders.');
+                              return;
+                            }
+                            if (gendersList.includes(val)) {
+                              const newList = gendersList.filter(g => g !== val);
+                              setGendersList(newList);
+                              localStorage.setItem('offkilt_genders_list', JSON.stringify(newList));
+                              triggerSync('offkilt_settings_updated');
+                            } else {
+                              alert('Gender not found.');
+                            }
+                          }
+                        }}
+                      >
+                        Remove Custom
+                      </button>
+                    )}
                   </div>
 
                   <div>
@@ -2808,6 +3216,39 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       rows="3" 
                       style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', resize: 'vertical' }}
                       required
+                    ></textarea>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Technical Specifications (One bullet per line)</label>
+                    <textarea 
+                      value={productForm.details} 
+                      onChange={(e) => setProductForm({...productForm, details: e.target.value})} 
+                      rows="3" 
+                      placeholder="e.g. 13.5oz Heavyweight Raw Denim&#10;Relaxed baggy fit with utility pockets"
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', resize: 'vertical', marginTop: '4px' }}
+                    ></textarea>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Materials & Care</label>
+                    <textarea 
+                      value={productForm.materials} 
+                      onChange={(e) => setProductForm({...productForm, materials: e.target.value})} 
+                      rows="2" 
+                      placeholder="e.g. 100% Cotton Denim. Wash cold inside out."
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', resize: 'vertical', marginTop: '4px' }}
+                    ></textarea>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Shipping & Returns Details</label>
+                    <textarea 
+                      value={productForm.shipping} 
+                      onChange={(e) => setProductForm({...productForm, shipping: e.target.value})} 
+                      rows="2" 
+                      placeholder="e.g. Free shipping across India. Dispatched within 24 hours."
+                      style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none', resize: 'vertical', marginTop: '4px' }}
                     ></textarea>
                   </div>
 
@@ -3052,6 +3493,16 @@ export default function AdminDashboard({ currentUser, onClose }) {
                                   <option value="out_of_stock">Out of Stock</option>
                                   <option value="hidden">Hidden</option>
                                 </select>
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '0.65rem', color: 'var(--text-grey)' }}>Sizes (Comma-separated)</label>
+                                <input 
+                                  type="text" 
+                                  value={Array.isArray(v.sizes) ? v.sizes.join(', ') : (v.sizes || '')} 
+                                  onChange={(e) => handleUpdateVariant(vIdx, 'sizes', e.target.value)}
+                                  placeholder="e.g. 30, 32, 34"
+                                  style={{ width: '100%', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
+                                />
                               </div>
                             </div>
 
@@ -3406,108 +3857,215 @@ export default function AdminDashboard({ currentUser, onClose }) {
                 </div>
               </div>
 
-              {/* Grid layout for Men and Women campaigns */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
-                {/* Men's campaign configuration */}
-                <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
-                  <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>MEN'S CAMPAIGN CMS</h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Title</label>
-                      <input 
-                        type="text" 
-                        value={campaigns.men.title} 
-                        onChange={(e) => setCampaigns(prev => ({ ...prev, men: { ...prev.men, title: e.target.value } }))} 
-                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Subtitle</label>
-                      <textarea 
-                        value={campaigns.men.subtitle} 
-                        onChange={(e) => setCampaigns(prev => ({ ...prev, men: { ...prev.men, subtitle: e.target.value } }))} 
-                        rows="2"
-                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                      ></textarea>
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>CTA Button Label</label>
-                      <input 
-                        type="text" 
-                        value={campaigns.men.ctaText} 
-                        onChange={(e) => setCampaigns(prev => ({ ...prev, men: { ...prev.men, ctaText: e.target.value } }))} 
-                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Cover Banner</label>
-                      <div style={{ position: 'relative', border: '1px dashed rgba(0,0,0,0.15)', borderRadius: '2px', padding: '16px', textAlign: 'center', height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                        <input type="file" accept="image/*" onChange={(e) => handleCampaignImageUpload('men', e.target.files?.[0])} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
-                        {campaigns.men.image ? (
-                          <img src={campaigns.men.image} alt="Men Preview" style={{ maxHeight: '100%', objectFit: 'contain' }} />
-                        ) : (
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Click to upload Men's Campaign Image</span>
-                        )}
-                      </div>
-                      <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '4px' }}>Image is auto-compressed and saved instantly on upload.</p>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-                      <button type="button" onClick={() => handleCampaignSave('men', campaigns.men)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Save size={14} /> Save Men's Campaign Settings
-                      </button>
-                    </div>
-                  </div>
+              {/* Dynamic Campaigns List CMS */}
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                  <h3 style={{ fontSize: '0.9rem', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>CAMPAIGNS MANAGER</h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newCamp = {
+                        id: 'campaign-' + Date.now(),
+                        gender: 'unisex',
+                        title: 'New Campaign',
+                        subtitle: 'Campaign description text goes here.',
+                        ctaText: 'Explore Now',
+                        image: '',
+                        sectionInsertAfter: 'hero',
+                        visible: true
+                      };
+                      const updated = [...campaignsList, newCamp];
+                      setCampaignsList(updated);
+                      localStorage.setItem('offkilt_campaigns', JSON.stringify(updated));
+                      triggerSync('offkilt_settings_updated');
+                    }}
+                    className="btn-primary"
+                    style={{ padding: '8px 16px', fontSize: '0.75rem', width: 'auto' }}
+                  >
+                    + Add New Campaign Banner
+                  </button>
                 </div>
 
-                {/* Women's campaign configuration */}
-                <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
-                  <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px' }}>WOMEN'S CAMPAIGN CMS</h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Title</label>
-                      <input 
-                        type="text" 
-                        value={campaigns.women.title} 
-                        onChange={(e) => setCampaigns(prev => ({ ...prev, women: { ...prev.women, title: e.target.value } }))} 
-                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Subtitle</label>
-                      <textarea 
-                        value={campaigns.women.subtitle} 
-                        onChange={(e) => setCampaigns(prev => ({ ...prev, women: { ...prev.women, subtitle: e.target.value } }))} 
-                        rows="2"
-                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                      ></textarea>
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>CTA Button Label</label>
-                      <input 
-                        type="text" 
-                        value={campaigns.women.ctaText} 
-                        onChange={(e) => setCampaigns(prev => ({ ...prev, women: { ...prev.women, ctaText: e.target.value } }))} 
-                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Cover Banner</label>
-                      <div style={{ position: 'relative', border: '1px dashed rgba(0,0,0,0.15)', borderRadius: '2px', padding: '16px', textAlign: 'center', height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                        <input type="file" accept="image/*" onChange={(e) => handleCampaignImageUpload('women', e.target.files?.[0])} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
-                        {campaigns.women.image ? (
-                          <img src={campaigns.women.image} alt="Women Preview" style={{ maxHeight: '100%', objectFit: 'contain' }} />
-                        ) : (
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Click to upload Women's Campaign Image</span>
-                        )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  {campaignsList.map((c, idx) => (
+                    <div key={c.id || idx} style={{ border: '1px solid rgba(0,0,0,0.08)', padding: '24px', borderRadius: '6px', backgroundColor: '#fafafa', position: 'relative' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(0,0,0,0.04)', paddingBottom: '8px' }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>Campaign Banner #{idx + 1}</span>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', cursor: 'pointer' }}>
+                            <input 
+                              type="checkbox" 
+                              checked={c.visible !== false} 
+                              onChange={(e) => {
+                                const updated = [...campaignsList];
+                                updated[idx] = { ...updated[idx], visible: e.target.checked };
+                                setCampaignsList(updated);
+                                localStorage.setItem('offkilt_campaigns', JSON.stringify(updated));
+                                triggerSync('offkilt_settings_updated');
+                              }}
+                            />
+                            Visible on Store
+                          </label>
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to delete this campaign banner?')) {
+                                const updated = campaignsList.filter((_, i) => i !== idx);
+                                setCampaignsList(updated);
+                                localStorage.setItem('offkilt_campaigns', JSON.stringify(updated));
+                                triggerSync('offkilt_settings_updated');
+                              }
+                            }}
+                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <Trash2 size={13} /> Delete
+                          </button>
+                        </div>
                       </div>
-                      <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '4px' }}>Image is auto-compressed and saved instantly on upload.</p>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '14px' }}>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Title</label>
+                          <input 
+                            type="text" 
+                            value={c.title} 
+                            onChange={(e) => {
+                              const updated = [...campaignsList];
+                              updated[idx] = { ...updated[idx], title: e.target.value };
+                              setCampaignsList(updated);
+                              localStorage.setItem('offkilt_campaigns', JSON.stringify(updated));
+                              triggerSync('offkilt_settings_updated');
+                            }} 
+                            style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#ffffff', outline: 'none' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>CTA Button Label</label>
+                          <input 
+                            type="text" 
+                            value={c.ctaText} 
+                            onChange={(e) => {
+                              const updated = [...campaignsList];
+                              updated[idx] = { ...updated[idx], ctaText: e.target.value };
+                              setCampaignsList(updated);
+                              localStorage.setItem('offkilt_campaigns', JSON.stringify(updated));
+                              triggerSync('offkilt_settings_updated');
+                            }} 
+                            style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#ffffff', outline: 'none' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: '14px' }}>
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Subtitle</label>
+                        <textarea 
+                          value={c.subtitle} 
+                          onChange={(e) => {
+                            const updated = [...campaignsList];
+                            updated[idx] = { ...updated[idx], subtitle: e.target.value };
+                            setCampaignsList(updated);
+                            localStorage.setItem('offkilt_campaigns', JSON.stringify(updated));
+                            triggerSync('offkilt_settings_updated');
+                          }} 
+                          rows="2"
+                          style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#ffffff', outline: 'none' }}
+                        ></textarea>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Gender Target Tag</label>
+                          <input 
+                            type="text" 
+                            value={c.gender || 'unisex'} 
+                            onChange={(e) => {
+                              const updated = [...campaignsList];
+                              updated[idx] = { ...updated[idx], gender: e.target.value.toLowerCase().trim() };
+                              setCampaignsList(updated);
+                              localStorage.setItem('offkilt_campaigns', JSON.stringify(updated));
+                              triggerSync('offkilt_settings_updated');
+                            }} 
+                            placeholder="e.g. men, women, kids"
+                            style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#ffffff', outline: 'none' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Show After Section (Homepage position)</label>
+                          <select
+                            value={c.sectionInsertAfter || 'hero'}
+                            onChange={(e) => {
+                              const updated = [...campaignsList];
+                              updated[idx] = { ...updated[idx], sectionInsertAfter: e.target.value };
+                              setCampaignsList(updated);
+                              localStorage.setItem('offkilt_campaigns', JSON.stringify(updated));
+                              triggerSync('offkilt_settings_updated');
+                            }}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#ffffff', outline: 'none', height: '34px' }}
+                          >
+                            <option value="hero">After Hero / Press Strip</option>
+                            <option value="trending">After Trending Collection</option>
+                            <option value="new-arrivals">After New Arrivals</option>
+                            <option value="best-sellers">After Best Sellers</option>
+                            <option value="fashion-video">After Fashion Video</option>
+                            <option value="shop-by-style">After Shop By Style</option>
+                            <option value="brand-story">After Brand Story</option>
+                            <option value="customer-reviews">After Customer Reviews</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Campaign Cover Banner</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px', alignItems: 'center', marginTop: '4px' }}>
+                          <div style={{ border: '1px dashed rgba(0,0,0,0.15)', borderRadius: '4px', padding: '8px', textAlign: 'center', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: '#ffffff' }}>
+                            {c.image ? (
+                              <img src={c.image} alt="Campaign Cover Preview" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
+                            ) : (
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>No Image</span>
+                            )}
+                          </div>
+                          <div>
+                            <input 
+                              type="text" 
+                              value={c.image || ''} 
+                              onChange={(e) => {
+                                const updated = [...campaignsList];
+                                updated[idx] = { ...updated[idx], image: e.target.value };
+                                setCampaignsList(updated);
+                                localStorage.setItem('offkilt_campaigns', JSON.stringify(updated));
+                                triggerSync('offkilt_settings_updated');
+                              }}
+                              placeholder="Image URL..."
+                              style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', backgroundColor: '#ffffff', outline: 'none', marginBottom: '8px' }}
+                            />
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  compressImage(file).then((dataUrl) => {
+                                    const updated = [...campaignsList];
+                                    updated[idx] = { ...updated[idx], image: dataUrl };
+                                    setCampaignsList(updated);
+                                    localStorage.setItem('offkilt_campaigns', JSON.stringify(updated));
+                                    triggerSync('offkilt_settings_updated');
+                                  });
+                                }
+                              }} 
+                              style={{ fontSize: '0.75rem', width: '100%' }}
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-                      <button type="button" onClick={() => handleCampaignSave('women', campaigns.women)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Save size={14} /> Save Women's Campaign Settings
-                      </button>
-                    </div>
-                  </div>
+                  ))}
+                  
+                  {campaignsList.length === 0 && (
+                    <p style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', padding: '20px 0', fontStyle: 'italic' }}>
+                      No campaign banners configured.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -3557,6 +4115,57 @@ export default function AdminDashboard({ currentUser, onClose }) {
                     </button>
                   </div>
                 </form>
+              </div>
+
+              {/* Customer Love Stats CMS */}
+              <div style={{ backgroundColor: '#ffffff', padding: '30px', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <h3 style={{ fontSize: '0.9rem', marginBottom: '20px', letterSpacing: '1px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Customer Love Stats CMS</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Happy Customers Count</label>
+                      <input 
+                        type="text" 
+                        value={reviewStatsForm.happyCustomers} 
+                        onChange={(e) => setReviewStatsForm({...reviewStatsForm, happyCustomers: e.target.value})} 
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                        placeholder="e.g. 10,000+"
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Average Rating</label>
+                      <input 
+                        type="text" 
+                        value={reviewStatsForm.avgRating} 
+                        onChange={(e) => setReviewStatsForm({...reviewStatsForm, avgRating: e.target.value})} 
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                        placeholder="e.g. 4.9"
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-grey)' }}>Reviews Count</label>
+                      <input 
+                        type="text" 
+                        value={reviewStatsForm.reviewCount} 
+                        onChange={(e) => setReviewStatsForm({...reviewStatsForm, reviewCount: e.target.value})} 
+                        style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px', outline: 'none' }}
+                        placeholder="e.g. 5,000+"
+                      />
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    className="btn-primary" 
+                    onClick={() => {
+                      localStorage.setItem('offkilt_review_stats', JSON.stringify(reviewStatsForm));
+                      triggerSync('offkilt_settings_updated');
+                      alert('Customer Love Stats saved!');
+                    }}
+                    style={{ width: 'auto', alignSelf: 'flex-start', padding: '10px 24px', fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}
+                  >
+                    Save Customer Love Stats
+                  </button>
+                </div>
               </div>
 
               {/* Newsletter Promo Popup CMS Card */}

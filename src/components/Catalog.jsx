@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, ShoppingBag, Check, Star } from 'lucide-react';
 import { products as productsApi } from '../services/api';
 
-export default function Catalog({ onProductClick, activeTab, setActiveTab, wishlist = [], onWishlistToggle, onAddToCart }) {
+export default function Catalog({ onProductClick, activeTab, setActiveTab, activeGender = 'all', setActiveGender, wishlist = [], onWishlistToggle, onAddToCart }) {
   const [productsList, setProductsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadedImages, setLoadedImages] = useState({});
@@ -19,6 +19,19 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
       // Always ensure 'sale' is in the list
       if (stored && Array.isArray(stored)) {
         return stored.includes('sale') ? stored : [...stored, 'sale'];
+      }
+      return defaults;
+    } catch (e) {
+      return defaults;
+    }
+  });
+
+  const [gendersList, setGendersList] = useState(() => {
+    const defaults = ['all', 'men', 'women'];
+    try {
+      const stored = JSON.parse(localStorage.getItem('offkilt_genders_list'));
+      if (stored && Array.isArray(stored)) {
+        return stored.includes('all') ? stored : ['all', ...stored];
       }
       return defaults;
     } catch (e) {
@@ -48,6 +61,16 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
       }
     } catch (e) {
       setCategoriesList(defaults);
+    }
+    try {
+      const storedGenders = JSON.parse(localStorage.getItem('offkilt_genders_list'));
+      if (storedGenders && Array.isArray(storedGenders)) {
+        setGendersList(storedGenders.includes('all') ? storedGenders : ['all', ...storedGenders]);
+      } else {
+        setGendersList(['all', 'men', 'women']);
+      }
+    } catch (e) {
+      setGendersList(['all', 'men', 'women']);
     }
     try {
       const storedMeta = JSON.parse(localStorage.getItem('offkilt_category_metadata'));
@@ -196,7 +219,7 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
         const knownApiCategories = ['jeans', 'skirts'];
         const apiCategory = knownApiCategories.includes(activeTab) ? activeTab : (isFit ? 'jeans' : 'all');
         
-        const res = await productsApi.getAll(apiCategory);
+        const res = await productsApi.getAll(apiCategory, activeGender !== 'all' ? activeGender : null);
         const mapped = res.data.map(p => {
           let details = p.details;
           if (typeof details === 'string') {
@@ -258,7 +281,7 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
     };
     
     fetchProducts();
-  }, [activeTab, productTrigger]);
+  }, [activeTab, activeGender, productTrigger]);
 
   const isWishlisted = (productId) => wishlist.some(w => (w.id || w) === productId);
 
@@ -322,6 +345,42 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
                 </div>
               )}
               
+              {/* Gender selector tabs */}
+              <div className="gender-tabs" style={{ display: 'flex', gap: '16px', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+                {gendersList.map(g => (
+                  <button
+                    key={g}
+                    className="mono"
+                    onClick={() => setActiveGender(g)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: activeGender === g ? 'var(--accent-raw)' : 'var(--text-grey)',
+                      fontWeight: activeGender === g ? 700 : 400,
+                      textTransform: 'uppercase',
+                      letterSpacing: '2px',
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      padding: '4px 8px',
+                      position: 'relative',
+                      transition: 'color 0.3s ease'
+                    }}
+                  >
+                    {g}
+                    {activeGender === g && (
+                      <span style={{
+                        position: 'absolute',
+                        bottom: '-13px',
+                        left: 0,
+                        width: '100%',
+                        height: '2px',
+                        backgroundColor: 'var(--accent-raw)'
+                      }} />
+                    )}
+                  </button>
+                ))}
+              </div>
+
               <div className="category-tabs" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
                 {categoriesList.map(tab => (
                   <button 
@@ -349,8 +408,46 @@ export default function Catalog({ onProductClick, activeTab, setActiveTab, wishl
           {loading && <div className="catalog-loading-bar" />}
           <div className={`products-grid ${loading ? 'grid-loading' : ''}`}>
             <AnimatePresence mode="popLayout">
-              {productsList.map((product, index) => (
-                <motion.div 
+              {productsList.length === 0 ? (
+                <div style={{
+                  gridColumn: '1 / -1',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '80px 20px',
+                  textAlign: 'center',
+                  color: 'var(--text-grey)',
+                  border: '1px dashed rgba(255,255,255,0.1)',
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(0,0,0,0.15)',
+                  minHeight: '300px',
+                  width: '100%'
+                }}>
+                  <h3 style={{
+                    fontSize: '2rem',
+                    fontFamily: 'var(--font-heading)',
+                    color: 'var(--text-light)',
+                    marginBottom: '10px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '2px',
+                    fontWeight: 700
+                  }}>
+                    {activeGender !== 'all' ? `${activeGender}'s Collection Coming Soon` : "No Products Found"}
+                  </h3>
+                  <p style={{
+                    fontSize: '0.95rem',
+                    maxWidth: '450px',
+                    lineHeight: '1.6',
+                    opacity: 0.8
+                  }}>
+                    {activeGender !== 'all' 
+                      ? `We are currently crafting our exclusive ${activeGender} denim line. Sign up below to get early access when we drop.` 
+                      : "We couldn't find any products in this category. Check back later or explore other collections!"}
+                  </p>
+                </div>
+              ) : productsList.map((product, index) => (
+                  <motion.div 
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 15 }}

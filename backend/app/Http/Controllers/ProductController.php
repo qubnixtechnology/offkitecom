@@ -18,6 +18,10 @@ class ProductController extends Controller
             $query->where('category', $request->category);
         }
 
+        if ($request->filled('gender')) {
+            $query->where('gender', $request->gender);
+        }
+
         if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->search . '%')
@@ -44,6 +48,10 @@ class ProductController extends Controller
 
         if ($request->filled('category') && $request->category !== 'all') {
             $query->where('category', $request->category);
+        }
+
+        if ($request->filled('gender')) {
+            $query->where('gender', $request->gender);
         }
 
         return response()->json($query->orderBy('created_at', 'desc')->get());
@@ -75,6 +83,7 @@ class ProductController extends Controller
             'meta_description' => 'nullable|string|max:1000',
             'meta_keywords'    => 'nullable|string|max:500',
             'size_guide'       => 'nullable|string',
+            'gender'           => 'nullable|string|max:100',
         ]);
 
         // Auto-generate a unique product ID like OKJ-001234
@@ -95,6 +104,7 @@ class ProductController extends Controller
                     'sku'           => $v['sku'] ?? ($product->id . '-' . strtoupper(Str::random(4))),
                     'status'        => $v['status'] ?? 'available',
                     'display_order' => $v['display_order'] ?? $index,
+                    'sizes'         => $v['sizes'] ?? null,
                 ]);
 
                 if (isset($v['images']) && is_array($v['images'])) {
@@ -139,6 +149,7 @@ class ProductController extends Controller
             'meta_description' => 'nullable|string|max:1000',
             'meta_keywords'    => 'nullable|string|max:500',
             'size_guide'       => 'nullable|string',
+            'gender'           => 'nullable|string|max:100',
         ]);
 
         $product->update($validated);
@@ -157,6 +168,7 @@ class ProductController extends Controller
                     'sku'           => $v['sku'] ?? ($product->id . '-' . strtoupper(Str::random(4))),
                     'status'        => $v['status'] ?? 'available',
                     'display_order' => $v['display_order'] ?? $index,
+                    'sizes'         => $v['sizes'] ?? null,
                 ]);
 
                 if (isset($v['images']) && is_array($v['images'])) {

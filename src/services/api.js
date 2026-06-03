@@ -176,9 +176,16 @@ const mapProductImagePaths = (product) => {
 };
 
 export const products = {
-  getAll: async (category = 'all') => {
+  getAll: async (category = 'all', gender = null) => {
     try {
-      const res = await api.get(`/products${category !== 'all' ? `?category=${category}` : ''}`);
+      let url = '/products';
+      const params = [];
+      if (category !== 'all') params.push(`category=${category}`);
+      if (gender) params.push(`gender=${gender}`);
+      if (params.length > 0) {
+        url += '?' + params.join('&');
+      }
+      const res = await api.get(url);
       if (Array.isArray(res.data) && res.data.length > 0) {
         return { data: res.data.map(mapProductImagePaths) };
       }
@@ -192,7 +199,10 @@ export const products = {
       } catch (e) {
         stored = localProducts;
       }
-      const filtered = category === 'all' ? stored : stored.filter(p => p.category === category);
+      let filtered = category === 'all' ? stored : stored.filter(p => p.category === category);
+      if (gender) {
+        filtered = filtered.filter(p => p.gender && p.gender.toLowerCase() === gender.toLowerCase());
+      }
       return { data: filtered.map(mapProductImagePaths) };
     }
   },
@@ -319,6 +329,63 @@ export const admin = {
       return { data: res.data };
     } catch (err) {
       return { data: null };
+    }
+  },
+  getGlobalSettings: async () => {
+    try {
+      const res = await api.get('/settings');
+      return { data: res.data };
+    } catch (err) {
+      try {
+        const raw = JSON.parse(localStorage.getItem('offkilt_global_settings'));
+        return { data: raw || {} };
+      } catch (e) {
+        return { data: {} };
+      }
+    }
+  },
+  saveGlobalSettings: async (data) => {
+    try {
+      const res = await api.post('/admin/settings', data);
+      localStorage.setItem('offkilt_global_settings', JSON.stringify(data));
+      return { data: res.data };
+    } catch (err) {
+      if (err.response && !isBackendUnavailable(err)) throw err;
+      localStorage.setItem('offkilt_global_settings', JSON.stringify(data));
+      return { data: { message: 'Saved settings locally' } };
+    }
+  },
+  getEmailSettings: async () => {
+    try {
+      const res = await api.get('/admin/email-settings');
+      return { data: res.data };
+    } catch (err) {
+      try {
+        const raw = JSON.parse(localStorage.getItem('offkilt_email_settings'));
+        return { data: raw || null };
+      } catch (e) {
+        return { data: null };
+      }
+    }
+  },
+  saveEmailSettings: async (data) => {
+    try {
+      const res = await api.post('/admin/email-settings', data);
+      localStorage.setItem('offkilt_email_settings', JSON.stringify(data));
+      return { data: res.data };
+    } catch (err) {
+      if (err.response && !isBackendUnavailable(err)) throw err;
+      localStorage.setItem('offkilt_email_settings', JSON.stringify(data));
+      return { data: { message: 'Saved email settings locally' } };
+    }
+  },
+  sendTestEmail: async (email) => {
+    try {
+      const res = await api.post('/admin/email-settings/test', { email });
+      return { data: res.data };
+    } catch (err) {
+      if (err.response && !isBackendUnavailable(err)) throw err;
+      throw err;
     }
   },
 };

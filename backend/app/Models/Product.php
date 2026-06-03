@@ -35,6 +35,7 @@ class Product extends Model
         'meta_description',
         'meta_keywords',
         'size_guide',
+        'gender',
     ];
 
     protected $casts = [

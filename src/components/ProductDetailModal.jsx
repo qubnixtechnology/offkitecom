@@ -188,6 +188,30 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
   }, [isOpen, product, visibleVariants]);
 
   useEffect(() => {
+    const variantSizes = selectedVariant && (selectedVariant.sizes || selectedVariant.sizes_available);
+    const parsedVariantSizes = Array.isArray(variantSizes) ? variantSizes
+      : (typeof variantSizes === 'string' ? (() => { 
+          try { 
+            const parsed = JSON.parse(variantSizes); 
+            return Array.isArray(parsed) ? parsed : [];
+          } catch { 
+            return variantSizes.split(',').map(s => s.trim()).filter(Boolean); 
+          } 
+        })() : []);
+
+    const sSizes = parsedVariantSizes.length > 0 ? parsedVariantSizes : (
+      Array.isArray(product?.sizes) ? product.sizes
+        : (typeof product?.sizes === 'string' ? (() => { try { return JSON.parse(product.sizes); } catch { return []; } })() : [])
+    );
+    
+    if (sSizes.length === 1) {
+      setSelectedSize(sSizes[0]);
+    } else {
+      setSelectedSize('');
+    }
+  }, [selectedVariant, product]);
+
+  useEffect(() => {
     const text = localStorage.getItem('offkilt_promo_discount_text') || 'Extra 20% off $100+';
     const show = localStorage.getItem('offkilt_promo_discount_show') !== 'false';
     setPromoText(text);
@@ -607,6 +631,8 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
   const handleVariantSelect = (variant) => {
     setSelectedVariant(variant);
     setActiveImgIndex(0);
+    setSelectedSize('');
+    setErrorMsg('');
     
     // Update query params
     const params = new URLSearchParams(window.location.search);
@@ -616,10 +642,66 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
   };
 
   // Safely parse sizes and details (may come as strings from localStorage)
-  const safeSizes = Array.isArray(product?.sizes) ? product.sizes
-    : (typeof product?.sizes === 'string' ? (() => { try { return JSON.parse(product.sizes); } catch { return []; } })() : []);
+  const variantSizes = selectedVariant && (selectedVariant.sizes || selectedVariant.sizes_available);
+  const parsedVariantSizes = Array.isArray(variantSizes) ? variantSizes
+    : (typeof variantSizes === 'string' ? (() => { 
+        try { 
+          const parsed = JSON.parse(variantSizes); 
+          return Array.isArray(parsed) ? parsed : [];
+        } catch { 
+          return variantSizes.split(',').map(s => s.trim()).filter(Boolean); 
+        } 
+      })() : []);
+
+  const safeSizes = parsedVariantSizes.length > 0 ? parsedVariantSizes : (
+    Array.isArray(product?.sizes) ? product.sizes
+      : (typeof product?.sizes === 'string' ? (() => { try { return JSON.parse(product.sizes); } catch { return []; } })() : [])
+  );
   const safeDetails = Array.isArray(product?.details) ? product.details
     : (typeof product?.details === 'string' ? (() => { try { return JSON.parse(product.details); } catch { return []; } })() : []);
+  const getDisplayDetails = () => {
+    let detailsList = [...safeDetails];
+    const skuValue = selectedVariant ? (selectedVariant.sku || product?.sku || product?.id) : (product?.sku || product?.id);
+    const stockValue = selectedVariant ? selectedVariant.stock : product?.stock;
+    const isOutOfStock = selectedVariant
+      ? (selectedVariant.status === 'out_of_stock' || selectedVariant.stock <= 0)
+      : (product?.stock <= 0);
+    const stockText = isOutOfStock ? 'OUT OF STOCK' : `${stockValue} UNITS`;
+    const sizesText = safeSizes.join(', ');
+
+    let hasSku = false;
+    let hasInventory = false;
+    let hasSizes = false;
+
+    detailsList = detailsList.map(item => {
+      const upper = item.toUpperCase();
+      if (upper.startsWith('SKU:')) {
+        hasSku = true;
+        return `SKU: ${skuValue}`;
+      }
+      if (upper.startsWith('INVENTORY:')) {
+        hasInventory = true;
+        return `INVENTORY: ${stockText}`;
+      }
+      if (upper.startsWith('SIZES AVAILABLE:') || upper.startsWith('SIZES:')) {
+        hasSizes = true;
+        return `SIZES AVAILABLE: ${sizesText}`;
+      }
+      return item;
+    });
+
+    if (!hasSku) {
+      detailsList.unshift(`SKU: ${skuValue}`);
+    }
+    if (!hasInventory) {
+      detailsList.splice(1, 0, `INVENTORY: ${stockText}`);
+    }
+    if (!hasSizes && safeSizes.length > 0) {
+      detailsList.splice(2, 0, `SIZES AVAILABLE: ${sizesText}`);
+    }
+
+    return detailsList;
+  };
   const productImages = selectedVariant && Array.isArray(selectedVariant.images) && selectedVariant.images.length > 0
     ? selectedVariant.images
     : (product?.images && Array.isArray(product.images) && product.images.length > 0
@@ -669,6 +751,96 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
     document.body.style.overflow = '';
   };
 
+  const desktopGalleryRef = useRef(null);
+  const isProgrammaticScroll = useRef(false);
+
+  const handleThumbnailClick = (idx) => {
+    isProgrammaticScroll.current = true;
+    setActiveImgIndex(idx);
+    if (desktopGalleryRef.current) {
+      const targetEl = desktopGalleryRef.current.children[idx];
+      if (targetEl) {
+        targetEl.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'start'
+        });
+        setTimeout(() => {
+          isProgrammaticScroll.current = false;
+        }, 500);
+      } else {
+        isProgrammaticScroll.current = false;
+      }
+    }
+  };
+
+  const handleArrowClick = (direction) => {
+    isProgrammaticScroll.current = true;
+    const len = productImages.length;
+    let nextIdx = activeImgIndex;
+    if (direction === 'prev') {
+      nextIdx = activeImgIndex === 0 ? len - 1 : activeImgIndex - 1;
+    } else {
+      nextIdx = activeImgIndex === len - 1 ? 0 : activeImgIndex + 1;
+    }
+    setActiveImgIndex(nextIdx);
+    if (desktopGalleryRef.current) {
+      const targetEl = desktopGalleryRef.current.children[nextIdx];
+      if (targetEl) {
+        targetEl.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'start'
+        });
+        setTimeout(() => {
+          isProgrammaticScroll.current = false;
+        }, 500);
+      } else {
+        isProgrammaticScroll.current = false;
+      }
+    }
+  };
+
+  const handleDesktopScroll = () => {
+    if (isProgrammaticScroll.current) return;
+    if (desktopGalleryRef.current) {
+      const container = desktopGalleryRef.current;
+      const children = Array.from(container.children);
+      if (children.length === 0) return;
+      const containerLeft = container.getBoundingClientRect().left;
+      
+      let minDiff = Infinity;
+      let activeIdx = 0;
+      
+      children.forEach((child, idx) => {
+        const childLeft = child.getBoundingClientRect().left;
+        const diff = Math.abs(childLeft - containerLeft);
+        if (diff < minDiff) {
+          minDiff = diff;
+          activeIdx = idx;
+        }
+      });
+      
+      if (activeIdx !== activeImgIndex) {
+        setActiveImgIndex(activeIdx);
+      }
+    }
+  };
+
+  // Reset desktop scroll when variant changes
+  useEffect(() => {
+    if (desktopGalleryRef.current) {
+      desktopGalleryRef.current.scrollLeft = 0;
+    }
+  }, [selectedVariant]);
+
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  const modalVariants = {
+    initial: isMobile ? { y: "100%" } : { opacity: 0, scale: 0.95 },
+    animate: isMobile ? { y: 0 } : { opacity: 1, scale: 1 },
+    exit: isMobile ? { y: "100%" } : { opacity: 0, scale: 0.95 },
+  };
+
   return (
     <AnimatePresence>
       {isOpen && product && (
@@ -684,10 +856,11 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
           />
           
           <motion.div 
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 28, stiffness: 220 }}
+            variants={modalVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={isMobile ? { type: "spring", damping: 28, stiffness: 220 } : { duration: 0.3 }}
             className="product-modal open"
             style={{ display: 'grid' }}
             data-lenis-prevent
@@ -701,15 +874,42 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
 
             {/* Image gallery */}
             <div className="modal-image-gallery-container">
+              {/* Desktop gallery: scrollable grid row showing 2 images side-by-side */}
+              <div 
+                className="modal-gallery-desktop-scrollable" 
+                ref={desktopGalleryRef}
+                onScroll={handleDesktopScroll}
+              >
+                {productImages.map((img, idx) => (
+                  <div
+                    key={idx}
+                    className={`desktop-gallery-item ${productImages.length === 1 ? 'single-image' : ''}`}
+                    onClick={openLightbox}
+                    title="Click to view fullscreen"
+                  >
+                    {!loadedImages[img] && (
+                      <div className="image-shimmer-skeleton" />
+                    )}
+                    <img
+                      src={img}
+                      alt={`${product.name} ${idx + 1}`}
+                      className={`modal-gallery-img ${loadedImages[img] ? 'loaded' : 'loading-blur'}`}
+                      loading="lazy"
+                      onLoad={() => handleImageLoad(img)}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Mobile/Single-image gallery slider */}
               <div
-                className="modal-image-gallery modal-image-tappable"
+                className="modal-image-gallery modal-image-tappable modal-gallery-horizontal-slider"
                 onClick={openLightbox}
-                title="Tap to view fullscreen"
+                title="Click/Tap to view fullscreen"
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 ref={(el) => {
-                  // passive: false is required to call preventDefault in touchmove
                   if (el) {
                     el.addEventListener('touchmove', handleTouchMove, { passive: false });
                   }
@@ -739,10 +939,10 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                 </AnimatePresence>
                 <div className="modal-gallery-overlay" />
 
-                {/* Zoom hint — visible on mobile only */}
+                {/* Zoom hint */}
                 <div className="modal-zoom-hint">
                   <ZoomIn size={13} />
-                  Tap to expand
+                  Click to expand
                 </div>
 
                 {/* Gallery Navigation Arrows */}
@@ -750,14 +950,14 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                   <>
                     <button 
                       className="gallery-nav-btn prev" 
-                      onClick={(e) => { e.stopPropagation(); setActiveImgIndex(prev => (prev === 0 ? productImages.length - 1 : prev - 1)); }}
+                      onClick={(e) => { e.stopPropagation(); handleArrowClick('prev'); }}
                       title="Previous Image"
                     >
                       &larr;
                     </button>
                     <button 
                       className="gallery-nav-btn next" 
-                      onClick={(e) => { e.stopPropagation(); setActiveImgIndex(prev => (prev === productImages.length - 1 ? 0 : prev + 1)); }}
+                      onClick={(e) => { e.stopPropagation(); handleArrowClick('next'); }}
                       title="Next Image"
                     >
                       &rarr;
@@ -772,7 +972,7 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                       <button
                         key={i}
                         className={`gallery-dot ${i === activeImgIndex ? 'active' : ''}`}
-                        onClick={(e) => { e.stopPropagation(); setActiveImgIndex(i); }}
+                        onClick={(e) => { e.stopPropagation(); handleThumbnailClick(i); }}
                         aria-label={`Image ${i + 1}`}
                       />
                     ))}
@@ -780,26 +980,20 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                 )}
               </div>
 
-
-              {/* Thumbnails Row */}
+              {/* Thumbnails Row (Desktop & Mobile) */}
               {productImages.length > 1 && (
                 <div className="modal-gallery-thumbnails">
                   {productImages.map((img, idx) => (
                     <button 
                       key={idx}
                       className={`gallery-thumb-btn ${activeImgIndex === idx ? 'active' : ''}`}
-                      onClick={() => setActiveImgIndex(idx)}
+                      onClick={() => handleThumbnailClick(idx)}
                     >
                       <img 
                         src={img} 
                         alt={`Thumb ${idx + 1}`} 
                         className={`gallery-thumb-img ${loadedImages[img] ? 'loaded' : 'loading-blur'}`} 
                         loading="lazy" 
-                        ref={(el) => {
-                          if (el && el.complete && el.naturalWidth > 0 && !loadedImages[img]) {
-                            handleImageLoad(img);
-                          }
-                        }}
                         onLoad={() => handleImageLoad(img)}
                       />
                     </button>
@@ -971,7 +1165,7 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                 {/* Mobile View: Clean bullet points list. Desktop: Accordions */}
                 <div className="specs-mobile-list" style={{ marginTop: '20px' }}>
                   <ul className="spec-list-bullet" style={{ listStyle: 'none', padding: 0 }}>
-                    {safeDetails.map((detail, i) => (
+                    {getDisplayDetails().map((detail, i) => (
                       <li key={i} style={{ fontSize: '0.78rem', color: 'var(--text-grey)', marginBottom: '8px', display: 'flex', gap: '8px', alignItems: 'flex-start', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.5px', lineHeight: '1.4' }}>
                         <span style={{ color: 'var(--accent-raw)', flexShrink: 0 }}>•</span> {detail}
                       </li>
@@ -994,7 +1188,7 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                           className="spec-content"
                         >
                           <ul className="spec-list">
-                            {safeDetails.map((detail, i) => (
+                            {getDisplayDetails().map((detail, i) => (
                               <li key={i}>{detail}</li>
                             ))}
                           </ul>
@@ -1092,11 +1286,11 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                             style={{ cursor: 'pointer' }}
                             className="similar-product-card"
                           >
-                            <div style={{ aspectRatio: '3/4', overflow: 'hidden', backgroundColor: 'var(--bg-cream)', marginBottom: '8px', position: 'relative' }}>
+                            <div style={{ aspectRatio: '2/3', overflow: 'hidden', backgroundColor: 'var(--bg-cream)', marginBottom: '8px', position: 'relative' }}>
                               <img 
                                 src={displayImg} 
                                 alt={p.name} 
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.25)', transformOrigin: 'center 85%', objectPosition: 'center 85%' }} 
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} 
                                 loading="lazy"
                               />
                             </div>
@@ -1449,11 +1643,11 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: '1px solid rgba(0,0,0,0.1)',
+                    border: '1px solid rgba(0,0,0,0.15)',
                     background: '#ffffff',
                     borderRadius: '2px',
                     cursor: 'pointer',
-                    color: 'var(--text-light)',
+                    color: '#111111',
                     transition: 'all 0.3s ease',
                   }}
                 >

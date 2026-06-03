@@ -22,6 +22,11 @@ class ProductVariant extends Model
         'sku',
         'status',
         'display_order',
+        'sizes',
+    ];
+
+    protected $casts = [
+        'sizes' => 'array',
     ];
 
     protected $appends = ['color', 'hex', 'images'];

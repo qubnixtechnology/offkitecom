@@ -6,6 +6,7 @@ import { auth as authApi, profile as profileApi } from '../services/api';
 export default function UserProfileModal({ 
   isOpen, 
   onClose, 
+  initialTab,
   currentUser, 
   onLogin, 
   onLogout, 
@@ -18,7 +19,18 @@ export default function UserProfileModal({
   onWishlistToggle,
   onProductClick
 }) {
-  const [activeTab, setActiveTab] = useState('login'); // 'login' | 'register' | 'forgot' | 'reset'
+  const [activeTab, setActiveTab] = useState('login'); // 'profile' | 'wishlist' | 'login' | 'register' | 'forgot' | 'reset'
+
+  // Sync activeTab when modal opens or initialTab changes
+  useEffect(() => {
+    if (isOpen) {
+      if (initialTab) {
+        setActiveTab(initialTab);
+      } else {
+        setActiveTab(currentUser ? 'profile' : 'login');
+      }
+    }
+  }, [isOpen, initialTab, currentUser]);
   
   // Auth Form Fields
   const [email, setEmail] = useState('');
@@ -357,9 +369,152 @@ export default function UserProfileModal({
 
             <div className="tracking-modal-body" data-lenis-prevent>
               
+              {/* Tab Selector for Guest Users */}
+              {!currentUser && (activeTab === 'wishlist' || activeTab === 'login' || activeTab === 'register') && (
+                <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '24px' }}>
+                  <button 
+                    className={`auth-tab ${activeTab === 'wishlist' ? 'active' : ''}`}
+                    onClick={() => { setActiveTab('wishlist'); setAuthError(''); setAuthSuccessMsg(''); }}
+                  >
+                    WISHLIST
+                  </button>
+                  <button 
+                    className={`auth-tab ${activeTab === 'login' ? 'active' : ''}`}
+                    onClick={() => { setActiveTab('login'); setAuthError(''); setAuthSuccessMsg(''); }}
+                  >
+                    SIGN IN
+                  </button>
+                  <button 
+                    className={`auth-tab ${activeTab === 'register' ? 'active' : ''}`}
+                    onClick={() => { setActiveTab('register'); setAuthError(''); setAuthSuccessMsg(''); }}
+                  >
+                    REGISTER
+                  </button>
+                </div>
+              )}
+
+              {/* Tab Selector for Logged In Users */}
+              {currentUser && (activeTab === 'profile' || activeTab === 'wishlist') && (
+                <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '24px' }}>
+                  <button 
+                    className={`auth-tab ${activeTab === 'profile' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('profile')}
+                  >
+                    MY PROFILE
+                  </button>
+                  <button 
+                    className={`auth-tab ${activeTab === 'wishlist' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('wishlist')}
+                  >
+                    MY WISHLIST ({wishlist.filter(w => w && typeof w === 'object' && w.id).length})
+                  </button>
+                </div>
+              )}
+
               <AnimatePresence mode="wait">
+                {/* 1. WISHLIST TAB (Both Guest & Logged In) */}
+                {activeTab === 'wishlist' && (
+                  <motion.div
+                    key="wishlist-tab"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                      <div className="mono" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '7px' }}>
+                        <Heart size={12} color="var(--accent-rose-dark)" fill="var(--accent-rose-dark)" />
+                        SAVED ITEMS
+                      </div>
+                      {wishlist.filter(w => w && typeof w === 'object' && w.id).length > 0 && (
+                        <button
+                          onClick={() => {
+                            localStorage.removeItem('offkilt_wishlist');
+                            wishlist.filter(w => w && typeof w === 'object' && w.id).forEach(p => onWishlistToggle?.(p));
+                          }}
+                          style={{ fontSize: '0.65rem', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)', textDecoration: 'underline' }}
+                        >
+                          Clear all
+                        </button>
+                      )}
+                    </div>
+
+                    {wishlist.filter(w => w && typeof w === 'object' && w.id).length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                        <Heart size={28} style={{ opacity: 0.15, display: 'block', margin: '0 auto 10px' }} />
+                        <div style={{ fontWeight: 500, marginBottom: 4 }}>Your wishlist is empty</div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Tap the ♡ heart on any product to save it here</div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {wishlist.filter(w => w && typeof w === 'object' && w.id).map((product) => (
+                          <div
+                            key={product.id}
+                            style={{
+                              display: 'flex',
+                              gap: '14px',
+                              alignItems: 'center',
+                              background: 'rgba(255,255,255,0.02)',
+                              border: '1px solid rgba(255,255,255,0.05)',
+                              borderRadius: '4px',
+                              padding: '10px',
+                              cursor: 'pointer',
+                              transition: 'border-color 0.2s ease',
+                            }}
+                            onClick={() => { onProductClick?.(product); onClose(); }}
+                            onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(201,169,110,0.3)'}
+                            onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'}
+                          >
+                            <div style={{ width: '64px', height: '80px', flexShrink: 0, overflow: 'hidden', borderRadius: '2px', background: '#111', border: '1px solid rgba(255,255,255,0.06)' }}>
+                              {product.image ? (
+                                <img
+                                  src={product.image}
+                                  alt={product.name}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.9)' }}
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Heart size={16} style={{ opacity: 0.2 }} />
+                                </div>
+                              )}
+                            </div>
+
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div className="wishlist-item-title" style={{ fontSize: '0.82rem', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 5 }}>
+                                {product.name}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '0.82rem', color: 'var(--accent-gold)', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                                  ₹{Number(product.price).toLocaleString('en-IN')}
+                                </span>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); onProductClick?.(product); onClose(); }}
+                                  style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '2px', padding: '2px 8px', cursor: 'pointer', letterSpacing: '0.05em' }}
+                                >
+                                  VIEW
+                                </button>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onWishlistToggle?.(product); }}
+                              title="Remove from Wishlist"
+                              style={{ flexShrink: 0, width: 30, height: 30, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444', transition: 'all 0.2s ease' }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.18)'; e.currentTarget.style.borderColor = '#ef4444'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.06)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.15)'; }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+
                 {/* NOT LOGGED IN MODE */}
-                {!currentUser && (
+                {!currentUser && activeTab !== 'wishlist' && (
                   <motion.div 
                     key="auth"
                     initial={{ opacity: 0, x: -20 }}
@@ -368,24 +523,6 @@ export default function UserProfileModal({
                     className="auth-container"
                   >
                     
-                    {/* Tab Selector (only visible on login/register view) */}
-                    {(activeTab === 'login' || activeTab === 'register') && (
-                      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '24px' }}>
-                        <button 
-                          className={`auth-tab ${activeTab === 'login' ? 'active' : ''}`}
-                          onClick={() => { setActiveTab('login'); setAuthError(''); setAuthSuccessMsg(''); }}
-                        >
-                          SIGN IN
-                        </button>
-                        <button 
-                          className={`auth-tab ${activeTab === 'register' ? 'active' : ''}`}
-                          onClick={() => { setActiveTab('register'); setAuthError(''); setAuthSuccessMsg(''); }}
-                        >
-                          REGISTER
-                        </button>
-                      </div>
-                    )}
-
                     {authSuccessMsg && (
                       <div style={{ color: '#22c55e', fontSize: '0.8rem', padding: '12px', border: '1px solid rgba(34, 197, 94, 0.2)', backgroundColor: 'rgba(34, 197, 94, 0.05)', borderRadius: '4px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Check size={14} /> {authSuccessMsg}
@@ -675,7 +812,7 @@ export default function UserProfileModal({
                 )}
 
                 {/* LOGGED IN MODE */}
-                {currentUser && (
+                {currentUser && activeTab === 'profile' && (
                   <motion.div 
                     key="profile"
                     initial={{ opacity: 0, x: 20 }}
@@ -939,108 +1076,6 @@ export default function UserProfileModal({
                   </motion.div>
                 )}
               </AnimatePresence>
-
-              {/* ── SAVED WISHLIST — always visible, login not required ── */}
-              <div style={{ marginTop: '28px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-
-                {/* Header row */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div className="mono" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '7px' }}>
-                    <Heart size={12} color="var(--accent-rose-dark)" fill="var(--accent-rose-dark)" />
-                    MY WISHLIST
-                    <span style={{ background: 'rgba(176,120,120,0.2)', color: 'var(--accent-rose-dark)', borderRadius: '10px', padding: '1px 7px', fontSize: '0.65rem' }}>
-                      {wishlist.filter(w => w && typeof w === 'object' && w.id).length}
-                    </span>
-                  </div>
-                  {wishlist.filter(w => w && typeof w === 'object' && w.id).length > 0 && (
-                    <button
-                      onClick={() => {
-                        localStorage.removeItem('offkilt_wishlist');
-                        // Clear via parent toggle hack — re-trigger state
-                        wishlist.filter(w => w && typeof w === 'object' && w.id).forEach(p => onWishlistToggle?.(p));
-                      }}
-                      style={{ fontSize: '0.65rem', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)', textDecoration: 'underline' }}
-                    >
-                      Clear all
-                    </button>
-                  )}
-                </div>
-
-                {wishlist.filter(w => w && typeof w === 'object' && w.id).length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '28px 0', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                    <Heart size={28} style={{ opacity: 0.15, display: 'block', margin: '0 auto 10px' }} />
-                    <div style={{ fontWeight: 500, marginBottom: 4 }}>Your wishlist is empty</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Tap the ♡ heart on any product to save it here</div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {wishlist.filter(w => w && typeof w === 'object' && w.id).map((product, idx) => (
-                      <div
-                        key={product.id}
-                        style={{
-                          display: 'flex',
-                          gap: '14px',
-                          alignItems: 'center',
-                          background: 'rgba(255,255,255,0.02)',
-                          border: '1px solid rgba(255,255,255,0.05)',
-                          borderRadius: '4px',
-                          padding: '10px',
-                          cursor: 'pointer',
-                          transition: 'border-color 0.2s ease',
-                        }}
-                        onClick={() => { onProductClick?.(product); onClose(); }}
-                        onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(201,169,110,0.3)'}
-                        onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'}
-                      >
-                        {/* Thumbnail */}
-                        <div style={{ width: '64px', height: '80px', flexShrink: 0, overflow: 'hidden', borderRadius: '2px', background: '#111', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          {product.image ? (
-                            <img
-                              src={product.image}
-                              alt={product.name}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.9)' }}
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <Heart size={16} style={{ opacity: 0.2 }} />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Info */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="wishlist-item-title" style={{ fontSize: '0.82rem', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 5 }}>
-                            {product.name}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '0.82rem', color: 'var(--accent-gold)', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                              ₹{Number(product.price).toLocaleString('en-IN')}
-                            </span>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); onProductClick?.(product); onClose(); }}
-                              style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '2px', padding: '2px 8px', cursor: 'pointer', letterSpacing: '0.05em' }}
-                            >
-                              VIEW
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Remove */}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onWishlistToggle?.(product); }}
-                          title="Remove from Wishlist"
-                          style={{ flexShrink: 0, width: 30, height: 30, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444', transition: 'all 0.2s ease' }}
-                          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.18)'; e.currentTarget.style.borderColor = '#ef4444'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.06)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.15)'; }}
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
 
             </div>
           </motion.div>

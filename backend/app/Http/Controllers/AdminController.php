@@ -90,4 +90,46 @@ class AdminController extends Controller
         file_put_contents($path, json_encode($request->all(), JSON_PRETTY_PRINT));
         return response()->json(['message' => 'Settings saved successfully.']);
     }
+
+    public function getGlobalSettings()
+    {
+        $path = storage_path('app/global_settings.json');
+        if (file_exists($path)) {
+            $data = json_decode(file_get_contents($path), true);
+            if ($data) {
+                return response()->json($data);
+            }
+        }
+        return response()->json([]);
+    }
+
+    public function saveGlobalSettings(Request $request)
+    {
+        $path = storage_path('app/global_settings.json');
+        file_put_contents($path, json_encode($request->all(), JSON_PRETTY_PRINT));
+        return response()->json(['message' => 'Global settings saved successfully.']);
+    }
+
+    public function testEmail(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email'
+        ]);
+
+        $email = $request->input('email');
+        
+        $success = \App\Helpers\MailHelper::sendEmail('welcome', $email, 'Test User', []);
+
+        if ($success) {
+            return response()->json([
+                'success' => true,
+                'message' => "Test email successfully sent to {$email} via Brevo SMTP."
+            ]);
+        } else {
+            return response()->json([
+                'success' => false,
+                'error' => \App\Helpers\MailHelper::$lastError ?: 'Unknown error occurred while sending email.'
+            ], 400);
+        }
+    }
 }

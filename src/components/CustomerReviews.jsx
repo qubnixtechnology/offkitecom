@@ -76,6 +76,21 @@ export default function CustomerReviews() {
   const cardsRef = useRef([]);
   const gridRef = useRef(null);
 
+  const getReviewStats = () => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('offkilt_review_stats'));
+      if (stored && stored.happyCustomers) return stored;
+    } catch (e) {}
+    return { happyCustomers: '10,000+', avgRating: '4.9', reviewCount: '5,000+' };
+  };
+  const [reviewStats, setReviewStats] = useState(getReviewStats);
+
+  useEffect(() => {
+    const onUpdate = () => setReviewStats(getReviewStats());
+    window.addEventListener('offkilt_settings_updated', onUpdate);
+    return () => window.removeEventListener('offkilt_settings_updated', onUpdate);
+  }, []);
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -194,9 +209,9 @@ export default function CustomerReviews() {
         {/* Trust badges */}
         <div className="reviews-stats-row">
           {[
-            { num: '10,000+', label: 'Happy Customers' },
-            { num: '4.9', label: 'Average Rating' },
-            { num: '5,000+', label: 'Reviews' },
+            { num: reviewStats.happyCustomers || '10,000+', label: 'Happy Customers' },
+            { num: reviewStats.avgRating || '4.9', label: 'Average Rating' },
+            { num: reviewStats.reviewCount || '5,000+', label: 'Reviews' },
           ].map((stat, i) => (
             <div key={i} className="stat-item">
               <div className="stat-num">

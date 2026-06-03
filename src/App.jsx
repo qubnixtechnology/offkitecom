@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ShoppingBag, Menu, X, Phone, User, Search, Check, AlertCircle, Info, ChevronDown } from 'lucide-react';
+import { ShoppingBag, Menu, X, Phone, User, Search, Check, AlertCircle, Info, ChevronDown, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lenis from 'lenis';
 import { auth, profile, orders as ordersApi, products as productsApi, newsletter as newsletterApi } from './services/api';
@@ -52,10 +52,12 @@ export default function App() {
   // Fetch user session state from API
   const [currentUser, setCurrentUser] = useState(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [profileInitialTab, setProfileInitialTab] = useState('login');
   const [isAdminOpen, setIsAdminOpen] = useState(false);
 
   // Catalog category filtering state
   const [activeCategory, setActiveCategory] = useState('all');
+  const [activeGender, setActiveGender] = useState('all');
 
   // Mega menu hover state
   const [activeMegaMenu, setActiveMegaMenu] = useState(null);
@@ -110,6 +112,32 @@ export default function App() {
           }
         ]
       },
+      collection: {
+        label: 'Collection',
+        sections: [
+          {
+            title: 'STYLES',
+            links: [
+              { name: 'All Products', filter: 'all' },
+              { name: 'Jeans', filter: 'jeans' },
+              { name: 'Skirts', filter: 'skirts' },
+              { name: 'Cargo & Utility', filter: 'jeans' },
+              { name: 'Shirts', filter: 'shirts' },
+              { name: '🔴 SALE', filter: 'sale' },
+            ]
+          },
+          {
+            title: 'DENIM FITS',
+            links: [
+              { name: 'Baggy', filter: 'baggy' },
+              { name: 'Relaxed', filter: 'relaxed' },
+              { name: 'Boot Cut', filter: 'boot cut' },
+              { name: 'Slim', filter: 'slim' },
+              { name: 'Skinny', filter: 'skinny' },
+            ]
+          }
+        ]
+      },
       'after-dusk': {
         label: 'After Dusk',
         sections: [
@@ -132,7 +160,9 @@ export default function App() {
     try {
       const stored = localStorage.getItem('offkilt_mega_menu');
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (parsed.collection) return parsed;
+        return { ...defaultMega, ...parsed, collection: defaultMega.collection };
       }
     } catch (e) {}
     return defaultMega;
@@ -336,6 +366,36 @@ export default function App() {
     }
   });
 
+  const [campaignsList, setCampaignsList] = useState(() => {
+    const defaults = [
+      {
+        id: 'campaign-men',
+        gender: 'men',
+        title: "Denim Redefined",
+        subtitle: "Crafted for the modern rebel. Raw denim, bold silhouettes, uncompromising attitude.",
+        ctaText: "Explore Men's",
+        image: "/images/mens_campaign.png",
+        sectionInsertAfter: 'hero',
+        visible: true
+      },
+      {
+        id: 'campaign-women',
+        gender: 'women',
+        title: "Elegance Meets Edge",
+        subtitle: "Structured denim and statement skirts for the confident woman who defies convention.",
+        ctaText: "Explore Women's",
+        image: "/images/womens_campaign.png",
+        sectionInsertAfter: 'trending',
+        visible: true
+      }
+    ];
+    try {
+      const stored = localStorage.getItem('offkilt_campaigns');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return defaults;
+  });
+
   // Check if current user is blocked
   const checkBlockedUser = () => {
     try {
@@ -404,8 +464,32 @@ export default function App() {
         const storedPromo = localStorage.getItem('offkilt_promo_popup_settings');
         if (storedPromo) setPromoPopupSettings(JSON.parse(storedPromo));
       } catch (e) {}
+      try {
+        const storedCampaigns = localStorage.getItem('offkilt_campaigns');
+        if (storedCampaigns) setCampaignsList(JSON.parse(storedCampaigns));
+      } catch (e) {}
     };
     window.addEventListener('offkilt_settings_updated', handleSettingsUpdate);
+    
+    // Initial load from backend
+    const loadGlobalSettings = async () => {
+      try {
+        const res = await adminApi.getGlobalSettings();
+        if (res.data && Object.keys(res.data).length > 0) {
+          Object.entries(res.data).forEach(([key, val]) => {
+            if (val !== null && val !== undefined) {
+              const valueToStore = typeof val === 'object' ? JSON.stringify(val) : val;
+              localStorage.setItem(key, valueToStore);
+            }
+          });
+          handleSettingsUpdate();
+        }
+      } catch (err) {
+        console.error('Failed to load global settings from backend', err);
+      }
+    };
+    loadGlobalSettings();
+
     return () => window.removeEventListener('offkilt_settings_updated', handleSettingsUpdate);
   }, []);
 
@@ -675,12 +759,32 @@ export default function App() {
     setSelectedProduct(null);
     const cleanUrl = `${window.location.origin}${window.location.pathname}`;
     window.history.pushState({ path: cleanUrl }, '', cleanUrl);
+    document.title = 'Off-Kilt | Fashion Beyond Ordinary';
   };
 
   const handleQuickView = (product, selectedVariantId) => {
     if (!product) return;
     const newUrl = `${window.location.origin}${window.location.pathname}?product=${product.id}${selectedVariantId ? `&variant=${selectedVariantId}` : ''}`;
     window.history.pushState({ path: newUrl }, '', newUrl);
+
+    // Update document metadata for client-side sharing
+    document.title = `${product.name} | Off-Kilt`;
+    const setMeta = (nameOrProp, content, isProp = false) => {
+      const selector = isProp ? `meta[property="${nameOrProp}"]` : `meta[name="${nameOrProp}"]`;
+      let el = document.querySelector(selector);
+      if (!el) {
+        el = document.createElement('meta');
+        if (isProp) el.setAttribute('property', nameOrProp);
+        else el.setAttribute('name', nameOrProp);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content || '');
+    };
+    setMeta('description', product.tagline || product.name);
+    setMeta('og:title', `${product.name} — ${product.tagline || ''}`, true);
+    setMeta('og:description', product.description || '', true);
+    setMeta('og:image', product.image, true);
+    setMeta('og:url', newUrl, true);
 
     // Sanitize array fields — they may be JSON strings when coming from localStorage wishlist
     const parseArr = (val) => {
@@ -908,6 +1012,28 @@ export default function App() {
     });
   };
 
+  const renderCampaignsForPosition = (positionKey) => {
+    return campaignsList
+      .filter(c => c.sectionInsertAfter === positionKey && c.visible !== false)
+      .map(c => (
+        <CampaignSection
+          key={c.id}
+          gender={c.gender}
+          title={c.title}
+          subtitle={c.subtitle}
+          ctaText={c.ctaText}
+          image={c.image}
+          onExplore={() => {
+            if (c.gender) {
+              setActiveGender(c.gender);
+            }
+            setActiveCategory('all');
+            scrollToSection('catalog');
+          }}
+        />
+      ));
+  };
+
   return (
     <div className="app-container" style={{ paddingTop: showAnnouncement ? '36px' : '0px' }}>
       <style>{`
@@ -1026,13 +1152,37 @@ export default function App() {
                               setExpandedMobileMenu(prev => ({ ...prev, [labelSlug]: !prev[labelSlug] }));
                             } else {
                               e.preventDefault();
-                              if (item.label.toLowerCase() === 'sale') {
+                              const labelLower = item.label.toLowerCase().trim();
+                              if (labelLower === 'men') {
+                                setActiveGender('men');
+                                setActiveCategory('all');
+                                scrollToSection('catalog');
+                              } else if (labelLower === 'women') {
+                                setActiveGender('women');
+                                setActiveCategory('all');
+                                scrollToSection('catalog');
+                              } else if (labelLower === 'collection') {
+                                setActiveGender('all');
+                                setActiveCategory('all');
+                                scrollToSection('catalog');
+                              } else if (labelLower === 'after dusk') {
+                                setActiveGender('all');
+                                setActiveCategory('all');
+                                scrollToSection('catalog');
+                              } else if (labelLower === 'sale') {
+                                setActiveGender('all');
                                 setActiveCategory('sale');
-                              } else if (item.category) {
-                                setActiveCategory(item.category);
+                                scrollToSection('catalog');
+                              } else {
+                                if (item.category) {
+                                  setActiveCategory(item.category);
+                                }
+                                const sectionId = item.link.replace('#', '');
+                                scrollToSection(sectionId || 'hero');
                               }
-                              const sectionId = item.link.replace('#', '');
-                              scrollToSection(sectionId || 'hero');
+                              if (isMobile) {
+                                setIsMobileMenuOpen(false);
+                              }
                             }
                           }}
                           onMouseEnter={() => {
@@ -1085,7 +1235,24 @@ export default function App() {
                                   {(sec.links || []).map(link => (
                                     <button
                                       key={link.name}
-                                      onClick={() => { setActiveCategory(link.filter || 'all'); scrollToSection('catalog'); setIsMobileMenuOpen(false); }}
+                                      onClick={() => {
+                                        if (labelSlug === 'men' || labelSlug === 'women') {
+                                          setActiveGender(labelSlug);
+                                        } else if (labelSlug === 'after-dusk') {
+                                          if (sec.title.toUpperCase() === 'MEN') {
+                                            setActiveGender('men');
+                                          } else if (sec.title.toUpperCase() === 'WOMEN') {
+                                            setActiveGender('women');
+                                          } else {
+                                            setActiveGender('all');
+                                          }
+                                        } else {
+                                          setActiveGender('all');
+                                        }
+                                        setActiveCategory(link.filter || 'all');
+                                        scrollToSection('catalog');
+                                        setIsMobileMenuOpen(false);
+                                      }}
                                       style={{ textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-grey)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}
                                     >
                                       {link.name}
@@ -1147,7 +1314,10 @@ export default function App() {
                   <>
                     <button 
                       className="header-btn" 
-                      onClick={() => setIsProfileOpen(true)} 
+                      onClick={() => {
+                        setProfileInitialTab(currentUser ? 'profile' : 'login');
+                        setIsProfileOpen(true);
+                      }} 
                       title="User Profile"
                       style={{ display: 'flex', alignItems: 'center', position: 'relative' }}
                     >
@@ -1194,6 +1364,15 @@ export default function App() {
                       )}
                     </button>
 
+                    <button className="header-btn" onClick={() => { setProfileInitialTab('wishlist'); setIsProfileOpen(true); }} title="View Wishlist" style={{ position: 'relative' }}>
+                      <Heart size={20} />
+                      {wishlist.length > 0 && (
+                        <span className="cart-count" style={{ backgroundColor: '#ff4d6d' }}>
+                          {wishlist.length}
+                        </span>
+                      )}
+                    </button>
+
                     <button className="header-btn" onClick={() => setIsCartOpen(true)} title="View Cart">
                       <ShoppingBag size={20} />
                       {cartItems.length > 0 && (
@@ -1220,7 +1399,22 @@ export default function App() {
           {/* Calvin Klein Mega Menu Dropdown */}
           <MegaMenu
             activeMenu={activeMegaMenu}
-            onCategoryClick={(cat) => {
+            onCategoryClick={(cat, sectionTitle) => {
+              if (activeMegaMenu === 'men') {
+                setActiveGender('men');
+              } else if (activeMegaMenu === 'women') {
+                setActiveGender('women');
+              } else if (activeMegaMenu === 'after-dusk') {
+                if (sectionTitle?.toUpperCase() === 'MEN') {
+                  setActiveGender('men');
+                } else if (sectionTitle?.toUpperCase() === 'WOMEN') {
+                  setActiveGender('women');
+                } else {
+                  setActiveGender('all');
+                }
+              } else {
+                setActiveGender('all');
+              }
               setActiveCategory(cat);
               scrollToSection('catalog');
             }}
@@ -1260,29 +1454,13 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Men's Campaign Section */}
-                <CampaignSection
-                  gender="men"
-                  title={campaignMen.title}
-                  subtitle={campaignMen.subtitle}
-                  ctaText={campaignMen.ctaText}
-                  image={campaignMen.image}
-                  onExplore={() => { setActiveCategory('jeans'); scrollToSection('catalog'); }}
-                />
+                {renderCampaignsForPosition('hero')}
 
                 <TrendingCollection
                   onCategoryClick={(cat) => { setActiveCategory(cat); scrollToSection('catalog'); }}
                 />
 
-                {/* Women's Campaign Section */}
-                <CampaignSection
-                  gender="women"
-                  title={campaignWomen.title}
-                  subtitle={campaignWomen.subtitle}
-                  ctaText={campaignWomen.ctaText}
-                  image={campaignWomen.image}
-                  onExplore={() => { setActiveCategory('skirts'); scrollToSection('catalog'); }}
-                />
+                {renderCampaignsForPosition('trending')}
 
                 <NewArrivals
                   onProductClick={handleQuickView}
@@ -1292,25 +1470,39 @@ export default function App() {
                   onViewAll={() => scrollToSection('catalog')}
                 />
 
+                {renderCampaignsForPosition('new-arrivals')}
+
                 <BestSellers
                   onScrollToCatalog={() => scrollToSection('catalog')}
                   onProductClick={handleQuickView}
                 />
 
+                {renderCampaignsForPosition('best-sellers')}
+
                 <FashionVideo />
+
+                {renderCampaignsForPosition('fashion-video')}
 
                 <ShopByStyle
                   onCategoryClick={(cat) => { setActiveCategory(cat); scrollToSection('catalog'); }}
                 />
 
+                {renderCampaignsForPosition('shop-by-style')}
+
                 <BrandStory />
 
+                {renderCampaignsForPosition('brand-story')}
+
                 <CustomerReviews />
+
+                {renderCampaignsForPosition('customer-reviews')}
 
                 <Catalog
                   onProductClick={handleQuickView}
                   activeTab={activeCategory}
                   setActiveTab={setActiveCategory}
+                  activeGender={activeGender}
+                  setActiveGender={setActiveGender}
                   wishlist={wishlist}
                   onWishlistToggle={handleWishlistToggle}
                   onAddToCart={handleAddToCart}
@@ -1386,6 +1578,7 @@ export default function App() {
           <UserProfileModal 
             isOpen={isProfileOpen}
             onClose={() => setIsProfileOpen(false)}
+            initialTab={profileInitialTab}
             currentUser={currentUser}
             onLogin={handleLogin}
             onLogout={handleLogout}
@@ -1524,13 +1717,16 @@ export default function App() {
                       position: 'relative',
                       height: window.innerWidth <= 768 ? '200px' : '100%',
                       backgroundImage: `url(${promoPopupSettings.coverImage})`,
-                      backgroundSize: 'cover',
+                      backgroundSize: 'contain',
                       backgroundPosition: 'center',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundColor: 'var(--bg-dark)'
                     }}>
                       <div style={{
                         position: 'absolute',
                         inset: 0,
-                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.6) 100%)'
+                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.3) 100%)',
+                        pointerEvents: 'none'
                       }} />
                     </div>
 

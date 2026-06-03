@@ -25,6 +25,7 @@ Route::post('/newsletter',     [AuthController::class, 'subscribeNewsletter']);
 // ─── Public Product Routes ───────────────────────────────────────────────────
 Route::get('/products',       [ProductController::class, 'index']);
 Route::get('/products/{id}',  [ProductController::class, 'show']);
+Route::get('/settings',       [AdminController::class, 'getGlobalSettings']);
 
 // ─── Public Order Tracking ───────────────────────────────────────────────────
 Route::get('/orders/track/{id}', [OrderController::class, 'track']);
@@ -68,4 +69,8 @@ Route::middleware(['auth:sanctum', 'is_admin'])->prefix('admin')->group(function
     // Email Settings
     Route::get('/email-settings',            [AdminController::class, 'getEmailSettings']);
     Route::post('/email-settings',           [AdminController::class, 'saveEmailSettings']);
+    Route::post('/email-settings/test',      [AdminController::class, 'testEmail']);
+
+    // Global Settings
+    Route::post('/settings',                 [AdminController::class, 'saveGlobalSettings']);
 });

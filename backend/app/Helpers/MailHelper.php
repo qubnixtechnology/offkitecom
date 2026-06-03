@@ -7,8 +7,12 @@ use Illuminate\Support\Facades\Log;
 
 class MailHelper
 {
+    public static $lastError = null;
+
     public static function sendEmail($type, $recipientEmail, $recipientName, $data = [])
     {
+        self::$lastError = null; // Reset error state
+
         $path = storage_path('app/email_settings.json');
         $settings = null;
         if (file_exists($path)) {
@@ -19,6 +23,12 @@ class MailHelper
         $senderName = $settings['emailProvider']['senderName'] ?? 'Off-Kilt Production';
         $senderEmail = $settings['emailProvider']['senderEmail'] ?? 'Info@off-kilt.com';
         
+        if (empty($apiKey)) {
+            self::$lastError = "Brevo API Key is missing. Check your Brevo config settings or backend env variables.";
+            Log::error(self::$lastError);
+            return false;
+        }
+
         // Defaults to enabled if not found
         $enabled = true;
         if (isset($settings['emailToggles']) && is_array($settings['emailToggles'])) {
@@ -26,7 +36,9 @@ class MailHelper
         }
 
         if (!$enabled) {
-            Log::info("Email type {$type} is disabled in settings. Skipping.");
+            $msg = "Email type {$type} is disabled in settings. Skipping.";
+            self::$lastError = $msg;
+            Log::info($msg);
             return false;
         }
 
@@ -95,11 +107,13 @@ class MailHelper
                 Log::info("Email sent successfully via Brevo to {$recipientEmail}.");
                 return true;
             } else {
-                Log::error("Brevo API send failed: " . $response->body());
+                self::$lastError = "Brevo API Response Failed: [Status Code " . $response->status() . "] " . $response->body();
+                Log::error(self::$lastError);
                 return false;
             }
         } catch (\Exception $e) {
-            Log::error("MailHelper Exception: " . $e->getMessage());
+            self::$lastError = "MailHelper Exception: " . $e->getMessage();
+            Log::error(self::$lastError);
             return false;
         }
     }

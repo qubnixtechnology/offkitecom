@@ -62,6 +62,38 @@ const DENIM_CATEGORIES = {
       filter: 'skirts'
     }
   },
+  collection: {
+    label: 'Collection',
+    sections: [
+      {
+        title: 'STYLES',
+        links: [
+          { name: 'All Products', filter: 'all' },
+          { name: 'Jeans', filter: 'jeans' },
+          { name: 'Skirts', filter: 'skirts' },
+          { name: 'Cargo & Utility', filter: 'jeans' },
+          { name: 'Shirts', filter: 'shirts' },
+          { name: '🔴 SALE', filter: 'sale' },
+        ]
+      },
+      {
+        title: 'DENIM FITS',
+        links: [
+          { name: 'Baggy', filter: 'baggy' },
+          { name: 'Relaxed', filter: 'relaxed' },
+          { name: 'Boot Cut', filter: 'boot cut' },
+          { name: 'Slim', filter: 'slim' },
+          { name: 'Skinny', filter: 'skinny' },
+        ]
+      }
+    ],
+    featured: {
+      image: '/images/narrative_cover.png',
+      title: 'Our Premium Fits',
+      cta: 'Explore Collection',
+      filter: 'all'
+    }
+  },
   'after-dusk': {
     label: 'After Dusk',
     sections: [
@@ -161,7 +193,7 @@ export default function MegaMenu({ activeMenu, onCategoryClick, onClose, onMouse
                       <button
                         className="mega-menu-link"
                         onClick={() => {
-                          onCategoryClick?.(link.filter);
+                          onCategoryClick?.(link.filter, section.title);
                           onClose?.();
                         }}
                       >
