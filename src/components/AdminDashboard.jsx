@@ -7,7 +7,7 @@ import {
   Download, Upload, Search, Check, AlertTriangle, Eye, Printer,
   Type, Share2, Phone, MapPin, HelpCircle, Layers, CreditCard, Key, ShieldCheck, Zap, Mail, Send
 } from 'lucide-react';
-import { products as productsApi, admin as adminApi } from '../services/api';
+import { products as productsApi, admin as adminApi, toWebp } from '../services/api';
 import { saveMediaToIndexedDB } from '../services/db';
 
 // ── Admin Email Management Tab ──────────────────────────────────────────────
@@ -3286,11 +3286,9 @@ export default function AdminDashboard({ currentUser, onClose }) {
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                setProductForm(prev => ({ ...prev, size_guide: reader.result }));
-                              };
-                              reader.readAsDataURL(file);
+                              compressImage(file, 800, 0.8).then((dataUrl) => {
+                                setProductForm(prev => ({ ...prev, size_guide: dataUrl }));
+                              });
                             }
                           }}
                         />
@@ -3308,7 +3306,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                     {productForm.size_guide && (
                       <div style={{ marginTop: '10px' }}>
                         <img 
-                          src={productForm.size_guide} 
+                          src={toWebp(productForm.size_guide)} 
                           alt="Size Guide Preview" 
                           style={{ maxHeight: '100px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '2px' }} 
                         />

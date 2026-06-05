@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, ChevronDown, ChevronUp, ShoppingBag, Heart, ZoomIn, ShoppingCart, Star, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { products as localProducts } from '../data/products';
-import { products as productsApi } from '../services/api';
+import { products as productsApi, toWebp } from '../services/api';
 
 export default function ProductDetailModal({ product, isOpen, onClose, onAddToCart, wishlist = [], onWishlistToggle, onProductClick }) {
   const [selectedSize, setSelectedSize] = useState(() => {
@@ -1894,7 +1894,7 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
                   <p className="share-modal-title" style={{ textTransform: 'uppercase', letterSpacing: '1px' }}>Size Guide</p>
                   <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: '4px', padding: '10px', marginTop: '15px' }}>
                     <img 
-                      src={product?.size_guide || '/images/size_guide.png'} 
+                      src={toWebp(product?.size_guide) || toWebp('/images/size_guide.png')} 
                       alt="Size Guide" 
                       style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain' }} 
                       onError={(e) => {

@@ -111,6 +111,19 @@ def main():
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(HOST, port=PORT, username=USER, password=PASSWORD, timeout=15)
     
+    # Read existing APP_KEY from remote .env if it exists before clearing the directory
+    remote_app_key = ""
+    try:
+        sftp_ssh = ssh.open_sftp()
+        with sftp_ssh.file(f"{LARAVEL}/.env", "r") as f:
+            for line in f:
+                if line.strip().startswith('APP_KEY='):
+                    remote_app_key = line.strip().split('=', 1)[1]
+                    break
+        sftp_ssh.close()
+    except Exception:
+        pass
+
     # Backup videos and settings remotely to preserve them
     run(ssh, f'mkdir -p {ROOT}/tmp_videos && cp -r {LARAVEL}/public/videos {ROOT}/tmp_videos/ 2>/dev/null || true', 'Backup public videos')
     run(ssh, f'mkdir -p {ROOT}/tmp_build_videos && cp -r {LARAVEL}/public/build/videos {ROOT}/tmp_build_videos/ 2>/dev/null || true', 'Backup public build videos')
@@ -149,7 +162,7 @@ def main():
     # Create .env
     env_content = f"""APP_NAME=Offkilt
 APP_ENV=production
-APP_KEY=
+APP_KEY={remote_app_key}
 APP_DEBUG=false
 APP_URL=http://off-kilt.com
 FRONTEND_URL=http://off-kilt.com
@@ -187,8 +200,11 @@ SHIPROCKET_PASSWORD={shiprocket_pass}
     # Install composer dependencies
     run(ssh, f'cd {LARAVEL} && composer install --no-dev --optimize-autoloader', 'Composer Install')
     
-    # Generate App Key
-    run(ssh, f'cd {LARAVEL} && php artisan key:generate', 'Generate Application Key')
+    # Generate App Key if not set
+    if not remote_app_key:
+        run(ssh, f'cd {LARAVEL} && php artisan key:generate', 'Generate Application Key')
+    else:
+        print("Preserving existing remote APP_KEY.")
     
     # Storage link
     run(ssh, f'ln -sf {LARAVEL}/storage/app/public {LARAVEL}/public/storage', 'Artisan storage link (manual)')
