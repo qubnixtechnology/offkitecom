@@ -1461,7 +1461,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
       { label: 'Men', link: '#campaign-men', category: 'jeans', visible: true },
       { label: 'Women', link: '#campaign-women', category: 'skirts', visible: true },
       { label: 'Collection', link: '#catalog', category: 'all', visible: true },
-      { label: 'After Dusk', link: '#catalog', category: 'all', visible: true },
+      { label: 'After Dark', link: '#catalog', category: 'all', visible: true },
       { label: 'Sale', link: '#catalog', category: 'sale', visible: true }
     ];
     return JSON.parse(localStorage.getItem('offkilt_menus') || JSON.stringify(defaults));
@@ -1596,8 +1596,8 @@ export default function AdminDashboard({ currentUser, onClose }) {
           filter: 'skirts'
         }
       },
-      'after-dusk': {
-        label: 'After Dusk',
+      'after-dark': {
+        label: 'After Dark',
         sections: [
           {
             title: 'MEN',
@@ -1615,7 +1615,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
         ],
         featured: {
           image: '/images/narrative_cover.png',
-          title: 'After Dusk Campaign',
+          title: 'After Dark Campaign',
           cta: 'Explore Collection',
           filter: 'all'
         }

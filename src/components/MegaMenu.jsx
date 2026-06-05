@@ -94,8 +94,8 @@ const DENIM_CATEGORIES = {
       filter: 'all'
     }
   },
-  'after-dusk': {
-    label: 'After Dusk',
+  'after-dark': {
+    label: 'After Dark',
     sections: [
       {
         title: 'MEN',
@@ -113,7 +113,7 @@ const DENIM_CATEGORIES = {
     ],
     featured: {
       image: '/images/narrative_cover.png',
-      title: 'After Dusk Campaign',
+      title: 'After Dark Campaign',
       cta: 'Explore Collection',
       filter: 'all'
     }

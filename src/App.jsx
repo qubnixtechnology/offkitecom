@@ -138,8 +138,8 @@ export default function App() {
           }
         ]
       },
-      'after-dusk': {
-        label: 'After Dusk',
+      'after-dark': {
+        label: 'After Dark',
         sections: [
           {
             title: 'MEN',
@@ -310,7 +310,7 @@ export default function App() {
       { label: 'Men', link: '#campaign-men', category: 'jeans', visible: true },
       { label: 'Women', link: '#campaign-women', category: 'skirts', visible: true },
       { label: 'Collection', link: '#catalog', category: 'all', visible: true },
-      { label: 'After Dusk', link: '#catalog', category: 'all', visible: true },
+      { label: 'After Dark', link: '#catalog', category: 'all', visible: true },
       { label: 'Sale', link: '#catalog', category: 'sale', visible: true }
     ];
     try {
@@ -1175,7 +1175,7 @@ export default function App() {
                                 setActiveGender('all');
                                 setActiveCategory('all');
                                 scrollToSection('catalog');
-                              } else if (labelLower === 'after dusk') {
+                              } else if (labelLower === 'after dark' || labelLower === 'after dusk') {
                                 setActiveGender('all');
                                 setActiveCategory('all');
                                 scrollToSection('catalog');

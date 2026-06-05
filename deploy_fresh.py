@@ -124,9 +124,10 @@ def main():
     except Exception:
         pass
 
-    # Backup videos and settings remotely to preserve them
+    # Backup videos, products, and settings remotely to preserve them
     run(ssh, f'mkdir -p {ROOT}/tmp_videos && cp -r {LARAVEL}/public/videos {ROOT}/tmp_videos/ 2>/dev/null || true', 'Backup public videos')
     run(ssh, f'mkdir -p {ROOT}/tmp_build_videos && cp -r {LARAVEL}/public/build/videos {ROOT}/tmp_build_videos/ 2>/dev/null || true', 'Backup public build videos')
+    run(ssh, f'mkdir -p {ROOT}/tmp_products && cp -r {LARAVEL}/public/images/products {ROOT}/tmp_products/ 2>/dev/null || true', 'Backup public product images')
     run(ssh, f'mkdir -p {ROOT}/tmp_settings && cp -r {LARAVEL}/storage/app/*.json {ROOT}/tmp_settings/ 2>/dev/null || true', 'Backup app settings json files')
 
     # Clean previous laravel-app if any, and create directory
@@ -136,11 +137,12 @@ def main():
     run(ssh, f'tar -xzf {REMOTE_TAR} -C {LARAVEL}', 'Extract backend on remote server')
     run(ssh, f'rm -f {REMOTE_TAR}', 'Remove remote tarball')
     
-    # Restore videos and settings remotely
+    # Restore videos, products, and settings remotely
     run(ssh, f'mkdir -p {LARAVEL}/public/videos && cp -r {ROOT}/tmp_videos/videos/* {LARAVEL}/public/videos/ 2>/dev/null || true', 'Restore public videos')
     run(ssh, f'mkdir -p {LARAVEL}/public/build/videos && cp -r {ROOT}/tmp_build_videos/videos/* {LARAVEL}/public/build/videos/ 2>/dev/null || true', 'Restore public build videos')
+    run(ssh, f'mkdir -p {LARAVEL}/public/images/products && cp -rn {ROOT}/tmp_products/products/* {LARAVEL}/public/images/products/ 2>/dev/null || true', 'Restore public product images')
     run(ssh, f'mkdir -p {LARAVEL}/storage/app && cp -r {ROOT}/tmp_settings/*.json {LARAVEL}/storage/app/ 2>/dev/null || true', 'Restore app settings json files')
-    run(ssh, f'rm -rf {ROOT}/tmp_videos {ROOT}/tmp_build_videos {ROOT}/tmp_settings', 'Cleanup remote backups')
+    run(ssh, f'rm -rf {ROOT}/tmp_videos {ROOT}/tmp_build_videos {ROOT}/tmp_settings {ROOT}/tmp_products', 'Cleanup remote backups')
     
     # Load secrets from local backend/.env
     brevo_key = ""
