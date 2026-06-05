@@ -120,12 +120,6 @@ export const toWebp = (url) => {
   if (typeof url === 'string') {
     let newUrl = url;
     
-    // Only replace extension for local image paths (not external URLs or base64 data URIs)
-    const isExternalOrBase64 = url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:');
-    if (!isExternalOrBase64) {
-      newUrl = url.replace(/\.(jpe?g|png)$/i, '.webp');
-    }
-
     // If running in Vite development server (import.meta.env.DEV), prefix with base path /build
     if (import.meta.env.DEV && newUrl.startsWith('/images/')) {
       newUrl = newUrl.replace(/^\/images\//, '/build/images/');

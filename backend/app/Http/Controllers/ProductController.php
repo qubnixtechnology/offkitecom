@@ -280,15 +280,32 @@ class ProductController extends Controller
                 $ext = 'png'; // default fallback
             }
 
-            // Generate a unique file name
-            $fileName = $prefix . '_' . uniqid() . '.' . $ext;
-            
             // Define the directory path: public/images/products
             $dirPath = public_path('images/products');
             if (!file_exists($dirPath)) {
                 mkdir($dirPath, 0755, true);
             }
 
+            // Try to convert to WebP using GD library if available and not SVG
+            if (function_exists('imagecreatefromstring') && function_exists('imagewebp') && $ext !== 'svg') {
+                try {
+                    $im = @imagecreatefromstring($data);
+                    if ($im !== false) {
+                        $fileName = $prefix . '_' . uniqid() . '.webp';
+                        $filePath = $dirPath . '/' . $fileName;
+                        if (@imagewebp($im, $filePath, 80)) {
+                            @imagedestroy($im);
+                            return '/images/products/' . $fileName;
+                        }
+                        @imagedestroy($im);
+                    }
+                } catch (\Throwable $t) {
+                    // Fall back to original saving on failure
+                }
+            }
+
+            // Fallback: Save original format
+            $fileName = $prefix . '_' . uniqid() . '.' . $ext;
             $filePath = $dirPath . '/' . $fileName;
             file_put_contents($filePath, $data);
 
