@@ -135,12 +135,32 @@ export default function MegaMenu({ activeMenu, onCategoryClick, onClose, onMouse
     });
   };
 
+  const mergeWithDefaultMega = (parsed, defaultMega) => {
+    if (!parsed || typeof parsed !== 'object') return defaultMega;
+    const merged = { ...defaultMega };
+    Object.keys(defaultMega).forEach(key => {
+      if (parsed[key] && typeof parsed[key] === 'object') {
+        merged[key] = {
+          ...defaultMega[key],
+          ...parsed[key],
+          sections: Array.isArray(parsed[key].sections) ? parsed[key].sections : defaultMega[key].sections,
+          featured: (parsed[key].featured && typeof parsed[key].featured === 'object') 
+            ? { ...defaultMega[key].featured, ...parsed[key].featured }
+            : defaultMega[key].featured
+        };
+      }
+    });
+    return merged;
+  };
+
   const [denimCategories, setDenimCategories] = useState(() => {
     try {
       const stored = localStorage.getItem('offkilt_mega_menu');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (isValidMegaMenu(parsed)) return parsed;
+        if (isValidMegaMenu(parsed)) {
+          return mergeWithDefaultMega(parsed, DENIM_CATEGORIES);
+        }
         // Stale/incompatible format — reset it
         localStorage.removeItem('offkilt_mega_menu');
       }
@@ -154,7 +174,9 @@ export default function MegaMenu({ activeMenu, onCategoryClick, onClose, onMouse
         const stored = localStorage.getItem('offkilt_mega_menu');
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (isValidMegaMenu(parsed)) setDenimCategories(parsed);
+          if (isValidMegaMenu(parsed)) {
+            setDenimCategories(mergeWithDefaultMega(parsed, DENIM_CATEGORIES));
+          }
         }
       } catch (e) {}
     };

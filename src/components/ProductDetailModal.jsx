@@ -702,13 +702,31 @@ export default function ProductDetailModal({ product, isOpen, onClose, onAddToCa
 
     return detailsList;
   };
-  const productImages = selectedVariant && Array.isArray(selectedVariant.images) && selectedVariant.images.length > 0
-    ? selectedVariant.images
-    : (product?.images && Array.isArray(product.images) && product.images.length > 0
-        ? product.images
-        : (typeof product?.images === 'string'
-            ? (() => { try { return JSON.parse(product.images); } catch { return [product?.image].filter(Boolean); } })()
-            : [product?.image].filter(Boolean)));
+  const productImages = (() => {
+    if (selectedVariant?.images) {
+      if (Array.isArray(selectedVariant.images) && selectedVariant.images.length > 0) return selectedVariant.images;
+      if (typeof selectedVariant.images === 'string') {
+        try {
+          const parsed = JSON.parse(selectedVariant.images);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch {
+          // ignore
+        }
+      }
+    }
+    if (product?.images) {
+      if (Array.isArray(product.images) && product.images.length > 0) return product.images;
+      if (typeof product.images === 'string') {
+        try {
+          const parsed = JSON.parse(product.images);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch {
+          // ignore
+        }
+      }
+    }
+    return [product?.image].filter(Boolean);
+  })();
 
   // Keep the ref in sync so touch-swipe handlers always see the current length
   productImagesLenRef.current = productImages.length;

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ShoppingBag, Menu, X, Phone, User, Search, Check, AlertCircle, Info, ChevronDown, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lenis from 'lenis';
-import { auth, profile, orders as ordersApi, products as productsApi, newsletter as newsletterApi } from './services/api';
+import { auth, profile, orders as ordersApi, products as productsApi, newsletter as newsletterApi, admin as adminApi } from './services/api';
 import Preloader from './components/Preloader';
 import Hero from './components/Hero';
 import NewArrivals from './components/NewArrivals';
@@ -26,6 +26,143 @@ import MegaMenu from './components/MegaMenu';
 import CampaignSection from './components/CampaignSection';
 import SellerPartners from './components/SellerPartners';
 import CompanyPageViewer from './components/CompanyPageViewer';
+
+const DEFAULT_MEGA = {
+  men: {
+    label: 'Men',
+    sections: [
+      {
+        title: 'DENIM FIT',
+        links: [
+          { name: 'Baggy', filter: 'baggy' },
+          { name: 'Relaxed', filter: 'relaxed' },
+          { name: 'Boot Cut', filter: 'boot cut' },
+          { name: 'Slim', filter: 'slim' },
+          { name: 'Skinny', filter: 'skinny' },
+        ]
+      },
+      {
+        title: 'CATEGORIES',
+        links: [
+          { name: 'All Jeans', filter: 'jeans' },
+          { name: 'New Arrivals', filter: 'all' },
+          { name: 'Cargo & Utility', filter: 'jeans' },
+          { name: 'Carpenter', filter: 'jeans' },
+        ]
+      }
+    ],
+    featured: {
+      image: '/images/mens_campaign.png',
+      title: "Men's SS26 Campaign",
+      cta: "Explore Men's",
+      filter: 'jeans'
+    }
+  },
+  women: {
+    label: 'Women',
+    sections: [
+      {
+        title: 'DENIM FIT',
+        links: [
+          { name: 'Baggy', filter: 'baggy' },
+          { name: 'Relaxed', filter: 'relaxed' },
+          { name: 'Boot Cut', filter: 'boot cut' },
+          { name: 'Slim', filter: 'slim' },
+          { name: 'Skinny', filter: 'skinny' },
+        ]
+      },
+      {
+        title: 'CATEGORIES',
+        links: [
+          { name: 'All Products', filter: 'all' },
+          { name: 'Denim Skirts', filter: 'skirts' },
+          { name: 'Kilt Skirts', filter: 'skirts' },
+          { name: 'New Arrivals', filter: 'all' },
+        ]
+      }
+    ],
+    featured: {
+      image: '/images/womens_campaign.png',
+      title: "Women's SS26 Campaign",
+      cta: "Explore Women's",
+      filter: 'skirts'
+    }
+  },
+  collection: {
+    label: 'Collection',
+    sections: [
+      {
+        title: 'STYLES',
+        links: [
+          { name: 'All Products', filter: 'all' },
+          { name: 'Jeans', filter: 'jeans' },
+          { name: 'Skirts', filter: 'skirts' },
+          { name: 'Cargo & Utility', filter: 'jeans' },
+          { name: 'Shirts', filter: 'shirts' },
+          { name: '🔴 SALE', filter: 'sale' },
+        ]
+      },
+      {
+        title: 'DENIM FITS',
+        links: [
+          { name: 'Baggy', filter: 'baggy' },
+          { name: 'Relaxed', filter: 'relaxed' },
+          { name: 'Boot Cut', filter: 'boot cut' },
+          { name: 'Slim', filter: 'slim' },
+          { name: 'Skinny', filter: 'skinny' },
+        ]
+      }
+    ],
+    featured: {
+      image: '/images/narrative_cover.png',
+      title: 'Our Premium Fits',
+      cta: 'Explore Collection',
+      filter: 'all'
+    }
+  },
+  'after-dark': {
+    label: 'After Dark',
+    sections: [
+      {
+        title: 'MEN',
+        links: [
+          { name: 'Fits', filter: 'all' },
+        ]
+      },
+      {
+        title: 'WOMEN',
+        links: [
+          { name: 'Fits', filter: 'all' },
+          { name: 'Skirts', filter: 'skirts' }
+        ]
+      }
+    ],
+    featured: {
+      image: '/images/narrative_cover.png',
+      title: 'After Dark Campaign',
+      cta: 'Explore Collection',
+      filter: 'all'
+    }
+  }
+};
+
+const mergeWithDefaultMega = (parsed, defaultMega) => {
+  if (!parsed || typeof parsed !== 'object') return defaultMega;
+  const merged = { ...defaultMega };
+  Object.keys(defaultMega).forEach(key => {
+    if (parsed[key] && typeof parsed[key] === 'object') {
+      merged[key] = {
+        ...defaultMega[key],
+        ...parsed[key],
+        sections: Array.isArray(parsed[key].sections) ? parsed[key].sections : defaultMega[key].sections,
+        featured: (parsed[key].featured && typeof parsed[key].featured === 'object') 
+          ? { ...defaultMega[key].featured, ...parsed[key].featured }
+          : defaultMega[key].featured
+      };
+    }
+  });
+  return merged;
+};
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -63,109 +200,14 @@ export default function App() {
   const [activeMegaMenu, setActiveMegaMenu] = useState(null);
   const megaMenuTimeoutRef = useRef(null);
   const [megaMenuSettings, setMegaMenuSettings] = useState(() => {
-    const defaultMega = {
-      men: {
-        label: 'Men',
-        sections: [
-          {
-            title: 'DENIM FIT',
-            links: [
-              { name: 'Baggy', filter: 'baggy' },
-              { name: 'Relaxed', filter: 'relaxed' },
-              { name: 'Boot Cut', filter: 'boot cut' },
-              { name: 'Slim', filter: 'slim' },
-              { name: 'Skinny', filter: 'skinny' },
-            ]
-          },
-          {
-            title: 'CATEGORIES',
-            links: [
-              { name: 'All Jeans', filter: 'jeans' },
-              { name: 'New Arrivals', filter: 'all' },
-              { name: 'Cargo & Utility', filter: 'jeans' },
-              { name: 'Carpenter', filter: 'jeans' },
-            ]
-          }
-        ]
-      },
-      women: {
-        label: 'Women',
-        sections: [
-          {
-            title: 'DENIM FIT',
-            links: [
-              { name: 'Baggy', filter: 'baggy' },
-              { name: 'Relaxed', filter: 'relaxed' },
-              { name: 'Boot Cut', filter: 'boot cut' },
-              { name: 'Slim', filter: 'slim' },
-              { name: 'Skinny', filter: 'skinny' },
-            ]
-          },
-          {
-            title: 'CATEGORIES',
-            links: [
-              { name: 'All Products', filter: 'all' },
-              { name: 'Denim Skirts', filter: 'skirts' },
-              { name: 'Kilt Skirts', filter: 'skirts' },
-              { name: 'New Arrivals', filter: 'all' },
-            ]
-          }
-        ]
-      },
-      collection: {
-        label: 'Collection',
-        sections: [
-          {
-            title: 'STYLES',
-            links: [
-              { name: 'All Products', filter: 'all' },
-              { name: 'Jeans', filter: 'jeans' },
-              { name: 'Skirts', filter: 'skirts' },
-              { name: 'Cargo & Utility', filter: 'jeans' },
-              { name: 'Shirts', filter: 'shirts' },
-              { name: '🔴 SALE', filter: 'sale' },
-            ]
-          },
-          {
-            title: 'DENIM FITS',
-            links: [
-              { name: 'Baggy', filter: 'baggy' },
-              { name: 'Relaxed', filter: 'relaxed' },
-              { name: 'Boot Cut', filter: 'boot cut' },
-              { name: 'Slim', filter: 'slim' },
-              { name: 'Skinny', filter: 'skinny' },
-            ]
-          }
-        ]
-      },
-      'after-dark': {
-        label: 'After Dark',
-        sections: [
-          {
-            title: 'MEN',
-            links: [
-              { name: 'Fits', filter: 'all' },
-            ]
-          },
-          {
-            title: 'WOMEN',
-            links: [
-              { name: 'Fits', filter: 'all' },
-              { name: 'Skirts', filter: 'skirts' }
-            ]
-          }
-        ]
-      }
-    };
     try {
       const stored = localStorage.getItem('offkilt_mega_menu');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed.collection) return parsed;
-        return { ...defaultMega, ...parsed, collection: defaultMega.collection };
+        return mergeWithDefaultMega(parsed, DEFAULT_MEGA);
       }
     } catch (e) {}
-    return defaultMega;
+    return DEFAULT_MEGA;
   });
 
   const [megaMenuKeys, setMegaMenuKeys] = useState(() => Object.keys(megaMenuSettings));
@@ -448,8 +490,9 @@ export default function App() {
         const storedMega = localStorage.getItem('offkilt_mega_menu');
         if (storedMega) {
           const parsed = JSON.parse(storedMega);
-          setMegaMenuSettings(parsed);
-          setMegaMenuKeys(Object.keys(parsed));
+          const merged = mergeWithDefaultMega(parsed, DEFAULT_MEGA);
+          setMegaMenuSettings(merged);
+          setMegaMenuKeys(Object.keys(merged));
         }
       } catch (e) {}
       try {
@@ -473,6 +516,10 @@ export default function App() {
     
     // Initial load from backend
     const loadGlobalSettings = async () => {
+      if (localStorage.getItem('offkilt_unsynced_changes') === 'true') {
+        console.warn('Skipping backend settings sync: Local changes are unsynced.');
+        return;
+      }
       try {
         const res = await adminApi.getGlobalSettings();
         if (res.data && Object.keys(res.data).length > 0) {
@@ -705,9 +752,16 @@ export default function App() {
         discountPrice: product.discountPrice,
         stock: product.stock,
         sku: product.sku || product.id,
-        images: Array.isArray(product.images) && product.images.length > 0 
-          ? product.images 
-          : [product.image, product.hoverImage || product.hover_image].filter(Boolean),
+        images: (() => {
+          if (Array.isArray(product.images) && product.images.length > 0) return product.images;
+          if (typeof product.images === 'string') {
+            try {
+              const parsed = JSON.parse(product.images);
+              if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            } catch { /* ignore */ }
+          }
+          return [product.image, product.hoverImage || product.hover_image].filter(Boolean);
+        })(),
         status: 'available',
         display_order: -1
       };
@@ -1175,7 +1229,7 @@ export default function App() {
                                 setActiveGender('all');
                                 setActiveCategory('all');
                                 scrollToSection('catalog');
-                              } else if (labelLower === 'after dark' || labelLower === 'after dusk') {
+                              } else if (labelLower === 'after dark') {
                                 setActiveGender('all');
                                 setActiveCategory('all');
                                 scrollToSection('catalog');
@@ -1248,7 +1302,7 @@ export default function App() {
                                       onClick={() => {
                                         if (labelSlug === 'men' || labelSlug === 'women') {
                                           setActiveGender(labelSlug);
-                                        } else if (labelSlug === 'after-dusk') {
+                                        } else if (labelSlug === 'after-dark') {
                                           if (sec.title.toUpperCase() === 'MEN') {
                                             setActiveGender('men');
                                           } else if (sec.title.toUpperCase() === 'WOMEN') {
@@ -1414,7 +1468,7 @@ export default function App() {
                 setActiveGender('men');
               } else if (activeMegaMenu === 'women') {
                 setActiveGender('women');
-              } else if (activeMegaMenu === 'after-dusk') {
+              } else if (activeMegaMenu === 'after-dark') {
                 if (sectionTitle?.toUpperCase() === 'MEN') {
                   setActiveGender('men');
                 } else if (sectionTitle?.toUpperCase() === 'WOMEN') {

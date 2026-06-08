@@ -21,7 +21,7 @@ api.interceptors.request.use((config) => {
 const isBackendUnavailable = (err) => {
   if (!err || !err.response) return true;
   const status = err.response.status;
-  return status === 502 || status === 503 || status === 504 || status === 404;
+  return status >= 500 || status === 404;
 };
 
 // Fallback wrappers for testing without Laravel backend
@@ -262,7 +262,7 @@ export const admin = {
       }
       const newProduct = { ...data, id: data.id || `OK-${Date.now()}` };
       productsList.unshift(newProduct);
-      localStorage.setItem('offkilt_products', JSON.stringify(productsList));
+      try { localStorage.setItem('offkilt_products', JSON.stringify(productsList)); } catch(e) { console.error('Local storage full', e); }
       return { data: mapProductImagePaths(newProduct) };
     }
   },
@@ -276,7 +276,7 @@ export const admin = {
       const index = productsList.findIndex(p => p.id === id);
       if (index > -1) {
         productsList[index] = { ...productsList[index], ...data };
-        localStorage.setItem('offkilt_products', JSON.stringify(productsList));
+        try { localStorage.setItem('offkilt_products', JSON.stringify(productsList)); } catch(e) { console.error('Local storage full', e); }
         return { data: mapProductImagePaths(productsList[index]) };
       }
       throw { response: { data: { message: 'Product not found' } } };
@@ -295,7 +295,7 @@ export const admin = {
       if (err.response && !isBackendUnavailable(err)) throw err;
       const productsList = JSON.parse(localStorage.getItem('offkilt_products') || JSON.stringify(localProducts));
       const filtered = productsList.filter(p => p.id !== id);
-      localStorage.setItem('offkilt_products', JSON.stringify(filtered));
+      try { localStorage.setItem('offkilt_products', JSON.stringify(filtered)); } catch(e) { console.error('Local storage full', e); }
       return { data: { message: 'Deleted' } };
     }
   },
@@ -349,12 +349,12 @@ export const admin = {
   saveGlobalSettings: async (data) => {
     try {
       const res = await api.post('/admin/settings', data);
-      localStorage.setItem('offkilt_global_settings', JSON.stringify(data));
+      try { localStorage.setItem('offkilt_global_settings', JSON.stringify(data)); } catch(e) { console.error('Local storage full', e); }
       return { data: res.data };
     } catch (err) {
       if (err.response && !isBackendUnavailable(err)) throw err;
-      localStorage.setItem('offkilt_global_settings', JSON.stringify(data));
-      return { data: { message: 'Saved settings locally' } };
+      try { localStorage.setItem('offkilt_global_settings', JSON.stringify(data)); } catch(e) { console.error('Local storage full', e); }
+      return { data: { message: 'Saved settings locally' }, localFallback: true };
     }
   },
   getEmailSettings: async () => {
@@ -389,6 +389,15 @@ export const admin = {
       if (err.response && !isBackendUnavailable(err)) throw err;
       throw err;
     }
+  },
+  // Upload an image or video file to the server. Returns { url } — a permanent public URL visible to all users.
+  uploadMedia: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await api.post('/admin/upload-media', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return { data: res.data }; // { url: '/cms-uploads/filename.ext', name: 'filename.ext' }
   },
 };
 

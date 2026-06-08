@@ -73,4 +73,7 @@ Route::middleware(['auth:sanctum', 'is_admin'])->prefix('admin')->group(function
 
     // Global Settings
     Route::post('/settings',                 [AdminController::class, 'saveGlobalSettings']);
+
+    // CMS Media Upload (images & videos → stored on server, returns public URL)
+    Route::post('/upload-media',             [AdminController::class, 'uploadMedia']);
 });

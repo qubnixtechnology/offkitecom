@@ -8,7 +8,7 @@ import {
   Type, Share2, Phone, MapPin, HelpCircle, Layers, CreditCard, Key, ShieldCheck, Zap, Mail, Send
 } from 'lucide-react';
 import { products as productsApi, admin as adminApi, toWebp } from '../services/api';
-import { saveMediaToIndexedDB } from '../services/db';
+
 
 // ── Admin Email Management Tab ──────────────────────────────────────────────
 function AdminEmailTab() {
@@ -396,6 +396,143 @@ function QnaItemRow({ q, prodId, onSaveAnswer, onDelete }) {
   );
 }
 
+const DEFAULT_MEGA_DASHBOARD = {
+  men: {
+    label: 'Men',
+    sections: [
+      {
+        title: 'DENIM FIT',
+        links: [
+          { name: 'Baggy', filter: 'baggy' },
+          { name: 'Relaxed', filter: 'relaxed' },
+          { name: 'Boot Cut', filter: 'boot cut' },
+          { name: 'Slim', filter: 'slim' },
+          { name: 'Skinny', filter: 'skinny' },
+        ]
+      },
+      {
+        title: 'CATEGORIES',
+        links: [
+          { name: 'All Jeans', filter: 'jeans' },
+          { name: 'New Arrivals', filter: 'all' },
+          { name: 'Cargo & Utility', filter: 'jeans' },
+          { name: 'Carpenter', filter: 'jeans' },
+        ]
+      }
+    ],
+    featured: {
+      image: '/images/mens_campaign.png',
+      title: "Men's SS26 Campaign",
+      cta: "Explore Men's",
+      filter: 'jeans'
+    }
+  },
+  women: {
+    label: 'Women',
+    sections: [
+      {
+        title: 'DENIM FIT',
+        links: [
+          { name: 'Baggy', filter: 'baggy' },
+          { name: 'Relaxed', filter: 'relaxed' },
+          { name: 'Boot Cut', filter: 'boot cut' },
+          { name: 'Slim', filter: 'slim' },
+          { name: 'Skinny', filter: 'skinny' },
+        ]
+      },
+      {
+        title: 'CATEGORIES',
+        links: [
+          { name: 'All Products', filter: 'all' },
+          { name: 'Denim Skirts', filter: 'skirts' },
+          { name: 'Kilt Skirts', filter: 'skirts' },
+          { name: 'New Arrivals', filter: 'all' },
+        ]
+      }
+    ],
+    featured: {
+      image: '/images/womens_campaign.png',
+      title: "Women's SS26 Campaign",
+      cta: "Explore Women's",
+      filter: 'skirts'
+    }
+  },
+  collection: {
+    label: 'Collection',
+    sections: [
+      {
+        title: 'STYLES',
+        links: [
+          { name: 'All Products', filter: 'all' },
+          { name: 'Jeans', filter: 'jeans' },
+          { name: 'Skirts', filter: 'skirts' },
+          { name: 'Cargo & Utility', filter: 'jeans' },
+          { name: 'Shirts', filter: 'shirts' },
+          { name: '🔴 SALE', filter: 'sale' },
+        ]
+      },
+      {
+        title: 'DENIM FITS',
+        links: [
+          { name: 'Baggy', filter: 'baggy' },
+          { name: 'Relaxed', filter: 'relaxed' },
+          { name: 'Boot Cut', filter: 'boot cut' },
+          { name: 'Slim', filter: 'slim' },
+          { name: 'Skinny', filter: 'skinny' },
+        ]
+      }
+    ],
+    featured: {
+      image: '/images/narrative_cover.png',
+      title: 'Our Premium Fits',
+      cta: 'Explore Collection',
+      filter: 'all'
+    }
+  },
+  'after-dark': {
+    label: 'After Dark',
+    sections: [
+      {
+        title: 'MEN',
+        links: [
+          { name: 'Fits', filter: 'all' },
+        ]
+      },
+      {
+        title: 'WOMEN',
+        links: [
+          { name: 'Fits', filter: 'all' },
+          { name: 'Skirts', filter: 'skirts' }
+        ]
+      }
+    ],
+    featured: {
+      image: '/images/narrative_cover.png',
+      title: 'After Dark Campaign',
+      cta: 'Explore Collection',
+      filter: 'all'
+    }
+  }
+};
+
+const mergeWithDefaultMegaDashboard = (parsed, defaultMega) => {
+  if (!parsed || typeof parsed !== 'object') return defaultMega;
+  const merged = { ...defaultMega };
+  Object.keys(defaultMega).forEach(key => {
+    if (parsed[key] && typeof parsed[key] === 'object') {
+      merged[key] = {
+        ...defaultMega[key],
+        ...parsed[key],
+        sections: Array.isArray(parsed[key].sections) ? parsed[key].sections : defaultMega[key].sections,
+        featured: (parsed[key].featured && typeof parsed[key].featured === 'object') 
+          ? { ...defaultMega[key].featured, ...parsed[key].featured }
+          : defaultMega[key].featured
+      };
+    }
+  });
+  return merged;
+};
+
 export default function AdminDashboard({ currentUser, onClose }) {
   const [activeTab, setActiveTab] = useState('analytics');
   
@@ -427,6 +564,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
       'offkilt_shiprocket_email',
       'offkilt_shiprocket_password',
       'offkilt_whatsapp_number',
+      'offkilt_whatsapp',
       'offkilt_press_brands',
       'offkilt_announcement_text',
       'offkilt_announcement_show',
@@ -444,7 +582,8 @@ export default function AdminDashboard({ currentUser, onClose }) {
       'offkilt_menus',
       'offkilt_campaign_men',
       'offkilt_campaign_women',
-      'offkilt_campaign_hero'
+      'offkilt_campaign_hero',
+      'offkilt_admin_roles'
     ];
     const payload = {};
     keys.forEach(k => {
@@ -458,19 +597,31 @@ export default function AdminDashboard({ currentUser, onClose }) {
       }
     });
     try {
-      await adminApi.saveGlobalSettings(payload);
+      const res = await adminApi.saveGlobalSettings(payload);
+      if (res && res.localFallback) {
+        localStorage.setItem('offkilt_unsynced_changes', 'true');
+        console.warn('Backend unavailable. Changes saved locally and flagged as unsynced.');
+      } else {
+        localStorage.removeItem('offkilt_unsynced_changes');
+      }
     } catch (err) {
       console.error('Failed to sync settings to server', err);
+      localStorage.setItem('offkilt_unsynced_changes', 'true');
     }
   };
 
   useEffect(() => {
-    const handleSettingsUpdated = async () => {
-      await saveGlobalSettingsToServer();
+    let syncTimeout;
+    const handleSettingsUpdated = () => {
+      clearTimeout(syncTimeout);
+      syncTimeout = setTimeout(async () => {
+        await saveGlobalSettingsToServer();
+      }, 2000);
     };
     window.addEventListener('offkilt_settings_updated', handleSettingsUpdated);
     return () => {
       window.removeEventListener('offkilt_settings_updated', handleSettingsUpdated);
+      clearTimeout(syncTimeout);
     };
   }, []);
 
@@ -906,7 +1057,8 @@ export default function AdminDashboard({ currentUser, onClose }) {
         }
       } catch (e) {}
       if (salesByDay[dayName] !== undefined) {
-        salesByDay[dayName] += Number(o.total || 0);
+        const orderTotal = o.total !== undefined && o.total !== null ? o.total : (o.subtotal - (o.discount || 0) + (o.shipping_fee || o.shipping || 0));
+        salesByDay[dayName] += Number(orderTotal || 0);
       }
     });
 
@@ -979,7 +1131,10 @@ export default function AdminDashboard({ currentUser, onClose }) {
 
   useEffect(() => {
     const totalOrders = orders.length;
-    const totalSales = orders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+    const totalSales = orders.reduce((sum, o) => {
+      const orderTotal = o.total !== undefined && o.total !== null ? o.total : (o.subtotal - (o.discount || 0) + (o.shipping_fee || o.shipping || 0));
+      return sum + Number(orderTotal || 0);
+    }, 0);
     const weeklySales = getWeeklySales(orders);
     const fitDistribution = getFitDistribution(orders);
     const bestSellers = getBestSellers(orders);
@@ -1071,21 +1226,10 @@ export default function AdminDashboard({ currentUser, onClose }) {
     };
   });
 
-  const handleCampaignSave = (section, data) => {
-    const updated = { ...campaigns, [section]: data };
-    setCampaigns(updated);
-    try {
-      localStorage.setItem(`offkilt_campaign_${section}`, JSON.stringify(data));
-    } catch (e) {
-      console.error('localStorage quota exceeded when saving campaign:', e);
-      alert('Image is too large for storage. Please use a smaller image (under 500KB).');
-      return;
-    }
-    triggerSync('offkilt_settings_updated');
-    alert(`${section === 'men' ? "Men's" : "Women's"} campaign settings saved!`);
-  };
 
-  // Compress image to max 1200px wide before base64 encoding to avoid localStorage quota errors
+
+  // Compress image locally — used only for product size guide (stays in product form, not global CMS).
+  // CMS media (campaigns, hero, fashion film, etc.) now uses server upload via handleServerUpload.
   const compressImage = (file, maxWidth = 1200, quality = 0.82) => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -1106,7 +1250,6 @@ export default function AdminDashboard({ currentUser, onClose }) {
       };
       img.onerror = () => {
         URL.revokeObjectURL(url);
-        // Fall back to original FileReader if canvas fails
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result);
         reader.readAsDataURL(file);
@@ -1115,80 +1258,65 @@ export default function AdminDashboard({ currentUser, onClose }) {
     });
   };
 
+  // Upload a file to the server and return a permanent public URL (/cms-uploads/...).
+  // This replaces all base64/IndexedDB approaches for CMS media.
+  const handleServerUpload = async (file, onSuccess, onError) => {
+    try {
+      const res = await adminApi.uploadMedia(file);
+      const url = res.data.url;
+      onSuccess(url);
+    } catch (err) {
+      console.error('Server upload failed:', err);
+      if (onError) onError(err);
+      else alert('Upload failed. Please check your connection and try again.');
+    }
+  };
+
+  // Campaign section (Men / Women) cover image — uploaded to server
   const handleCampaignImageUpload = (section, file) => {
     if (!file) return;
-    compressImage(file).then((dataUrl) => {
-      // Use functional updater so we always have latest campaigns state (no stale closure)
+    handleServerUpload(file, (url) => {
       setCampaigns(prev => {
-        const updated = { ...prev[section], image: dataUrl };
+        const updated = { ...prev[section], image: url };
         const newState = { ...prev, [section]: updated };
-        try {
-          localStorage.setItem(`offkilt_campaign_${section}`, JSON.stringify(updated));
-        } catch (e) {
-          console.error('localStorage quota exceeded:', e);
-          alert('Image is too large for browser storage even after compression. Please use a smaller image.');
-          return prev; // revert state
-        }
+        localStorage.setItem(`offkilt_campaign_${section}`, JSON.stringify(updated));
         triggerSync('offkilt_settings_updated');
         return newState;
       });
     });
   };
 
-  const handleHeroMediaUpload = async (e) => {
+  // Hero banner — upload image or video to server, get a permanent URL
+  const handleHeroMediaUpload = (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const isVideo = file.type.startsWith('video/');
-        if (isVideo) {
-          await saveMediaToIndexedDB('hero_video_blob', file);
-          const updated = { 
-            ...campaigns.hero, 
-            mediaUrl: 'indexeddb:hero_video_blob',
-            mediaType: 'video'
-          };
-          setCampaigns(prev => ({ ...prev, hero: updated }));
-          localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
-          window.dispatchEvent(new Event('offkilt_hero_updated'));
-          alert('Hero background video uploaded successfully!');
-        } else {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const updated = { 
-              ...campaigns.hero, 
-              mediaUrl: reader.result,
-              mediaType: 'image'
-            };
-            setCampaigns(prev => ({ ...prev, hero: updated }));
-            localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
-            window.dispatchEvent(new Event('offkilt_hero_updated'));
-            alert('Hero background image updated successfully!');
-          };
-          reader.readAsDataURL(file);
-        }
-      } catch (err) {
-        console.error(err);
-        alert('Failed to upload hero media.');
-      }
-    }
+    if (!file) return;
+    const isVideo = file.type.startsWith('video/');
+    handleServerUpload(file, (url) => {
+      const updated = {
+        ...campaigns.hero,
+        mediaUrl: url,
+        mediaType: isVideo ? 'video' : 'image'
+      };
+      setCampaigns(prev => ({ ...prev, hero: updated }));
+      localStorage.setItem('offkilt_campaign_hero', JSON.stringify(updated));
+      window.dispatchEvent(new Event('offkilt_hero_updated'));
+      triggerSync('offkilt_settings_updated');
+      alert(isVideo ? 'Hero video uploaded and saved!' : 'Hero image uploaded and saved!');
+    });
   };
 
-  const handleFashionFilmVideoUpload = async (e) => {
+  // Fashion Film video — upload to server, get a permanent URL
+  const handleFashionFilmVideoUpload = (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('video/')) {
-        alert('Please select a valid video file.');
-        return;
-      }
-      try {
-        await saveMediaToIndexedDB('fashion_film_video_blob', file);
-        setFashionFilm(prev => ({ ...prev, videoUrl: 'indexeddb:fashion_film_video_blob' }));
-        alert('Video uploaded successfully to local database! Press "Save Fashion Film Settings" to apply.');
-      } catch (err) {
-        console.error(err);
-        alert('Failed to save video to local database.');
-      }
+    if (!file) return;
+    if (!file.type.startsWith('video/')) {
+      alert('Please select a valid video file.');
+      return;
     }
+    handleServerUpload(file, (url) => {
+      setFashionFilm(prev => ({ ...prev, videoUrl: url }));
+      alert('Fashion Film video uploaded! Press "Save Fashion Film Settings" to apply.');
+    });
   };
 
   // --- Q&A CMS ---
@@ -1240,6 +1368,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
   const handleSaveIgGallery = () => {
     localStorage.setItem('offkilt_instagram_gallery', JSON.stringify(igGallery));
     window.dispatchEvent(new Event('offkilt_instagram_updated'));
+    triggerSync('offkilt_settings_updated');
     alert('Instagram Gallery saved!');
   };
 
@@ -1264,6 +1393,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
   const handleFashionFilmSave = () => {
     localStorage.setItem('offkilt_fashion_film', JSON.stringify(fashionFilm));
     window.dispatchEvent(new Event('offkilt_fashion_film_updated'));
+    triggerSync('offkilt_settings_updated');
     alert('Fashion Film settings saved!');
   };
 
@@ -1535,97 +1665,14 @@ export default function AdminDashboard({ currentUser, onClose }) {
 
   // 5. Mega Menu Settings
   const [megaMenuSettings, setMegaMenuSettings] = useState(() => {
-    const DEFAULT_MEGA = {
-      men: {
-        label: 'Men',
-        sections: [
-          {
-            title: 'DENIM FIT',
-            links: [
-              { name: 'Baggy', filter: 'baggy' },
-              { name: 'Relaxed', filter: 'relaxed' },
-              { name: 'Boot Cut', filter: 'boot cut' },
-              { name: 'Slim', filter: 'slim' },
-              { name: 'Skinny', filter: 'skinny' },
-            ]
-          },
-          {
-            title: 'CATEGORIES',
-            links: [
-              { name: 'All Jeans', filter: 'jeans' },
-              { name: 'New Arrivals', filter: 'all' },
-              { name: 'Cargo & Utility', filter: 'jeans' },
-              { name: 'Carpenter', filter: 'jeans' },
-            ]
-          }
-        ],
-        featured: {
-          image: '/images/mens_campaign.png',
-          title: 'Men\'s SS26 Campaign',
-          cta: 'Explore Men\'s',
-          filter: 'jeans'
-        }
-      },
-      women: {
-        label: 'Women',
-        sections: [
-          {
-            title: 'DENIM FIT',
-            links: [
-              { name: 'Baggy', filter: 'baggy' },
-              { name: 'Relaxed', filter: 'relaxed' },
-              { name: 'Boot Cut', filter: 'boot cut' },
-              { name: 'Slim', filter: 'slim' },
-              { name: 'Skinny', filter: 'skinny' },
-            ]
-          },
-          {
-            title: 'CATEGORIES',
-            links: [
-              { name: 'All Products', filter: 'all' },
-              { name: 'Denim Skirts', filter: 'skirts' },
-              { name: 'Kilt Skirts', filter: 'skirts' },
-              { name: 'New Arrivals', filter: 'all' },
-            ]
-          }
-        ],
-        featured: {
-          image: '/images/womens_campaign.png',
-          title: 'Women\'s SS26 Campaign',
-          cta: 'Explore Women\'s',
-          filter: 'skirts'
-        }
-      },
-      'after-dark': {
-        label: 'After Dark',
-        sections: [
-          {
-            title: 'MEN',
-            links: [
-              { name: 'Fits', filter: 'all' },
-            ]
-          },
-          {
-            title: 'WOMEN',
-            links: [
-              { name: 'Fits', filter: 'all' },
-              { name: 'Skirts', filter: 'skirts' }
-            ]
-          }
-        ],
-        featured: {
-          image: '/images/narrative_cover.png',
-          title: 'After Dark Campaign',
-          cta: 'Explore Collection',
-          filter: 'all'
-        }
-      }
-    };
     try {
-      return JSON.parse(localStorage.getItem('offkilt_mega_menu')) || DEFAULT_MEGA;
-    } catch(e) {
-      return DEFAULT_MEGA;
-    }
+      const stored = localStorage.getItem('offkilt_mega_menu');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return mergeWithDefaultMegaDashboard(parsed, DEFAULT_MEGA_DASHBOARD);
+      }
+    } catch (e) {}
+    return DEFAULT_MEGA_DASHBOARD;
   });
 
   const [selectedMegaKey, setSelectedMegaKey] = useState('men');
@@ -2040,6 +2087,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
     setRoles(updated);
     localStorage.setItem('offkilt_admin_roles', JSON.stringify(updated));
     setNewAdmin({ name: '', email: '', role: 'Catalog Manager' });
+    triggerSync('offkilt_settings_updated');
   };
 
   const handleDeleteAdmin = (email) => {
@@ -2052,6 +2100,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
       setRoles(updated);
       localStorage.setItem('offkilt_admin_roles', JSON.stringify(updated));
       alert('Access Operator removed successfully.');
+      triggerSync('offkilt_settings_updated');
     }
   };
 
@@ -2090,6 +2139,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
     localStorage.setItem('offkilt_seo_products', JSON.stringify(updated));
     setSelectedSeoProductId(null);
     setSeoProductForm({ title: '', desc: '', keywords: '' });
+    triggerSync('offkilt_settings_updated');
     alert('Product SEO tags saved!');
   };
 
@@ -3798,6 +3848,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                     onClick={() => {
                       localStorage.setItem('offkilt_campaign_hero', JSON.stringify(campaigns.hero));
                       window.dispatchEvent(new Event('offkilt_hero_updated'));
+                      triggerSync('offkilt_settings_updated');
                       alert('Hero Banner saved successfully!');
                     }}
                     className="btn-primary"
@@ -4038,15 +4089,15 @@ export default function AdminDashboard({ currentUser, onClose }) {
                             />
                             <input 
                               type="file" 
-                              accept="image/*" 
+                              accept="image/*,video/*" 
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (file) {
-                                  compressImage(file).then((dataUrl) => {
-                                    const updated = [...campaignsList];
-                                    updated[idx] = { ...updated[idx], image: dataUrl };
-                                    setCampaignsList(updated);
-                                    localStorage.setItem('offkilt_campaigns', JSON.stringify(updated));
+                                  handleServerUpload(file, (url) => {
+                                    const updated2 = [...campaignsList];
+                                    updated2[idx] = { ...updated2[idx], image: url };
+                                    setCampaignsList(updated2);
+                                    localStorage.setItem('offkilt_campaigns', JSON.stringify(updated2));
                                     triggerSync('offkilt_settings_updated');
                                   });
                                 }
