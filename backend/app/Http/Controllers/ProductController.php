@@ -294,10 +294,10 @@ class ProductController extends Controller
                         $fileName = $prefix . '_' . uniqid() . '.webp';
                         $filePath = $dirPath . '/' . $fileName;
                         if (@imagewebp($im, $filePath, 80)) {
-                            @imagedestroy($im);
+                            unset($im);
                             return '/images/products/' . $fileName;
                         }
-                        @imagedestroy($im);
+                        unset($im);
                     }
                 } catch (\Throwable $t) {
                     // Fall back to original saving on failure

@@ -2286,13 +2286,16 @@ export default function AdminDashboard({ currentUser, onClose }) {
     }
   });
 
-  const handleSaveBestseller = (idx, updatedCard) => {
+  const handleChangeBestseller = (idx, updatedCard) => {
     const updated = [...bestsellers];
     updated[idx] = updatedCard;
     setBestsellers(updated);
-    localStorage.setItem('offkilt_bestsellers', JSON.stringify(updated));
+  };
+
+  const handleSaveAllBestsellers = () => {
+    localStorage.setItem('offkilt_bestsellers', JSON.stringify(bestsellers));
     triggerSync('offkilt_settings_updated');
-    alert('Best Seller Card saved!');
+    alert('Best Sellers saved!');
   };
 
   // --- RENDERING TABS SIDEBAR ---
@@ -6221,13 +6224,13 @@ export default function AdminDashboard({ currentUser, onClose }) {
                                   originalPrice: matchedProd.discountPrice && Number(matchedProd.discountPrice) < Number(matchedProd.price) ? Number(matchedProd.price) : null,
                                   image: matchedProd.image
                                 };
-                                handleSaveBestseller(idx, updated);
+                                handleChangeBestseller(idx, updated);
                               } else {
                                 const updated = {
                                   ...card,
                                   productId: '',
                                 };
-                                handleSaveBestseller(idx, updated);
+                                handleChangeBestseller(idx, updated);
                               }
                             }}
                             style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px', backgroundColor: '#ffffff' }}
@@ -6245,7 +6248,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                             value={card.name} 
                             onChange={(e) => {
                               const updated = { ...card, name: e.target.value };
-                              handleSaveBestseller(idx, updated);
+                              handleChangeBestseller(idx, updated);
                             }}
                             style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
                           />
@@ -6257,7 +6260,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                             value={card.label} 
                             onChange={(e) => {
                               const updated = { ...card, label: e.target.value };
-                              handleSaveBestseller(idx, updated);
+                              handleChangeBestseller(idx, updated);
                             }}
                             style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
                           />
@@ -6269,7 +6272,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                             value={card.labelText} 
                             onChange={(e) => {
                               const updated = { ...card, labelText: e.target.value };
-                              handleSaveBestseller(idx, updated);
+                              handleChangeBestseller(idx, updated);
                             }}
                             style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
                           />
@@ -6281,7 +6284,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                             value={card.price} 
                             onChange={(e) => {
                               const updated = { ...card, price: Number(e.target.value) };
-                              handleSaveBestseller(idx, updated);
+                              handleChangeBestseller(idx, updated);
                             }}
                             style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
                           />
@@ -6293,7 +6296,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                             value={card.originalPrice || ''} 
                             onChange={(e) => {
                               const updated = { ...card, originalPrice: e.target.value ? Number(e.target.value) : null };
-                              handleSaveBestseller(idx, updated);
+                              handleChangeBestseller(idx, updated);
                             }}
                             style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
                           />
@@ -6307,7 +6310,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                             value={card.rating} 
                             onChange={(e) => {
                               const updated = { ...card, rating: Number(e.target.value) };
-                              handleSaveBestseller(idx, updated);
+                              handleChangeBestseller(idx, updated);
                             }}
                             style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
                           />
@@ -6319,7 +6322,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                             value={card.image} 
                             onChange={(e) => {
                               const updated = { ...card, image: e.target.value };
-                              handleSaveBestseller(idx, updated);
+                              handleChangeBestseller(idx, updated);
                             }}
                             style={{ width: '100%', padding: '8px', fontSize: '0.75rem', border: '1px solid rgba(0,0,0,0.1)', marginTop: '4px' }}
                           />
@@ -6332,7 +6335,7 @@ export default function AdminDashboard({ currentUser, onClose }) {
                                 const reader = new FileReader();
                                 reader.onloadend = () => {
                                   const updated = { ...card, image: reader.result };
-                                  handleSaveBestseller(idx, updated);
+                                  handleChangeBestseller(idx, updated);
                                 };
                                 reader.readAsDataURL(file);
                               }
@@ -6343,6 +6346,11 @@ export default function AdminDashboard({ currentUser, onClose }) {
                       </div>
                     </div>
                   ))}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                  <button type="button" onClick={handleSaveAllBestsellers} className="btn-primary">
+                    <Save size={16} /> Save Best Sellers
+                  </button>
                 </div>
               </div>
 

@@ -101,7 +101,7 @@ class AuthController extends Controller
 
         // Generate a secure token and store it in the password_reset_tokens table
         $token = Str::random(64);
-        \Illuminate\Support\Facades\DB::table('password_reset_tokens')->updateOrInsert(
+        DB::table('password_reset_tokens')->updateOrInsert(
             ['email' => $email],
             ['token' => Hash::make($token), 'created_at' => now()]
         );
